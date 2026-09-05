@@ -83,6 +83,10 @@ t python3 skills/dx/and-now/scripts/test_status.py
 t python3 skills/dx/setup/scripts/scaffold.py --root "$(mktemp -d)/dx" example-machine
 t python3 skills/dx/setup/scripts/scaffold.py --help
 t python3 skills/dx/and-now/scripts/status.py --help
+t python3 skills/dx/repos/scripts/test_repos.py
+t python3 skills/dx/machine/scripts/test_machine.py
+t python3 skills/dx/repos/scripts/repos.py --help
+t python3 skills/dx/machine/scripts/machine.py --help
 t bash -n skills/seo/connect/templates/wizard.sh
 t bash -n skills/seo/connect/scripts/indexnow.sh
 t bash -n scripts/link.sh

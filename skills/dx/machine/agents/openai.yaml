@@ -1,0 +1,3 @@
+interface:
+  display_name: "DX machine"
+  short_description: "Free space, memory, caches, container storage"

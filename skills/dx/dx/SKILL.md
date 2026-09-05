@@ -16,9 +16,15 @@ The workspace sits outside every project because its subject is the machine, not
 
 ## Flows
 
-**New machine**: `jorekai-dx:setup` writes the workspace, records the project roots and the history sources, and asks what good looks like. The answers become `standards.md`, which every later check measures against.
+**New machine**, in this order:
+
+1. `jorekai-dx:setup`: the workspace, the project roots, the history sources, and `standards.md`, which every later check measures against.
+2. `jorekai-dx:repos`: what holds unsaved work. Nothing destructive runs anywhere until this is answered.
+3. `jorekai-dx:machine`: free space, memory, caches, container storage.
 
 **Weekly**, ten minutes: `jorekai-dx:and-now` reads the workspace and names the stage, at most three open items, and the next dated event. Each item that gets done leaves a log row with a verify date.
+
+**The disk is full, or the machine crawls**: `jorekai-dx:machine` first for the numbers, then `jorekai-dx:repos` before removing anything inside a repository.
 
 **Lost the thread**: `jorekai-dx:and-now`. It reads files, never the machine, so it answers in a second and costs nothing.
 
@@ -28,16 +34,18 @@ The workspace sits outside every project because its subject is the machine, not
 |---|---|---|
 | Where do I stand, what comes next? | `jorekai-dx:and-now` | you |
 | Set up the workspace for this machine | `jorekai-dx:setup` | you |
+| Which repositories hold work that exists nowhere else? | `jorekai-dx:repos` | agent or you |
+| What is eating the disk, the memory, the container storage? | `jorekai-dx:machine` | agent or you |
 
 ## Priority ladder
 
 Each rung depends on the one before it. A finding on a lower rung waits.
 
-1. **No work is at risk.** Uncommitted and unpushed changes outrank everything, including a full disk. Nothing destructive runs against a repository that holds either.
-2. **The machine runs.** Free space, memory pressure, and port conflicts stop work outright.
-3. **The projects build.** Dependency drift, a toolchain that no longer matches, a red pipeline.
-4. **The agent finds its way.** Pointer files, permissions, hooks, and servers that a session depends on.
-5. **Friction goes down.** Repeated command sequences, failed commands, and slow waits, ranked by the time they cost.
+1. **No work is at risk.** `git.dirty`, `git.unpushed`, `repo.no-remote`. These outrank everything, including a full disk, and nothing destructive runs against a repository that reports one of them.
+2. **The machine runs.** `disk.low`, `mem.pressure`. Nothing else finishes on a full disk.
+3. **The projects build.** `repo.lock-drift`, and the hygiene a project must carry per `standards.md`.
+4. **Space comes back.** `disk.cache`, `container.*`, `disk.large-dir`, biggest return for the smallest risk first.
+5. **Tidiness.** `git.stale-branch`, `repo.no-readme`, and the rest. Worth doing, never worth doing first.
 
 ## Principles
 
@@ -51,4 +59,6 @@ Each rung depends on the one before it. A finding on a lower rung waits.
 ## Reference
 
 - The three risk classes and the gate above them: [references/risk-classes.md](references/risk-classes.md)
+- What every check id means, its fix, its class, and its measure: [references/fixes.md](references/fixes.md)
+- Tools and what each is for: [references/tools.md](references/tools.md)
 - Documented facts with source and check date, and the list of heuristics: [references/sources.md](references/sources.md)

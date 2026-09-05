@@ -127,6 +127,8 @@ Where the SEO workspace lives in the site's repository, the DX workspace is a pr
 |---|---|---|---|
 | Set up | `jorekai-dx:setup` | A private workspace repository: `config.md`, `standards.md`, and `machines/<hostname>/` with `audits/`, `log/`, `proposals/`; a pointer line in the agent file the user already keeps | Standards are the thing every later check measures against. A value left blank turns its check off, which beats a number nobody believes. |
 | Orient | `jorekai-dx:and-now` | Stage (setup, measure, loop), rows past their verify date, open findings from the newest audit, open log rows, proposals without a decision; the next thing to run | The state of the machine lives in files, not in anyone's memory. One command answers "and now?" after a break, without touching the machine or the network. |
+| Secure | `jorekai-dx:repos` | One pass over every local repository: uncommitted changes, commits on no remote, no upstream, detached HEAD, old stashes, merged branches, lock drift, missing README, ignore file, or checks; full JSON in `audits/` | Work that exists on one disk is the only finding that cannot be undone later. It outranks a full disk, and nothing destructive runs against a repository that reports it. |
+| Reclaim | `jorekai-dx:machine` | Free space against the floor, cache directories by size, rebuildable dependency and build trees, available memory, and what the container runtime reports as reclaimable; full JSON in `audits/` | "The disk is full" is not a task. A list of trees a manifest rebuilds, ordered by bytes returned per risk taken, is one. |
 
 ### The DX log
 
@@ -138,13 +140,15 @@ A commit that carries an action out in a project repository ends with the traile
 
 ## DX skills
 
-Theme `skills/dx/`. Everything here is user-invoked so far; the measuring skills that the agent reaches for on its own arrive with the next versions.
+Theme `skills/dx/`. You call user-invoked skills yourself (`/jorekai-dx:<name>` in Claude Code, `$dx-<name>` in Codex); the agent reaches for the measuring skills when the task fits.
 
 | Skill | Invoked by | Deterministic part |
 |---|---|---|
-| `jorekai-dx:dx` | user | Router: workspace, flows, priority ladder, `references/risk-classes.md`, `references/sources.md` |
+| `jorekai-dx:dx` | user | Router: workspace, flows, priority ladder, `references/fixes.md` (check id, fix, class, measure), `references/risk-classes.md`, `references/tools.md`, `references/sources.md` |
 | `jorekai-dx:setup` | user | `scripts/scaffold.py`: create the workspace, `--log` (log path, next id, commit trailer), `--due` (rows past their verify date, with their `Then` value), `--check` (missing files, directories, and sections a template has gained) |
 | `jorekai-dx:and-now` | user | `scripts/status.py [machine]`: stage and next steps from the workspace files, no machine access and no network |
+| `jorekai-dx:repos` | model | `scripts/repos.py PATH ...`: every local repository in one pass, one item per check id with the full list under `data`, no fetch and no push |
+| `jorekai-dx:machine` | model | `scripts/machine.py [PATH ...]`: volume, memory, caches, rebuildable trees, container storage; measures only, removes nothing |
 
 ### Risk classes
 

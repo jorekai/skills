@@ -1,0 +1,3 @@
+interface:
+  display_name: "DX repositories"
+  short_description: "State of every local repository in one pass"
