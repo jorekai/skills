@@ -13,6 +13,7 @@ The classes are defined in [risk-classes.md](risk-classes.md). Above all of them
 | `repo.no-remote` | The repository has no remote at all, so losing the disk loses the work | Create the remote and push, or record that the repository is deliberately local in `standards.md` | `ask` | Number of repositories with no remote |
 | `git.no-upstream` | The current branch tracks nothing, so a plain push has no target | Push with an upstream set, or delete the branch if it was a scratch branch | `confirm` | Branches with no upstream |
 | `git.detached` | HEAD points at a commit, not a branch, so the next commit is easy to lose | Create a branch at that commit, or return to the branch the work belongs on | `ask` | Repositories with a detached HEAD |
+| `git.identity` | The repository would commit under an address other than the one in `config.md` | Set the address for that repository, or correct the one in `config.md` | `safe` | Repositories whose effective address differs |
 | `git.stash-old` | A stash entry older than the retention. A dropped stash is subject to pruning and may be impossible to recover | Apply it, or turn it into a branch, or drop it deliberately | `ask` | Age of the oldest stash in days |
 | `git.stale-branch` | A local branch whose tip is reachable from the default branch, older than the retention | Delete the branch. Its commits stay in the default branch | `safe` when the repository is clean and pushed, `confirm` otherwise | Number of merged branches over the retention |
 | `repo.lock-drift` | The lock file is older than the manifest beside it, so the installed tree and the declared one disagree | Reinstall so the lock is written again, then commit the lock | `confirm` | Repositories whose lock is older than its manifest |
@@ -28,12 +29,7 @@ The classes are defined in [risk-classes.md](risk-classes.md). Above all of them
 | `disk.cache` | Cache directories a tool refills on its next run | Empty the biggest ones. The next build or install is slower once, then back to normal | `safe` | Total bytes in the cache directories |
 | `disk.large-dir` | A dependency or build tree that a manifest in the repository rebuilds | Remove it in repositories that are not being worked on. The repository must be clean and pushed first | `confirm` | Total bytes in the reported trees |
 | `mem.pressure` | Little memory is available, so everything waits on swap | Find what holds it and close it. A machine that reaches this during ordinary work needs a decision, not a cleanup | `ask` | Available memory as a percentage |
-| `container.reclaimable` | The runtime reports storage held by objects nothing uses. The figure is an upper bound, not a promise | Remove the classes one at a time, biggest first, and measure after each | See `container.*` below | Reclaimable bytes per object type |
-| `container.dangling-images` | Image layers no tag points at | Remove them. A rebuild or a pull produces them again | `safe` | Bytes in dangling images |
-| `container.build-cache` | Cached build layers | Remove them. The next build is slower once | `safe` | Bytes in the build cache |
-| `container.stopped` | Containers that are not running | Remove the ones that hold no state worth keeping | `confirm` | Number of stopped containers |
-| `container.old-images` | Tagged images unused for longer than the retention | Remove them. Each one is a pull or a build away | `confirm` | Bytes in images over the retention |
-| `container.unused-volumes` | Volumes no container uses. A named volume holds data that nothing else holds | Anonymous volumes: remove. Named volumes: look first, always | `confirm` for anonymous, `ask` for named | Bytes in unused volumes |
+| `container.reclaimable` | The runtime reports storage held by objects nothing uses. The figure is an upper bound, not a promise | Remove one class at a time, biggest first, and measure again after each | Per class, see below | Reclaimable bytes per object type |
 
 ## Forge
 
@@ -66,6 +62,15 @@ Every check here needs the network and an authenticated command line. An unreada
 | `friction.failed-command` | A shape fails often enough to be a pattern | Find the precondition it keeps missing and make it explicit | `safe` | Failures and total runs per shape |
 | `friction.retry-prompt` | A shape gets run again within minutes of failing, which is a person guessing | Make the failure say what to do next | `safe` | Retries per shape |
 | `friction.slow-command` | A shape costs more total time than any other | Make it faster, run it less, or run it in the background | `safe` | Total seconds per shape |
+| `friction.agent-sessions` | How many agent sessions each project needed, counted from the session files without opening one | Nothing to fix. A project far above the rest is worth asking about: it is either the busiest or the hardest to work in | `safe` | Sessions per project in the window |
+
+### The classes inside `container.reclaimable`
+
+The runtime reports one total per object type, so there is one check id. The removal is per class, and each class has its own risk:
+
+- Dangling image layers and the build cache are `safe`: a rebuild or a pull produces them again.
+- Stopped containers and images past the retention are `confirm`: each one is a pull or a build away, and the dry run shows which.
+- Anonymous volumes are `confirm`. Named volumes are `ask`, always: a named volume holds data that nothing else holds, which is why the runtime's own default removal leaves unused volumes alone.
 
 ## Reading a finding
 

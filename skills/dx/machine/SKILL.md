@@ -11,13 +11,14 @@ Nothing is removed by this skill's measurement. What may follow is decided by th
 
 ## Steps
 
-1. **Measure once, with the roots.** Passing the project roots is what turns "the disk is full" into a list of trees that a manifest rebuilds.
+1. **Measure once, with the roots.** Passing the project roots is what turns "the disk is full" into a list of trees that a manifest rebuilds. `scaffold.py --flags` prints the roots and the arguments the floor and the runtime record.
 
    ```bash
-   python3 scripts/machine.py <root> [more ...] --min-free-gb <floor> --json > <workspace>/machines/<hostname>/audits/YYYY-MM-DD-machine.json
+   python3 ../setup/scripts/scaffold.py --root <workspace> --flags
+   python3 scripts/machine.py <paths from that output> <machine flags from that output> --json > <workspace>/machines/<hostname>/audits/YYYY-MM-DD-machine.json
    ```
 
-   The script path is relative to this skill's directory. The pass reads sizes off the disk and takes about a minute on a machine with large caches, so run it in the background and do something else. Without roots it still measures the volume, memory, caches, and the container runtime.
+   The script paths are relative to this skill's directory. The pass reads sizes off the disk and takes about a minute on a machine with large caches, so run it in the background and do something else. Without roots it still measures the volume, memory, caches, and the container runtime.
    Done when the JSON holds a `counts` block and `disk.low` reports a free figure. An `INFO` on a check means its source is missing on this machine, not that the check passed.
 
 2. **Rank by what is actually blocking.** Free space below the floor outranks everything else here, because nothing else finishes on a full disk. Otherwise take the biggest reclaimable class first: caches, then container storage, then rebuildable trees. Look each id up in [../dx/references/fixes.md](../dx/references/fixes.md).

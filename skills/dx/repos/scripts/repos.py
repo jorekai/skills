@@ -2,7 +2,10 @@
 """State of every local repository under one or more paths: unsaved work first, then hygiene.
 
 Usage:
-  repos.py PATH [PATH ...] [--depth N] [--stale-days N] [--timeout S] [--json]
+  repos.py PATH [PATH ...] [--depth N] [--stale-days N] [--stash-days N]
+           [--expect-email ADDRESS] [--timeout S] [--json]
+
+`scaffold.py --flags` in the setup skill prints these arguments from the workspace standards.
 
 A PATH is either a repository or a directory to scan for repositories. Every check runs
 locally: no fetch, no push, no network. Nothing is written and nothing is removed.
@@ -93,7 +96,7 @@ def default_branch(repo, timeout):
     return None
 
 
-def read_repo(repo, now, stale_days, timeout):
+def read_repo(repo, now, stale_days, stash_days, timeout):
     """Everything one repository says about itself, without touching the network."""
     s = {"path": str(repo), "name": repo.name}
     branch = git(repo, "rev-parse", "--abbrev-ref", "HEAD", timeout=timeout)
@@ -114,7 +117,9 @@ def read_repo(repo, now, stale_days, timeout):
     s["stashes"] = []
     for line in (git(repo, "stash", "list", "--format=%ct", timeout=timeout) or "").splitlines():
         if line.strip().isdigit():
-            s["stashes"].append((now - int(line)) // 86400)
+            age = (now - int(line)) // 86400
+            if age > stash_days:
+                s["stashes"].append(age)
 
     s["stale_branches"] = []
     d = default_branch(repo, timeout)
@@ -129,6 +134,9 @@ def read_repo(repo, now, stale_days, timeout):
                     s["stale_branches"].append((name, age))
     s["default_branch"] = d
 
+    # The effective address, so a repository that inherits the global one is judged by what a
+    # commit would actually carry.
+    s["email"] = git(repo, "config", "--get", "user.email", timeout=timeout) or ""
     s["readme"] = any((repo / n).exists() for n in READMES)
     s["ignore"] = (repo / ".gitignore").exists()
     s["ci"] = any((repo / c).exists() for c in CI_PATHS)
@@ -140,7 +148,7 @@ def read_repo(repo, now, stale_days, timeout):
     return s
 
 
-def collect(repos, rep, stale_days):
+def collect(repos, rep, stale_days, expect_email=""):
     """One item per check id, listing the repositories it applies to. Never one item per path."""
     def group(cid, level, pick, message):
         hits = [(s, pick(s)) for s in repos]
@@ -164,6 +172,9 @@ def collect(repos, rep, stale_days):
           lambda n: f"{n} repository(s) have a detached HEAD")
     group("git.stash-old", "WARN", lambda s: max(s["stashes"]) if s["stashes"] else 0,
           lambda n: f"{n} repository(s) carry a stash older than the retention")
+    if expect_email:
+        group("git.identity", "WARN", lambda s: s["email"] if s["email"] != expect_email else None,
+              lambda n: f"{n} repository(s) would commit under an address other than {expect_email}")
     group("git.stale-branch", "INFO", lambda s: len(s["stale_branches"]),
           lambda n: f"{n} repository(s) keep merged branches older than {stale_days} days")
     group("repo.lock-drift", "WARN", lambda s: s["lock_drift"],
@@ -207,16 +218,20 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("paths", nargs="+")
     ap.add_argument("--depth", type=int, default=3, help="how deep under a path a repository is still found")
-    ap.add_argument("--stale-days", type=int, default=90)
+    ap.add_argument("--stale-days", type=int, default=90, help="a merged branch older than this is reported")
+    ap.add_argument("--stash-days", type=int, default=None, help="a stash older than this is reported")
+    ap.add_argument("--expect-email", default="", metavar="ADDRESS",
+                    help="the address commits should carry; without it the check does not run")
     ap.add_argument("--timeout", type=float, default=10, help="seconds for one git call")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--now", type=int, default=None, help="unix seconds, for tests")
     a = ap.parse_args(argv)
     now = a.now if a.now is not None else int(time.time())
     found = find_repos(a.paths, a.depth)
-    states = [read_repo(p, now, a.stale_days, a.timeout) for p in found]
+    stash_days = a.stale_days if a.stash_days is None else a.stash_days
+    states = [read_repo(p, now, a.stale_days, stash_days, a.timeout) for p in found]
     rep = Report()
-    collect(states, rep, a.stale_days)
+    collect(states, rep, a.stale_days, a.expect_email)
     if a.json:
         print(json.dumps({"tool": "repos", "target": [str(Path(p).expanduser()) for p in a.paths],
                           "generated": dt.datetime.fromtimestamp(now).date().isoformat(),

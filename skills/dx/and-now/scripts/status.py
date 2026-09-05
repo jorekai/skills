@@ -5,8 +5,8 @@ Usage:
   status.py [--root ~/dx] [MACHINE ...] [--today YYYY-MM-DD]
 
 No argument: every machine folder under <root>/machines. Reads config.md, standards.md, the
-machine's config, the newest audits/*.json, the log tables, and proposals/. Never touches the
-machine itself and never the network.
+machine's config, the newest audit per kind under audits/, the log tables, and proposals/.
+Never touches the machine itself and never the network.
 Stdlib only. Exit code 2 when the workspace or a named machine folder does not exist.
 """
 import argparse
@@ -19,7 +19,35 @@ from pathlib import Path
 DATE_RE = re.compile(r"(\d{4}-\d{2}-\d{2})")
 ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}$")
 KEY_RE = re.compile(r"^-\s*([A-Za-z_]+):\s*(.*)$")
-AUDIT_MAX_AGE = 30          # days; a measurement older than this describes a machine that moved on
+AUDIT_MAX_AGE = 30          # days; overridden by audit_max_age_days in standards.md
+KIND_RE = re.compile(r"^\d{4}-\d{2}-\d{2}-(.+)$")
+
+# Which skill produces and fixes a check id, by namespace. Naming the skill is the difference
+# between a report and a next step.
+SKILL_OF = {"git": "jorekai-dx:repos", "repo": "jorekai-dx:repos",
+            "disk": "jorekai-dx:machine", "mem": "jorekai-dx:machine",
+            "container": "jorekai-dx:machine", "ci": "jorekai-dx:github",
+            "pr": "jorekai-dx:github", "alert": "jorekai-dx:github",
+            "branch": "jorekai-dx:github", "agent": "jorekai-dx:agent-config",
+            "friction": "jorekai-dx:friction"}
+# The priority ladder of the router, as data. Duplicated there on purpose: the router explains it
+# to a person, this ranks it for a machine. An id nobody listed sits in the middle.
+RUNG = {"git.dirty": 1, "git.unpushed": 1, "repo.no-remote": 1, "git.detached": 1, "git.stash-old": 1,
+        "disk.low": 2, "mem.pressure": 2,
+        "pr.review-requested": 3, "ci.failing": 3, "alert.open": 3,
+        "repo.lock-drift": 4, "git.no-upstream": 4, "git.identity": 4, "branch.unprotected": 4,
+        "agent.no-pointer": 4, "agent.pointer-drift": 4, "agent.hook-broken": 4,
+        "agent.permission-drift": 4, "agent.server-unreachable": 4, "pr.stale": 4,
+        "disk.cache": 5, "disk.large-dir": 5, "container.reclaimable": 5,
+        "git.stale-branch": 6, "repo.no-readme": 6, "repo.no-ignore": 6, "repo.no-ci": 6}
+
+
+def skill_for(check_id):
+    return SKILL_OF.get(check_id.split(".", 1)[0], "")
+
+
+def rung(check_id):
+    return RUNG.get(check_id, 5)
 
 
 def week_of(day):
@@ -90,21 +118,30 @@ def read_machine(root, machine, today):
     s["standards"] = any_value(root / "standards.md")
     s["machine_config"] = any_value(base / "config.md")
 
-    audits = [p for p in (base / "audits").glob("*.json") if p.is_file()] if (base / "audits").is_dir() else []
-    newest = latest(audits)
-    s["audit"] = None
-    if newest:
-        entry = {"file": newest.name, "age": (today - file_date(newest)).days,
+    # One audit per kind, newest of each. A single newest file across all kinds hides every
+    # other measurement: a full disk goes quiet the moment a repository pass runs after it.
+    files = [p for p in (base / "audits").glob("*.json") if p.is_file()] if (base / "audits").is_dir() else []
+    by_kind = {}
+    for f in files:
+        entry = {"file": f.name, "age": (today - file_date(f)).days,
                  "fail": None, "warn": None, "fail_ids": []}
+        kind = (KIND_RE.match(f.stem).group(1) if KIND_RE.match(f.stem) else f.stem)
         try:
-            data = json.loads(newest.read_text(encoding="utf-8"))
+            data = json.loads(f.read_text(encoding="utf-8"))
+            kind = str(data.get("tool") or kind)
             counts = data.get("counts", {})
             entry["fail"] = int(counts.get("FAIL", 0))
             entry["warn"] = int(counts.get("WARN", 0))
             entry["fail_ids"] = sorted({i.get("id", "?") for i in data.get("items", []) if i.get("level") == "FAIL"})
         except (ValueError, AttributeError, TypeError):
             pass
-        s["audit"] = entry
+        entry["kind"] = kind
+        if kind not in by_kind or by_kind[kind]["age"] > entry["age"]:
+            by_kind[kind] = entry
+    s["audits"] = dict(sorted(by_kind.items()))
+    max_age = value((root / "standards.md").read_text(encoding="utf-8"), "audit_max_age_days") \
+        if (root / "standards.md").exists() else ""
+    s["max_age"] = int(max_age) if max_age.isdigit() else AUDIT_MAX_AGE
 
     rows = []
     for f in sorted((base / "log").glob("*.md")) if (base / "log").is_dir() else []:
@@ -140,7 +177,7 @@ def decide(s, today):
     if not s["config"]:
         setup_open.append("`jorekai-dx:setup`: config.md is still the template, so identity and the defaults a new machine inherits are unknown")
 
-    started = bool(s["audit"] or s["rows"] or s["proposals"])
+    started = bool(s["audits"] or s["rows"] or s["proposals"])
     if setup_open and not started:
         return "setup", setup_open, then
 
@@ -150,16 +187,25 @@ def decide(s, today):
         ids = ", ".join(r.get("id", "?") for r in s["due"][:3])
         now.append(f"grade {len(s['due'])} row(s) past their verify date ({ids}): recompute the measure, "
                    "write Now and the verdict in the outcomes table, and set Status")
-    a = s["audit"]
-    if a is None:
+    audits = s["audits"]
+    if not audits:
         stage = "measure"
-        now.append("no audit on this machine yet: run a measuring skill and save its JSON to audits/YYYY-MM-DD-<kind>.json")
-    elif a["fail"]:
-        stage = "measure"
-        now.append(f"{a['file']} still reports {a['fail']} FAIL ({', '.join(a['fail_ids'][:4])}): "
-                   "fix them in the priority ladder's order, one log row per check id")
-    elif a["age"] > AUDIT_MAX_AGE:
-        now.append(f"the newest audit is {plural(a['age'], 'day')} old: measure again before acting on it")
+        now.append("nothing has measured this machine yet: `jorekai-dx:repos` first, because every "
+                   "destructive action depends on it, then `jorekai-dx:machine`")
+    else:
+        # Every failing id from every kind, ranked by the router's ladder, not by which pass ran last.
+        failing = [(rung(cid), cid, e) for e in audits.values() for cid in e["fail_ids"]]
+        for _, cid, e in sorted(failing, key=lambda x: (x[0], x[1]))[:4]:
+            stage = "measure"
+            owner = skill_for(cid)
+            now.append(f"`{cid}` still fails in {e['file']}" + (f": `{owner}` names the fix" if owner else "")
+                       + ", then one log row for it")
+        stale = [e for e in audits.values() if e["age"] > s["max_age"]]
+        if stale:
+            names = ", ".join(f"{e['kind']} ({plural(e['age'], 'day')})" for e in sorted(stale, key=lambda x: -x["age"])[:3])
+            now.append(f"{len(stale)} audit(s) describe a machine that has moved on: {names}. Measure again before acting")
+        if "repos" not in audits:
+            now.append("no `jorekai-dx:repos` audit exists: nothing destructive may run until one does")
 
     for r in s["todo"]:
         now.append(f"open row {r.get('id', '?')} ({r.get('check', '?')} on {r.get('target', '?')}): "
@@ -179,9 +225,12 @@ def report(s, today):
     out.append("setup        config " + ("filled" if s["config"] else "TEMPLATE")
                + " | standards " + ("filled" if s["standards"] else "TEMPLATE")
                + " | machine config " + ("filled" if s["machine_config"] else "TEMPLATE"))
-    a = s["audit"]
-    out.append("audits       " + (f"{a['file']} ({plural(a['age'], 'day')} old): FAIL {a['fail']}, WARN {a['warn']}"
-                                  if a else "none"))
+    if s["audits"]:
+        for kind, a in s["audits"].items():
+            out.append(kind.ljust(13) + f"{a['file']} ({plural(a['age'], 'day')} old): "
+                       f"FAIL {a['fail']}, WARN {a['warn']}")
+    else:
+        out.append("audits       none")
     by = {}
     for r in s["rows"]:
         by[r.get("status", "?")] = by.get(r.get("status", "?"), 0) + 1

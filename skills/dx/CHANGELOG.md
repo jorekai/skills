@@ -2,6 +2,16 @@
 
 One entry per `jorekai-dx` version. The version at the top equals `version` in `skills/dx/.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 1.1.0 (2026-09-05)
+
+- Fixed: `status.py` reads the newest audit per kind instead of the newest file overall. A `disk.low` failure went silent the moment a repository pass ran after it, so `jorekai-dx:and-now` answered "nothing open" on a machine with two gigabytes free. Failing ids from every kind are now ranked by the router's ladder, and each one names the skill that owns it.
+- Fixed: `and-now` reports when no repository pass exists, because every destructive action depends on one, and when an audit is older than `audit_max_age_days` rather than a constant in the script.
+- Added: `scaffold.py --flags` prints the arguments each measuring script takes, built from `config.md`, `standards.md`, and the machine's config. A step that retypes a retention gets it wrong or leaves it out, and then the script measures against its own defaults instead of the standard.
+- Added: `repos.py` takes `--stash-days` and `--expect-email`, and reports `git.identity` for a repository that would commit under another address. `machine.py` takes `--runtime` so a machine's recorded runtime is used instead of a guess.
+- Changed: thirteen keys in the templates were read by nothing. `git_email`, `scan_max_depth`, `stash_stale_days`, `slow_command_seconds`, `container_runtime`, `shell_history_db`, and `extra_history` now reach a script through `--flags`; `ignore_file`, `pointer_file`, `readme`, `ci`, `remote`, and `default_branch` are named by the step that reads them; `name`, `shell`, and a duplicated `pointer_file` are gone, and `audit_retention_months` became `audit_max_age_days`, which something reads.
+- Changed: `references/fixes.md` drops five container ids no script produced. Their guidance moved into the `container.reclaimable` row, where the removal actually happens, and `friction.agent-sessions` gained the row it was missing.
+- Changed: `scripts/check.sh` fails when a check id a script emits has no row in its theme's fixes table.
+
 ## 1.0.0 (2026-09-05)
 
 - Added: `jorekai-dx:friction`, user-invoked, reduces months of command history to shapes that repeat, pairs run one after the other, shapes that fail, retry loops, and the slowest totals. `friction.py` redacts every line before it is counted and again before it is written, prints no command line at all, and counts agent sessions without opening one.

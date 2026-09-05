@@ -134,6 +134,13 @@ class ContainersTest(unittest.TestCase):
         self.assertEqual(rep.items[0]["level"], "INFO")
         self.assertIn("no container runtime", rep.items[0]["message"])
 
+    def test_a_named_runtime_that_is_absent_says_which_one_was_expected(self):
+        """The machine config names the runtime, so a missing one is a wrong record, not silence."""
+        rep = machine.Report()
+        machine.containers(rep, reclaim_gb=5, named="no-such-container-runtime")
+        self.assertEqual(rep.items[0]["level"], "INFO")
+        self.assertIn("no-such-container-runtime is not installed", rep.items[0]["message"])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)

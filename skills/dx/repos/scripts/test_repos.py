@@ -69,8 +69,8 @@ class DiscoveryTest(unittest.TestCase):
 
 
 class RepoStateTest(unittest.TestCase):
-    def state(self, path, stale_days=90):
-        return repos.read_repo(path, NOW, stale_days, timeout=10)
+    def state(self, path, stale_days=90, stash_days=90):
+        return repos.read_repo(path, NOW, stale_days, stash_days, timeout=10)
 
     def test_a_clean_repository_reports_nothing_dirty(self):
         with tempfile.TemporaryDirectory() as d:
@@ -159,6 +159,36 @@ class RepoStateTest(unittest.TestCase):
             self.assertEqual((s["readme"], s["ignore"], s["ci"]), (True, True, True))
 
 
+class IdentityTest(unittest.TestCase):
+    def test_only_a_repository_that_would_commit_under_another_address_is_a_finding(self):
+        rep = repos.Report()
+        states = [{"path": "/x/a", "email": "someone@example.com"},
+                  {"path": "/x/b", "email": "other@example.com"}]
+        base = CollectTest().base
+        repos.collect([base(**s) for s in states], rep, 90, expect_email="someone@example.com")
+        item = {i["id"]: i for i in rep.items}["git.identity"]
+        self.assertEqual(item["level"], "WARN")
+        self.assertEqual([d["repo"] for d in item["data"]], ["/x/b"])
+
+    def test_without_an_expected_address_the_check_does_not_run(self):
+        """A blank standard turns a check off; inventing an address would flag every repository."""
+        rep = repos.Report()
+        repos.collect([CollectTest().base(email="anything@example.com")], rep, 90)
+        self.assertNotIn("git.identity", {i["id"] for i in rep.items})
+
+
+class StashRetentionTest(unittest.TestCase):
+    def test_a_stash_under_its_own_retention_is_not_reported(self):
+        with tempfile.TemporaryDirectory() as d:
+            r = make_repo(Path(d) / "app")
+            (r / "file.txt").write_text("changed\n")
+            git(r, "stash", "push", "-q", "-m", "wip")
+            fresh = repos.read_repo(r, NOW_REAL := int(time.time()), 90, 30, timeout=10)
+            self.assertEqual(fresh["stashes"], [])
+            old = repos.read_repo(r, NOW_REAL + 40 * 86400, 90, 30, timeout=10)
+            self.assertEqual(len(old["stashes"]), 1)
+
+
 class CollectTest(unittest.TestCase):
     def items(self, states):
         rep = repos.Report()
@@ -169,7 +199,7 @@ class CollectTest(unittest.TestCase):
         s = {"path": "/x/app", "name": "app", "branch": "main", "detached": False, "dirty": 0,
              "remotes": ["origin"], "upstream": "origin/main", "unpushed": 0, "stashes": [],
              "stale_branches": [], "default_branch": "main", "readme": True, "ignore": True,
-             "ci": True, "lock_drift": []}
+             "ci": True, "lock_drift": [], "email": ""}
         s.update(over)
         return s
 

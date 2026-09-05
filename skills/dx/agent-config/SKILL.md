@@ -11,7 +11,7 @@ A project's agent files are read, never sent anywhere. Their contents can name c
 
 ## Steps
 
-1. **Take the project list and the target state.** `standards.md` names the pointer file a project must carry and what it must say. A blank value there means this check does not run on this machine, which is an answer.
+1. **Take the project list and the target state.** `pointer_file` in `standards.md` names the file a project must carry for agents, and the rest of that file says what else a project must have. A blank value there means this check does not run on this machine, which is an answer.
    Done when the list has a length and the target state has a value for every key this pass reads.
 
 2. **Read each project's agent surface in parallel.** Send the reading to subagents, at most ten projects each. Each returns one table with the columns `project | pointer file | hooks | permissions | servers | gap` and nothing else, under 200 words. A gap is one short phrase, not a diff.
@@ -22,6 +22,8 @@ A project's agent files are read, never sent anywhere. Their contents can name c
 
 4. **Fix by class and log.** Adding a missing pointer file is `safe`. Narrowing a permission or removing a hook changes how sessions behave and is `confirm`. Anything inside a repository with uncommitted or unpushed work is `ask`. Save the tables as `audits/YYYY-MM-DD-agent-config.json` in the shape the other passes use, then one log row per check id acted on, with the number of projects as the measure.
    Done when each row names the check id, the class, and the count the next pass recomputes.
+
+The check ids this skill produces are `agent.no-pointer`, `agent.pointer-drift`, `agent.permission-drift`, `agent.hook-broken`, and `agent.server-unreachable`. Each has a row in [../dx/references/fixes.md](../dx/references/fixes.md).
 
 ## Rules
 

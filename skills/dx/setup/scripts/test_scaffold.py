@@ -6,6 +6,7 @@ Writes into a temp folder; no network.
 """
 import datetime as dt
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -124,6 +125,71 @@ class WorkspaceTest(unittest.TestCase):
             self.assertIn("2026-W36-02", out)
             self.assertNotIn("2026-W36-01", out)
             self.assertIn("1 due", out)
+
+
+class FlagsTest(unittest.TestCase):
+    """Standards become the arguments the measuring scripts take, so no step has to retype them."""
+
+    def build(self, d, **values):
+        root = Path(d) / "dx"
+        subprocess.run([sys.executable, SCRIPT, "--root", str(root), "example-machine"],
+                       capture_output=True, text=True, check=True)
+        for relpath, pairs in values.items():
+            p = root / relpath.replace("MACHINE", "machines/example-machine")
+            text = p.read_text()
+            for key, val in pairs.items():
+                text = re.sub(rf"^- {key}:.*$", f"- {key}: {val}", text, count=1, flags=re.M)
+            p.write_text(text)
+        return root
+
+    def flags(self, root):
+        out = subprocess.run([sys.executable, SCRIPT, "--root", str(root), "example-machine", "--flags"],
+                             capture_output=True, text=True, check=True).stdout
+        return dict(line.split(":", 1) for line in out.splitlines() if ":" in line)
+
+    def test_a_blank_workspace_says_so_instead_of_inventing_numbers(self):
+        with tempfile.TemporaryDirectory() as d:
+            got = self.flags(self.build(d))
+            self.assertIn("project_roots is blank", got["paths"])
+            self.assertIn("own defaults", got["repos"])
+            self.assertIn("no history source", got["friction"])
+
+    def test_every_standard_becomes_the_flag_that_carries_it(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = self.build(
+                d,
+                **{"config.md": {"git_email": "someone@example.com"},
+                   "standards.md": {"branch_stale_days": "90", "stash_stale_days": "60",
+                                    "disk_free_min_gb": "20", "slow_command_seconds": "45",
+                                    "verify_window_days": "14"},
+                   "MACHINE/config.md": {"project_roots": "~/code", "scan_max_depth": "4",
+                                         "shell_history": "~/.history", "container_runtime": "podman"}})
+            got = self.flags(root)
+            self.assertEqual(got["paths"].strip(), "~/code")
+            self.assertIn("--stale-days 90", got["repos"])
+            self.assertIn("--stash-days 60", got["repos"])
+            self.assertIn("--depth 4", got["repos"])
+            self.assertIn("--expect-email someone@example.com", got["repos"])
+            self.assertIn("--min-free-gb 20", got["machine"])
+            self.assertIn("--runtime podman", got["machine"])
+            self.assertIn("--history ~/.history", got["friction"])
+            self.assertIn("--slow-seconds 45", got["friction"])
+            self.assertIn("14 days", got["verify after"])
+
+    def test_a_machine_limit_overrides_the_shared_standard(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = self.build(d, **{"standards.md": {"disk_free_min_gb": "20"},
+                                    "MACHINE/config.md": {"disk_free_min_gb": "50"}})
+            self.assertIn("--min-free-gb 50", self.flags(root)["machine"])
+
+    def test_a_blank_key_leaves_its_flag_out_rather_than_guessing(self):
+        """A blank value turns that check off, which is an answer, not a gap to fill in."""
+        with tempfile.TemporaryDirectory() as d:
+            root = self.build(d, **{"standards.md": {"branch_stale_days": "90"}})
+            repos = self.flags(root)["repos"]
+            self.assertIn("--stale-days 90", repos)
+            self.assertNotIn("--stash-days", repos)
+            self.assertNotIn("--expect-email", repos)
 
 
 if __name__ == "__main__":

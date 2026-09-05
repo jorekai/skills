@@ -46,10 +46,10 @@ class Workspace:
     def config_filled(self):
         self.set_key("config.md", "forge", "example.com")
 
-    def audit(self, name="2026-09-01-repos.json", fail=0, ids=()):
+    def audit(self, name="2026-09-01-repos.json", fail=0, ids=(), tool="repos"):
         items = [{"id": i, "level": "FAIL", "message": i} for i in ids]
         (self.base / "audits" / name).write_text(json.dumps(
-            {"tool": "repos", "target": MACHINE, "counts": {"FAIL": fail, "WARN": 0}, "items": items}))
+            {"tool": tool, "target": MACHINE, "counts": {"FAIL": fail, "WARN": 0}, "items": items}))
 
     def rows(self, *rows):
         subprocess.run([sys.executable, str(SCAFFOLD), "--root", str(self.root), MACHINE,
@@ -91,19 +91,20 @@ class StageTest(unittest.TestCase):
             w.config_filled()
             stage, now, _ = w.decide()
             self.assertEqual(stage, "measure")
-            self.assertIn("no audit on this machine yet", now[0])
+            self.assertIn("nothing has measured this machine yet", now[0])
+            self.assertIn("jorekai-dx:repos", now[0])
 
     def test_a_row_past_its_verify_date_outranks_the_audit(self):
         with tempfile.TemporaryDirectory() as d:
             w = Workspace(d)
             w.machine_filled()
             w.standards_filled()
-            w.audit(fail=2, ids=("git.dirty", "disk.low"))
+            w.audit(fail=2, ids=("git.dirty", "git.unpushed"))
             w.rows(ROW.format(id="2026-W36-01", check="disk.cache", target="~/x", action="cleared",
                               cls="safe", then="41", st="applied", applied="2026-08-20", after="2026-09-03"))
             _, now, _ = w.decide()
             self.assertIn("past their verify date", now[0])
-            self.assertIn("2 FAIL", now[1])
+            self.assertIn("`git.dirty` still fails", now[1])
 
     def test_a_future_verify_date_becomes_the_then_line(self):
         with tempfile.TemporaryDirectory() as d:
@@ -138,7 +139,7 @@ class StageTest(unittest.TestCase):
             w.standards_filled()
             w.audit(name="2026-06-01-repos.json")
             _, now, _ = w.decide()
-            self.assertTrue(any("old: measure again" in i for i in now))
+            self.assertTrue(any("has moved on" in i for i in now), now)
 
     def test_a_settled_machine_says_nothing_is_open(self):
         with tempfile.TemporaryDirectory() as d:
@@ -157,6 +158,82 @@ class StageTest(unittest.TestCase):
             (w.base / "audits" / "2026-09-01-repos.json").write_text("{not json")
             out = status.report(w.read(), TODAY)
             self.assertIn("2026-09-01-repos.json", out)
+
+
+class AuditsPerKindTest(unittest.TestCase):
+    """One newest audit per kind. A single newest file across all kinds hides every other pass."""
+
+    def ready(self, d):
+        w = Workspace(d)
+        w.machine_filled(); w.standards_filled(); w.config_filled()
+        return w
+
+    def test_a_newer_pass_of_one_kind_does_not_hide_another_kind(self):
+        with tempfile.TemporaryDirectory() as d:
+            w = self.ready(d)
+            w.audit(name="2026-09-01-machine.json", tool="machine", fail=1, ids=("disk.low",))
+            w.audit(name="2026-09-04-repos.json", tool="repos", fail=0)
+            _, now, _ = w.decide()
+            self.assertTrue(any("`disk.low` still fails" in i for i in now), now)
+            self.assertTrue(any("jorekai-dx:machine" in i for i in now), now)
+
+    def test_the_newest_of_one_kind_wins_over_the_older_of_the_same_kind(self):
+        with tempfile.TemporaryDirectory() as d:
+            w = self.ready(d)
+            w.audit(name="2026-08-01-repos.json", tool="repos", fail=1, ids=("git.dirty",))
+            w.audit(name="2026-09-04-repos.json", tool="repos", fail=0)
+            s = w.read()
+            self.assertEqual(list(s["audits"]), ["repos"])
+            self.assertEqual(s["audits"]["repos"]["file"], "2026-09-04-repos.json")
+
+    def test_failures_are_ordered_by_the_priority_ladder_not_by_the_newest_pass(self):
+        with tempfile.TemporaryDirectory() as d:
+            w = self.ready(d)
+            w.audit(name="2026-09-04-machine.json", tool="machine", fail=1, ids=("disk.cache",))
+            w.audit(name="2026-09-01-repos.json", tool="repos", fail=1, ids=("git.unpushed",))
+            _, now, _ = w.decide()
+            self.assertIn("`git.unpushed`", now[0])
+            self.assertIn("`disk.cache`", now[1])
+
+    def test_a_missing_repository_pass_blocks_destructive_work(self):
+        with tempfile.TemporaryDirectory() as d:
+            w = self.ready(d)
+            w.audit(name="2026-09-04-machine.json", tool="machine", fail=0)
+            _, now, _ = w.decide()
+            self.assertTrue(any("nothing destructive may run" in i for i in now), now)
+
+    def test_the_kind_falls_back_to_the_file_name_when_the_json_omits_it(self):
+        with tempfile.TemporaryDirectory() as d:
+            w = self.ready(d)
+            (w.base / "audits" / "2026-09-04-github.json").write_text(json.dumps({"counts": {"FAIL": 0}}))
+            self.assertIn("github", w.read()["audits"])
+
+    def test_the_standard_decides_when_an_audit_is_stale(self):
+        with tempfile.TemporaryDirectory() as d:
+            w = self.ready(d)
+            w.set_key("standards.md", "audit_max_age_days", "120")
+            w.audit(name="2026-06-01-repos.json", tool="repos", fail=0)
+            self.assertEqual(w.read()["max_age"], 120)
+            _, now, _ = w.decide()
+            self.assertFalse(any("has moved on" in i for i in now), now)
+
+
+class LadderTest(unittest.TestCase):
+    def test_every_namespace_names_the_skill_that_owns_it(self):
+        self.assertEqual(status.skill_for("git.dirty"), "jorekai-dx:repos")
+        self.assertEqual(status.skill_for("container.reclaimable"), "jorekai-dx:machine")
+        self.assertEqual(status.skill_for("pr.stale"), "jorekai-dx:github")
+        self.assertEqual(status.skill_for("agent.hook-broken"), "jorekai-dx:agent-config")
+        self.assertEqual(status.skill_for("friction.retry-prompt"), "jorekai-dx:friction")
+        self.assertEqual(status.skill_for("unknown.thing"), "")
+
+    def test_unsaved_work_outranks_a_full_disk_and_tidiness_comes_last(self):
+        self.assertLess(status.rung("git.dirty"), status.rung("disk.low"))
+        self.assertLess(status.rung("disk.low"), status.rung("pr.review-requested"))
+        self.assertLess(status.rung("disk.cache"), status.rung("git.stale-branch"))
+
+    def test_an_unlisted_id_sits_in_the_middle_instead_of_first_or_last(self):
+        self.assertEqual(status.rung("something.new"), 5)
 
 
 class CliTest(unittest.TestCase):

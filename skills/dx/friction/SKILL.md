@@ -16,10 +16,11 @@ This skill reads history and writes proposals. It changes nothing on the machine
 1. **Run the pass over the window that matters.** A quarter is enough to see a habit and short enough that the machine has not changed underneath it.
 
    ```bash
-   python3 scripts/friction.py --db <history database> --history <history file> --sessions <session directory> --days 90 --json > <workspace>/machines/<hostname>/proposals/YYYY-MM-DD-friction.json
+   python3 ../setup/scripts/scaffold.py --root <workspace> --flags
+   python3 scripts/friction.py <friction flags from that output> --days 90 --json > <workspace>/machines/<hostname>/proposals/YYYY-MM-DD-friction.json
    ```
 
-   The script path is relative to this skill's directory. Pass every source the machine config names; a missing one is skipped, not an error. Without `--json` the report prints shapes only, never a command line.
+   The script paths are relative to this skill's directory. The `friction` line holds every history source the machine config records and the threshold from `standards.md`; a source that is recorded but missing on disk is skipped, not an error. Without `--json` the report prints shapes only, never a command line.
    Done when the report names a command count above zero. Zero means the paths are wrong, not that the machine is quiet.
 
 2. **Pick at most three, by time cost.** A shape that runs eighty times and takes two seconds costs less than one that runs six times and takes four minutes. A retry loop costs more than either, because the person is waiting and guessing. Ignore what is merely frequent.

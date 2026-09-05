@@ -1,6 +1,6 @@
 # Standards: what good looks like here
 
-What every check measures against. A finding is the gap between this file and the machine, so a value left blank turns its check off rather than guessing a target.
+What every check measures against. A finding is the gap between this file and the machine, so a value left blank turns its check off rather than guessing a target. `scaffold.py --flags` turns these values into the arguments the measuring scripts take, so nobody has to remember them.
 
 ## Every project
 
@@ -15,8 +15,7 @@ What every check measures against. A finding is the gap between this file and th
 
 - branch_stale_days: (a merged local branch older than this is reported)
 - stash_stale_days: (a stash older than this is reported)
-- image_retention_days: (a container image unused for longer is reported)
-- audit_retention_months: (how long audit JSON is kept in this workspace)
+- audit_max_age_days: (an audit older than this describes a machine that moved on)
 
 ## Budgets
 

@@ -54,6 +54,18 @@ while IFS= read -r ref; do
   [[ -d "skills/${ref%%:*}/${ref#*:}" ]] || hit "stale reference: jorekai-$ref names no skill directory"
 done < <(git ls-files '*.md' | grep -vE '^(CHANGELOG\.md|decisions/)' | xargs grep -ohE 'jorekai-[a-z]+:[a-z-]+' | sed 's/^jorekai-//' | sort -u)
 
+# Every check id a script emits has a row in its theme's fixes table. A finding whose id nobody
+# explains cannot be acted on, and an id that outlives its check is how the table starts lying.
+ns='(git|repo|disk|mem|container|ci|pr|alert|branch|agent|friction)'
+for fixes in $(git ls-files 'skills/*/*/references/fixes.md'); do
+  theme=$(basename "$(dirname "$(dirname "$fixes")")")
+  while IFS= read -r id; do
+    [[ -n "$id" ]] || continue
+    grep -q "| \`$id\`" "$fixes" || hit "fixes: check id $id has no row in $fixes"
+  done < <(git ls-files "skills/$theme/*/scripts/*.py" | grep -v '/test_' \
+             | xargs grep -ohE "\"$ns\.[a-z][a-z-]*\"" 2>/dev/null | tr -d '"' | sort -u)
+done
+
 # Sources older than 180 days are a warning, not a hit: refresh them when touching the skill.
 python3 scripts/sources_age.py --days 180 | sed 's/^/warning: stale source: /' | grep -v ': 0 row' >&2
 

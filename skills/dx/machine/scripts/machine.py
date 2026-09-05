@@ -2,7 +2,10 @@
 """Local resources of this machine: free space, what is eating it, memory, container storage.
 
 Usage:
-  machine.py [PATH ...] [--min-free-gb N] [--large-gb N] [--reclaim-gb N] [--json]
+  machine.py [PATH ...] [--min-free-gb N] [--large-gb N] [--reclaim-gb N]
+             [--runtime NAME] [--json]
+
+`scaffold.py --flags` in the setup skill prints these arguments from the workspace standards.
 
 PATH is a directory to look through for large rebuildable trees; without one only the volume,
 memory, caches and the container runtime are measured. Nothing is written and nothing is removed:
@@ -182,10 +185,12 @@ def memory(rep):
         rep.add("PASS", "mem.pressure", f"{percent}% of memory is available", data)
 
 
-def containers(rep, reclaim_gb):
-    runtime = next((r for r in RUNTIMES if shutil.which(r)), None)
+def containers(rep, reclaim_gb, named=""):
+    candidates = (named,) if named else RUNTIMES
+    runtime = next((r for r in candidates if shutil.which(r)), None)
     if not runtime:
-        rep.add("INFO", "container.reclaimable", "no container runtime is installed here")
+        rep.add("INFO", "container.reclaimable",
+                f"{named} is not installed here" if named else "no container runtime is installed here")
         return
     out = run([runtime, "system", "df", "--format", "{{json .}}"], timeout=30)
     if not out:
@@ -255,6 +260,8 @@ def main(argv=None):
     ap.add_argument("--min-free-gb", type=float, default=20)
     ap.add_argument("--large-gb", type=float, default=1)
     ap.add_argument("--reclaim-gb", type=float, default=5)
+    ap.add_argument("--runtime", default="", metavar="NAME",
+                    help="the container runtime on this machine; without it the known ones are tried")
     ap.add_argument("--json", action="store_true")
     a = ap.parse_args(argv)
     rep = Report()
@@ -262,7 +269,7 @@ def main(argv=None):
     memory(rep)
     caches(rep, a.large_gb)
     large_dirs(a.paths, rep, a.large_gb)
-    containers(rep, a.reclaim_gb)
+    containers(rep, a.reclaim_gb, a.runtime)
     if a.json:
         print(json.dumps({"tool": "machine", "target": platform.node(), "counts": rep.counts(),
                           "items": rep.items}, indent=2, ensure_ascii=False))

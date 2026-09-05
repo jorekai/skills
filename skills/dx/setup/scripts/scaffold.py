@@ -22,6 +22,7 @@ ROOT_FILES = {"config.md": "config.md", "standards.md": "standards.md"}
 MACHINE_FILES = {"config.md": "machine-config.md"}
 DIRS = ["audits", "log", "proposals"]
 ID_RE = re.compile(r"\b(\d{4}-W\d{2})-(\d{2})\b")
+KEY_RE = re.compile(r"^-\s*([A-Za-z_]+):\s*(.*)$")
 # Host names, lower case, dots allowed for a fully qualified name. Every folder below is named
 # after this value, so "..", "." and a name with a separator in it never become a path segment.
 MACHINE_RE = re.compile(r"[a-z0-9](?:[a-z0-9._-]{0,61}[a-z0-9])?")
@@ -145,6 +146,72 @@ def check(root):
     return 1 if total else 0
 
 
+def value(path, key):
+    """Value of `- key: ...` in a workspace file; blank when empty or still the template's hint.
+    Duplicated in and-now/scripts/status.py on purpose: each skill stays standalone."""
+    if not path.exists():
+        return ""
+    for line in path.read_text(encoding="utf-8").splitlines():
+        m = KEY_RE.match(line.strip())
+        if m and m.group(1).lower() == key.lower():
+            v = m.group(2).strip()
+            return "" if not v or v.startswith("(") else v
+    return ""
+
+
+def flags(root, machine):
+    """The arguments each measuring script takes, built from config.md and standards.md.
+
+    A step that retypes these numbers gets them wrong or leaves them out, and then the script
+    measures against its own defaults instead of against the standard. A blank value is left out
+    on purpose: it turns that check off, which is an answer.
+    """
+    cfg, std = root / "config.md", root / "standards.md"
+    mcfg = root / "machines" / machine / "config.md"
+
+    def pick(key, *sources):
+        for s in sources:
+            v = value(s, key)
+            if v:
+                return v
+        return ""
+
+    def add(out, flag, v):
+        if v:
+            out.append(f"{flag} {v}")
+
+    roots = pick("project_roots", mcfg)
+    index = pick("projects_index", mcfg)
+    print(f"paths: {roots or '(project_roots is blank in ' + str(mcfg) + ')'}")
+    if index:
+        print(f"index: {index}")
+
+    repos = []
+    add(repos, "--depth", pick("scan_max_depth", mcfg))
+    add(repos, "--stale-days", pick("branch_stale_days", std))
+    add(repos, "--stash-days", pick("stash_stale_days", std))
+    add(repos, "--expect-email", pick("git_email", cfg))
+    print("repos: " + (" ".join(repos) or "(no standard set, the script uses its own defaults)"))
+
+    mach = []
+    add(mach, "--min-free-gb", pick("disk_free_min_gb", mcfg, std))
+    add(mach, "--runtime", pick("container_runtime", mcfg))
+    print("machine: " + (" ".join(mach) or "(no standard set, the script uses its own defaults)"))
+
+    fric = []
+    for key in ("shell_history", "extra_history"):
+        for one in (v.strip() for v in pick(key, mcfg).split(",")):
+            add(fric, "--history", one)
+    add(fric, "--db", pick("shell_history_db", mcfg))
+    add(fric, "--sessions", pick("agent_sessions", mcfg))
+    add(fric, "--slow-seconds", pick("slow_command_seconds", std))
+    print("friction: " + (" ".join(fric) or "(no history source is recorded for this machine)"))
+
+    verify = pick("verify_window_days", std)
+    print(f"verify after: {verify} days" if verify else
+          "verify after: (verify_window_days is blank, so no row can be graded)")
+
+
 def week_bounds(day):
     year, week, wd = day.isocalendar()
     start = day - dt.timedelta(days=wd - 1)
@@ -214,6 +281,7 @@ def main():
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--log", action="store_true")
     ap.add_argument("--due", action="store_true")
+    ap.add_argument("--flags", action="store_true")
     ap.add_argument("--today", default=None, help="YYYY-MM-DD, for tests")
     a = ap.parse_args()
     root = Path(a.root).expanduser()
@@ -221,6 +289,10 @@ def main():
     if a.check:
         sys.exit(check(root))
     names = [machine_name(m) for m in a.machines] or [machine_name()]
+    if a.flags:
+        for m in names:
+            flags(root, m)
+        return
     if a.log or a.due:
         for m in names:
             (log if a.log else due)(root, m, today)

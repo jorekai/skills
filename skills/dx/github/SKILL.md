@@ -5,7 +5,7 @@ description: Work waiting on the forge across every repository with a remote: wo
 
 # Forge
 
-What is waiting on the other side of the remote. Reads the repository list from the newest `audits/*-repos.json`, or from `machines/<hostname>/config.md` when none is fresh, and `config.md` for the forge and the account. No workspace: ask for the repository list and skip the log steps.
+What is waiting on the other side of the remote. Reads the repository list from the newest `audits/*-repos.json`, or from `machines/<hostname>/config.md` when none is fresh, and `config.md` for `forge` and `forge_user`, whose review requests are the ones that count. No workspace: ask for the repository list and skip the log steps.
 
 This skill needs the network and an authenticated command line for the forge; both are named in [../dx/references/tools.md](../dx/references/tools.md). Without them, say so and stop rather than guessing.
 
@@ -22,6 +22,8 @@ This skill needs the network and an authenticated command line for the forge; bo
 
 4. **Write the findings as an audit and log only what was done.** Save the tables as `audits/YYYY-MM-DD-github.json` in the same shape the other passes use: `tool`, `target`, `counts`, and `items` with a check id, a level, a message, and the list under `data`. Then one log row per check id that was acted on, with the count as the measure.
    Done when the JSON parses and `jorekai-dx:and-now` reports its counts.
+
+The check ids this skill produces are `ci.failing`, `pr.review-requested`, `pr.stale`, `alert.open`, and `branch.unprotected`. Each has a row in [../dx/references/fixes.md](../dx/references/fixes.md).
 
 ## Rules
 
