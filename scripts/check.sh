@@ -58,7 +58,9 @@ done < <(git ls-files '*.md' | grep -vE '^(CHANGELOG\.md|decisions/)' | xargs gr
 # explains cannot be acted on, and an id that outlives its check is how the table starts lying.
 ns='(git|repo|disk|mem|container|ci|pr|alert|branch|agent|friction)'
 for fixes in $(git ls-files 'skills/*/*/references/fixes.md'); do
-  theme=$(basename "$(dirname "$(dirname "$fixes")")")
+  theme=$(echo "$fixes" | cut -d/ -f2)
+  # Only the theme's own router table is the contract; a sub-skill may keep fixes of its own.
+  [[ "$fixes" == "skills/$theme/$theme/references/fixes.md" ]] || continue
   while IFS= read -r id; do
     [[ -n "$id" ]] || continue
     grep -q "| \`$id\`" "$fixes" || hit "fixes: check id $id has no row in $fixes"
