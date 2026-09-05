@@ -2,6 +2,14 @@
 
 One entry per `jorekai-dx` version. The version at the top equals `version` in `skills/dx/.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 1.0.0 (2026-09-05)
+
+- Added: `jorekai-dx:friction`, user-invoked, reduces months of command history to shapes that repeat, pairs run one after the other, shapes that fail, retry loops, and the slowest totals. `friction.py` redacts every line before it is counted and again before it is written, prints no command line at all, and counts agent sessions without opening one.
+- Added: `jorekai-dx:github`, model-invoked, for what waits on the forge: failed runs on default branches, pull requests past the retention, reviews requested from the account, open alerts, unprotected branches. One subagent per class, each returning one table under a word limit, so no repository page reaches the caller's context.
+- Added: `jorekai-dx:agent-config`, model-invoked, compares each project's pointer file, permissions, hooks, and servers against `standards.md`.
+- Added: `references/fixes.md` covers all 36 check ids across the five sources, each with its fix, class, and measure.
+- Changed: the priority ladder has six rungs and puts what other people wait on above what only costs you.
+
 ## 0.2.0 (2026-09-05)
 
 - Added: `jorekai-dx:repos`, model-invoked, reports every local repository in one pass: uncommitted changes, commits reachable from no remote, branches with no upstream, a detached HEAD, stashes past the retention, merged branches, lock files older than their manifest, and missing README, ignore file, or checks. `repos.py` runs git locally only, never fetches, and emits one item per check id with the full list under `data`.

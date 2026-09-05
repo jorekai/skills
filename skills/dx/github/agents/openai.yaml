@@ -1,0 +1,3 @@
+interface:
+  display_name: "DX forge"
+  short_description: "Red pipelines, stuck pull requests, alerts, reviews"

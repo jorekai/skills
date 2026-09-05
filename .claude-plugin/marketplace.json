@@ -18,7 +18,7 @@
     },
     {
       "name": "jorekai-dx",
-      "description": "Developer experience loop for one machine: setup, repos, machine, and-now.",
+      "description": "Developer experience loop for one machine: setup, repos, machine, github, agent-config, friction, and-now.",
       "source": "./skills/dx",
       "category": "productivity",
       "license": "MIT"

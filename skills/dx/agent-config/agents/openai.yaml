@@ -1,0 +1,3 @@
+interface:
+  display_name: "DX agent configuration"
+  short_description: "Pointer files, permissions, hooks, servers per project"

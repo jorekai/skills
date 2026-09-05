@@ -129,6 +129,9 @@ Where the SEO workspace lives in the site's repository, the DX workspace is a pr
 | Orient | `jorekai-dx:and-now` | Stage (setup, measure, loop), rows past their verify date, open findings from the newest audit, open log rows, proposals without a decision; the next thing to run | The state of the machine lives in files, not in anyone's memory. One command answers "and now?" after a break, without touching the machine or the network. |
 | Secure | `jorekai-dx:repos` | One pass over every local repository: uncommitted changes, commits on no remote, no upstream, detached HEAD, old stashes, merged branches, lock drift, missing README, ignore file, or checks; full JSON in `audits/` | Work that exists on one disk is the only finding that cannot be undone later. It outranks a full disk, and nothing destructive runs against a repository that reports it. |
 | Reclaim | `jorekai-dx:machine` | Free space against the floor, cache directories by size, rebuildable dependency and build trees, available memory, and what the container runtime reports as reclaimable; full JSON in `audits/` | "The disk is full" is not a task. A list of trees a manifest rebuilds, ordered by bytes returned per risk taken, is one. |
+| Unblock | `jorekai-dx:github` | Failed runs on default branches, pull requests past the retention, reviews requested from the account, open alerts, unprotected branches; one table per class from subagents, saved as an audit | The only findings whose cost falls on someone else. A review someone waits on outranks a red pipeline nobody is releasing. |
+| Align | `jorekai-dx:agent-config` | Per project: the pointer file, its accuracy, permissions against the standard, hooks whose command exists, servers that answer | A broken hook fails on every tool call in that project, and a pointer that names a moved path costs more than no pointer at all. |
+| Automate | `jorekai-dx:friction` | Command shapes that repeat, pairs run in order, shapes that fail, retry loops, slowest totals; `proposals/<slug>.md`, never a change to the machine | Two commands that always follow each other are one command that does not exist yet. Every line is redacted before it is counted. |
 
 ### The DX log
 
@@ -149,6 +152,13 @@ Theme `skills/dx/`. You call user-invoked skills yourself (`/jorekai-dx:<name>` 
 | `jorekai-dx:and-now` | user | `scripts/status.py [machine]`: stage and next steps from the workspace files, no machine access and no network |
 | `jorekai-dx:repos` | model | `scripts/repos.py PATH ...`: every local repository in one pass, one item per check id with the full list under `data`, no fetch and no push |
 | `jorekai-dx:machine` | model | `scripts/machine.py [PATH ...]`: volume, memory, caches, rebuildable trees, container storage; measures only, removes nothing |
+| `jorekai-dx:github` | model | no script of its own: one subagent per class, each returning one table with a fixed word limit |
+| `jorekai-dx:agent-config` | model | no script of its own: subagents read at most ten projects each and return one table |
+| `jorekai-dx:friction` | user | `scripts/friction.py --db F --history F --sessions D`: shapes, sequences, failures, retries, slow totals; redacts every line before counting and prints no command line at all |
+
+### The check id
+
+Every finding carries a dotted id: `git.dirty`, `disk.cache`, `ci.failing`, `agent.hook-broken`, `friction.retry-prompt`. The id is the join key between a script's output, the log row, and `skills/dx/dx/references/fixes.md`, which gives each one its meaning, its fix, its risk class, and the measure that grades it later. A finding whose id has no measure in that table is a proposal, not an action.
 
 ### Risk classes
 

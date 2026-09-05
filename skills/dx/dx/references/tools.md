@@ -8,11 +8,17 @@ What the skills reach for, and what they do without. Tools are interchangeable: 
 - **A shell history database**: a history that records exit code, duration, and working directory per command, rather than the command line alone. Without one, `friction.failed-command` and `friction.slow-command` have nothing to read, and only repeated sequences remain measurable.
 - **A secret scanner**: runs over the workspace before a commit, because proposals may quote a command line. Any scanner that fails a commit on a known credential format works.
 
+## Off the machine
+
+- **An authenticated command line for the forge**: the source of `ci.*`, `pr.*`, `alert.*`, and `branch.*`. It is the only part of this skill set that needs the network and an account. Any client that can list workflow runs, pull requests, review requests, and alerts across repositories works; the forge itself is recorded in `config.md`.
+
 ## What the agent does instead of a tool
 
 - Repository state across many repositories: `repos/scripts/repos.py`.
 - Local resources and container storage: `machine/scripts/machine.py`.
 - The workspace itself: `setup/scripts/scaffold.py`, and `and-now/scripts/status.py` to read it back.
+- Command history reduced to shapes, with redaction: `friction/scripts/friction.py`.
+- The forge and the agent surface have no script. They read a handful of files or ask an account, and a client with credentials in it would be one more thing to keep working.
 
 ## Not a tool
 

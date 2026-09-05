@@ -87,6 +87,8 @@ t python3 skills/dx/repos/scripts/test_repos.py
 t python3 skills/dx/machine/scripts/test_machine.py
 t python3 skills/dx/repos/scripts/repos.py --help
 t python3 skills/dx/machine/scripts/machine.py --help
+t python3 skills/dx/friction/scripts/test_friction.py
+t python3 skills/dx/friction/scripts/friction.py --help
 t bash -n skills/seo/connect/templates/wizard.sh
 t bash -n skills/seo/connect/scripts/indexnow.sh
 t bash -n scripts/link.sh

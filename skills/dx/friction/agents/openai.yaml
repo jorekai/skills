@@ -1,0 +1,5 @@
+interface:
+  display_name: "DX friction"
+  short_description: "What the command history says costs time"
+policy:
+  allow_implicit_invocation: false
