@@ -5,10 +5,10 @@ Read `STYLE.md` first; it is the rulebook for every file. Then `AGENTS.md` for t
 ## Before a pull request
 
 1. `bash scripts/check.sh` prints `ok`: style, private data, gitleaks, every offline test.
-2. A changed or new sub-skill is reflected in the theme's router `SKILL.md` and the tables in `README.md`.
+2. A changed or new sub-skill is reflected in the theme's router `SKILL.md` and that theme's tables in `README.md`.
 3. Every new platform claim has a row in `references/sources.md` with URL and check date, verified against the primary source.
 4. A new script has an offline test next to it and a line in `check.sh`.
-5. `version` in `.claude-plugin/plugin.json` is bumped and `CHANGELOG.md` has the entry at the top.
+5. The changed plugin's `version` is bumped and the changelog beside its manifest has the entry at the top.
 
 ## What a pull request needs
 

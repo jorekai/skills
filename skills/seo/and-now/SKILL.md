@@ -26,5 +26,5 @@ Answers "we just did X, and now?" from `docs/seo/<domain>/` without touching the
    - Stage is `loop, not started` and the launch checklist in the `seo` skill's references was never walked for this domain: it comes before the first export.
    Done when every item in the list is either still open or written back to the workspace.
 
-3. **Answer** in three parts and no more: `stage` in one line, `now` as at most three items in the script's order, each with the skill to invoke (`/jorekai-seo:<name>` in Claude Code, `$<name>` in Codex) or the file to edit, and `then` with the next date-bound event. The script puts rows past their verify date first: a verdict is what makes the log learn. Invoke the next skill only when the user asks.
+3. **Answer** in three parts and no more: `stage` in one line, `now` as at most three items in the script's order, each with the skill to invoke (`/jorekai-seo:<name>` in Claude Code, `$seo-<name>` in Codex) or the file to edit, and `then` with the next date-bound event. The script puts rows past their verify date first: a verdict is what makes the log learn. Invoke the next skill only when the user asks.
    Done when the user can act on item 1 without opening another file.

@@ -43,7 +43,7 @@ Scaffold the workspace every other `jorekai-seo:*` skill reads and writes. Promp
    SEO workspace: `docs/seo/README.md` (layout, log format). Domains: example.com. Read `docs/seo/<domain>/config.md` before running any `jorekai-seo:*` skill; every change to the site gets a row in `docs/seo/<domain>/log/`, and the commit that makes the change ends with the trailer `SEO-Log: <row id>`.
    ```
 
-   Claude Code reaches the skills through the installed plugin and needs no links. Codex reads `<repo>/.agents/skills/`: run `../../../scripts/link.sh <repo> seo` from this skill's directory to link every skill of the collection there.
+   Claude Code reaches the skills through the installed plugin and needs no links. Codex reads `<repo>/.agents/skills/`: run `../../../scripts/link.sh <repo> seo` from this skill's directory to link every skill of this theme there, each as `seo-<name>`.
    Done when `python3 scripts/scaffold.py --root docs/seo --check` prints `ok`, every `config.md` has no unconfirmed placeholder, and the block is in place.
 
 4. **Hand off.** Two skills finish the setup: `jorekai-seo:connect` (Search Console, sitemap, Bing, IndexNow; a wizard for the clicks only a human can make) and `jorekai-seo:grill` (niche, audience, competitors, keywords, evidence, glossary). Live site: `jorekai-seo:connect` first. Site not live yet: `jorekai-seo:grill` first.

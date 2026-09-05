@@ -19,6 +19,7 @@ else
   echo "warning: no .check_public.local (customer patterns), only generic private-data checks run" >&2
 fi
 while IFS= read -r line; do hit "private: $line"; done < <(echo "$files" | xargs grep -nE "$private" 2>/dev/null)
+while IFS= read -r line; do hit "home path: $line"; done < <(echo "$files" | xargs grep -nE "/(Users|home)/[a-z][a-z0-9_-]+/" 2>/dev/null)
 while IFS= read -r f; do hit "workspace tracked: $f"; done < <(echo "$files" | grep -E '^docs/')
 while IFS= read -r f; do hit "link tracked: $f"; done < <(echo "$files" | grep -E '^\.(agents|claude)/skills/')
 
@@ -30,10 +31,15 @@ filler='\b(delve|leverage|seamless(ly)?|robust|crucial|game-changer|unlock|in to
 while IFS= read -r line; do hit "filler: $line"; done < <(echo "$style" | xargs grep -niE "$filler" 2>/dev/null)
 while IFS= read -r line; do hit "emoji: $line"; done < <(echo "$style" | xargs perl -ne 'print "$ARGV:$.:$_" if /[\x{1F300}-\x{1FAFF}\x{2600}-\x{27BF}]/; close ARGV if eof' 2>/dev/null)
 
-# Plugin version equals the top changelog entry; a version bump without a changelog line is a hit.
-pv=$(python3 -c 'import json;print(json.load(open(".claude-plugin/plugin.json"))["version"])')
-cv=$(grep -m1 -oE '^## [0-9]+\.[0-9]+\.[0-9]+' CHANGELOG.md | cut -c4-)
-[[ "$pv" == "$cv" ]] || hit "version: plugin.json says $pv, CHANGELOG.md top entry says $cv"
+# Every plugin's version equals the top entry of the changelog beside its manifest; a version
+# bump without a changelog line is a hit. One version and one changelog per plugin (decisions/0013).
+while IFS= read -r manifest; do
+  dir=$(dirname "$(dirname "$manifest")"); [[ "$dir" == "." ]] && log="CHANGELOG.md" || log="$dir/CHANGELOG.md"
+  [[ -f "$log" ]] || { hit "changelog: $manifest has no $log beside it"; continue; }
+  pv=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['version'])" "$manifest")
+  cv=$(grep -m1 -oE '^## [0-9]+\.[0-9]+\.[0-9]+' "$log" | cut -c4-)
+  [[ "$pv" == "$cv" ]] || hit "version: $manifest says $pv, $log top entry says $cv"
+done < <(git ls-files '*.claude-plugin/plugin.json')
 
 # The router must not lie: every skill directory is named in its theme's router and in README.md,
 # and every jorekai-<theme>:<name> written anywhere resolves to a directory. CHANGELOG.md and
@@ -72,6 +78,11 @@ t python3 skills/seo/gsc-review/scripts/snippets.py --help
 t python3 skills/seo/setup/scripts/scaffold.py --root "$(mktemp -d)/docs/seo" example.com
 t python3 skills/seo/tech-audit/scripts/audit.py --help
 t python3 skills/seo/and-now/scripts/status.py --help
+t python3 skills/dx/setup/scripts/test_scaffold.py
+t python3 skills/dx/and-now/scripts/test_status.py
+t python3 skills/dx/setup/scripts/scaffold.py --root "$(mktemp -d)/dx" example-machine
+t python3 skills/dx/setup/scripts/scaffold.py --help
+t python3 skills/dx/and-now/scripts/status.py --help
 t bash -n skills/seo/connect/templates/wizard.sh
 t bash -n skills/seo/connect/scripts/indexnow.sh
 t bash -n scripts/link.sh

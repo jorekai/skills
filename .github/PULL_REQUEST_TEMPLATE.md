@@ -9,6 +9,6 @@ The run, export, or source that showed the need.
 ## Checklist
 
 - [ ] `bash scripts/check.sh` prints `ok`
-- [ ] Router `SKILL.md` and `README.md` tables updated (if a sub-skill changed)
+- [ ] The theme's router `SKILL.md` and its `README.md` tables updated (if a sub-skill changed)
 - [ ] New platform claims have a row in `references/sources.md`
-- [ ] `version` in `.claude-plugin/plugin.json` bumped, `CHANGELOG.md` entry added
+- [ ] The changed plugin's `version` bumped, entry added to the changelog beside its manifest

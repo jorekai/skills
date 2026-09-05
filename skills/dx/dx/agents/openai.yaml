@@ -1,0 +1,5 @@
+interface:
+  display_name: "DX"
+  short_description: "Router for the developer experience skill set"
+policy:
+  allow_implicit_invocation: false

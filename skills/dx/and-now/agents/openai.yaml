@@ -1,0 +1,5 @@
+interface:
+  display_name: "DX and now?"
+  short_description: "Stage of the machine and the next step"
+policy:
+  allow_implicit_invocation: false

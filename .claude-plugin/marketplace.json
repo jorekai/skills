@@ -6,13 +6,20 @@
   },
   "metadata": {
     "description": "Skills by Nils Jorek: one plugin per theme, jorekai-<theme>.",
-    "version": "1.3.0"
+    "version": "1.4.0"
   },
   "plugins": [
     {
       "name": "jorekai-seo",
-      "description": "SEO loop: setup, connect, grill, tech-audit, gsc-review, content, review, links, distribution, diagnose, and-now.",
+      "description": "SEO loop: setup, connect, grill, tech-audit, gsc-review, content, review, links, distribution, diagnose, migrate, report, and-now.",
       "source": "./",
+      "category": "productivity",
+      "license": "MIT"
+    },
+    {
+      "name": "jorekai-dx",
+      "description": "Developer experience loop for one machine: setup, and-now.",
+      "source": "./skills/dx",
       "category": "productivity",
       "license": "MIT"
     }
