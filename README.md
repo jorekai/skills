@@ -117,17 +117,56 @@ Theme `skills/seo/`. You call user-invoked skills yourself (`/jorekai-seo:<name>
 
 ## The DX loop, start to end
 
-Two phases. Setup once per machine, then a short weekly pass for good. The loop is the same shape as the SEO one: measure, fix the thing that costs the most time for the least work, write a row with a measure and a verify date, and grade it when the date comes. Nothing is removed that a person would have to rebuild by hand.
+Two phases carry it: setup once per machine, then a short weekly pass for good. Monthly, two further passes ask what the command history and the forge say. The loop is the same shape as the SEO one: measure, fix the thing that costs the most time for the least work, write a row with a measure and a verify date, and grade it when the date comes. Nothing is removed that a person would have to rebuild by hand.
 
 Where the SEO workspace lives in the site's repository, the DX workspace is a private repository of its own. Its subject is the machine, so a finding like "four repositories hold unpushed commits" belongs to none of the four.
+
+```mermaid
+flowchart TD
+    subgraph E["Setup, once per machine"]
+        S1["/jorekai-dx:setup<br/>private workspace repository: config.md, standards.md,<br/>machines/&lt;hostname&gt;/ with audits, log, proposals"]
+        S2["jorekai-dx:repos<br/>credentials one git add from a history,<br/>work that exists on this disk only"]
+        S3["jorekai-dx:machine<br/>free space against the floor, caches,<br/>rebuildable trees, memory, container storage"]
+        S4["jorekai-dx:agent-config<br/>what a session finds when it opens each project"]
+        S1 --> S2 --> S3 --> S4
+    end
+
+    subgraph W["Weekly, ten minutes"]
+        W1["jorekai-dx:and-now<br/>stage, at most three open items, the next dated event"]
+        W2["Rank by the priority ladder<br/>1. nothing is lost and nothing leaks<br/>2. the machine runs<br/>3. someone else is waiting"]
+        W3["Act by risk class<br/>safe runs, confirm asks once,<br/>ask prints the command and stops"]
+        W4["scaffold.py --append-row<br/>check id, class, one measure, verify date"]
+        W5["jorekai-dx:grade<br/>won, no-change, or returned, written back into the log"]
+        W1 --> W2 --> W3 --> W4
+        W4 -. "verify date reached" .-> W5
+        W5 -- "returned: the fix treated a symptom" --> W2
+        W5 -. "next week" .-> W1
+    end
+
+    subgraph M["Monthly"]
+        M1["jorekai-dx:friction<br/>shapes, pairs, failures, retries, slow totals;<br/>proposals, never a change to the machine"]
+        M2["jorekai-dx:github<br/>red default branches, pull requests past the retention,<br/>reviews requested from the account, open alerts"]
+    end
+
+    subgraph H["Something hurts"]
+        H1["The disk is full, or the machine crawls<br/>jorekai-dx:machine for the numbers,<br/>jorekai-dx:repos before removing anything"]
+    end
+
+    S4 --> W1
+    W1 -- "no audit, or one that aged out" --> S2
+    W1 -. "once a month" .-> M1
+    M1 --> W4
+    M2 --> W3
+    H1 --> W3
+```
 
 ### What each DX skill delivers
 
 | Step | Skill | Output | Why here |
 |---|---|---|---|
 | Set up | `jorekai-dx:setup` | A private workspace repository: `config.md`, `standards.md`, and `machines/<hostname>/` with `audits/`, `log/`, `proposals/`; a pointer line in the agent file the user already keeps | Standards are the thing every later check measures against. A value left blank turns its check off, which beats a number nobody believes. |
-| Orient | `jorekai-dx:and-now` | Stage (setup, measure, loop), rows past their verify date, open findings from the newest audit, open log rows, proposals without a decision; the next thing to run | The state of the machine lives in files, not in anyone's memory. One command answers "and now?" after a break, without touching the machine or the network. |
-| Secure | `jorekai-dx:repos` | One pass over every local repository: uncommitted changes, commits on no remote, no upstream, detached HEAD, old stashes, merged branches, lock drift, missing README, ignore file, or checks; full JSON in `audits/` | Work that exists on one disk is the only finding that cannot be undone later. It outranks a full disk, and nothing destructive runs against a repository that reports it. |
+| Orient | `jorekai-dx:and-now` | Stage (setup, measure, loop), rows past their verify date, open findings from the newest audit, open log rows, rows naming a check id no tool measures, proposals without a decision; the next thing to run | The state of the machine lives in files, not in anyone's memory. One command answers "and now?" after a break, without touching the machine or the network. |
+| Secure | `jorekai-dx:repos` | One pass over every local repository: untracked credential files nothing ignores, uncommitted changes, commits on no remote, no upstream, detached HEAD, old stashes, merged branches, lock drift, missing README, ignore file, or checks; full JSON in `audits/` | Work that exists on one disk and a credential one `git add` from a history are the two findings a later commit cannot undo. They outrank a full disk, and nothing destructive runs against a repository that reports one. |
 | Reclaim | `jorekai-dx:machine` | Free space against the floor, cache directories by size, rebuildable dependency and build trees, available memory, and what the container runtime reports as reclaimable; full JSON in `audits/` | "The disk is full" is not a task. A list of trees a manifest rebuilds, ordered by bytes returned per risk taken, is one. |
 | Unblock | `jorekai-dx:github` | Failed runs on default branches, pull requests past the retention, reviews requested from the account, open alerts, unprotected branches; one table per class from subagents, saved as an audit | The only findings whose cost falls on someone else. A review someone waits on outranks a red pipeline nobody is releasing. |
 | Align | `jorekai-dx:agent-config` | Per project: the pointer file, its accuracy, permissions against the standard, hooks whose command exists, servers that answer | A broken hook fails on every tool call in that project, and a pointer that names a moved path costs more than no pointer at all. |

@@ -159,6 +159,69 @@ class RepoStateTest(unittest.TestCase):
             self.assertEqual((s["readme"], s["ignore"], s["ci"]), (True, True, True))
 
 
+class SecretTest(unittest.TestCase):
+    """The finding is an untracked credential file that no ignore rule covers, which is the one
+    state where a single `git add` puts a credential into a history."""
+
+    def state(self, path):
+        return repos.read_repo(path, NOW, 90, 90, timeout=10)
+
+    def test_an_untracked_credential_file_that_nothing_ignores_is_a_finding(self):
+        with tempfile.TemporaryDirectory() as d:
+            r = make_repo(Path(d) / "app")
+            (r / ".env").write_text("TOKEN=x\n")
+            (r / "deploy.pem").write_text("key\n")
+            self.assertEqual(self.state(r)["secrets"], [".env", "deploy.pem"])
+
+    def test_an_ignored_credential_file_is_not_a_finding(self):
+        with tempfile.TemporaryDirectory() as d:
+            r = make_repo(Path(d) / "app")
+            (r / ".env").write_text("TOKEN=x\n")
+            (r / ".gitignore").write_text(".env\n")
+            self.assertEqual(self.state(r)["secrets"], [])
+
+    def test_an_ignore_file_that_covers_something_else_leaves_the_finding(self):
+        """The check reads coverage, not the existence of an ignore file."""
+        with tempfile.TemporaryDirectory() as d:
+            r = make_repo(Path(d) / "app")
+            (r / ".env").write_text("TOKEN=x\n")
+            (r / ".gitignore").write_text("*.log\n")
+            self.assertEqual(self.state(r)["secrets"], [".env"])
+
+    def test_a_placeholder_file_is_not_a_finding(self):
+        with tempfile.TemporaryDirectory() as d:
+            r = make_repo(Path(d) / "app")
+            for name in (".env.example", ".env.template", "id_rsa.pub"):
+                (r / name).write_text("x\n")
+            self.assertEqual(self.state(r)["secrets"], [])
+
+    def test_a_tracked_credential_file_is_another_finding(self):
+        """Once it is committed the history holds it, which no ignore rule undoes."""
+        with tempfile.TemporaryDirectory() as d:
+            r = make_repo(Path(d) / "app")
+            (r / ".env").write_text("TOKEN=x\n")
+            git(r, "add", "-f", ".env")
+            git(r, "commit", "-qm", "env")
+            self.assertEqual(self.state(r)["secrets"], [])
+
+    def test_a_credential_file_in_a_subdirectory_is_found(self):
+        with tempfile.TemporaryDirectory() as d:
+            r = make_repo(Path(d) / "app")
+            (r / "config").mkdir()
+            (r / "config" / "credentials.json").write_text("{}\n")
+            self.assertEqual(self.state(r)["secrets"], ["config/credentials.json"])
+
+    def test_the_finding_fails_and_counts_the_files_per_repository(self):
+        rep = repos.Report()
+        base = CollectTest().base
+        repos.collect([base(path="/x/a", secrets=[".env"]),
+                       base(path="/x/b", secrets=["a.pem", "b.pem"])], rep, 90)
+        item = {i["id"]: i for i in rep.items}["repo.secret-exposed"]
+        self.assertEqual(item["level"], "FAIL")
+        self.assertEqual(item["measure"], {"value": 2, "unit": "count",
+                                           "by": {"/x/a": 1, "/x/b": 2}})
+
+
 class IdentityTest(unittest.TestCase):
     def test_only_a_repository_that_would_commit_under_another_address_is_a_finding(self):
         rep = repos.Report()
@@ -199,7 +262,7 @@ class CollectTest(unittest.TestCase):
         s = {"path": "/x/app", "name": "app", "branch": "main", "detached": False, "dirty": 0,
              "remotes": ["origin"], "upstream": "origin/main", "unpushed": 0, "stashes": [],
              "stale_branches": [], "default_branch": "main", "readme": True, "ignore": True,
-             "ci": True, "lock_drift": [], "email": "", "unpushed_branches": []}
+             "ci": True, "lock_drift": [], "email": "", "unpushed_branches": [], "secrets": []}
         s.update(over)
         return s
 
@@ -212,7 +275,7 @@ class CollectTest(unittest.TestCase):
         got = self.items([self.base(path="/x/a", dirty=2), self.base(path="/x/b", dirty=5)])
         self.assertEqual(got["git.dirty"]["level"], "FAIL")
         self.assertEqual([d["repo"] for d in got["git.dirty"]["data"]], ["/x/a", "/x/b"])
-        self.assertIn("2 repository(s)", got["git.dirty"]["message"])
+        self.assertIn("2 repositories", got["git.dirty"]["message"])
 
     def test_unsaved_work_is_fail_and_hygiene_is_info(self):
         got = self.items([self.base(dirty=1, unpushed=3, readme=False)])
@@ -238,6 +301,43 @@ class CellTest(unittest.TestCase):
         self.assertEqual(repos.cell(True), "")
         self.assertEqual(repos.cell(["a", "b"]), "a, b")
         self.assertEqual(repos.cell(3), "3")
+
+
+class ReportTest(unittest.TestCase):
+    """The console report is what a person reads before deciding, so its shape is a contract."""
+
+    def report(self):
+        rep = repos.Report()
+        rep.add("FAIL", "git.dirty", "1 repository with uncommitted changes",
+                [{"repo": "/x/one", "value": 25}], measure=1, by={"/x/one": 25})
+        rep.add("PASS", "repo.no-readme", "no repository matches repo.no-readme", measure=0)
+        return repos.text_report([{"path": "/x/one"}], rep, ["/x"], "merged branches over 30 days")
+
+    def test_the_header_says_what_was_scanned_and_against_what(self):
+        text = self.report()
+        self.assertIn("repos  1 repository under /x", text)
+        self.assertIn("measured against  merged branches over 30 days", text)
+
+    def test_a_finding_names_its_cost_and_what_the_number_in_a_row_counts(self):
+        text = self.report()
+        self.assertIn("FAIL  git.dirty  (costs 1 repository)", text)
+        self.assertIn("25 changed paths", text)
+
+    def test_passed_checks_are_listed_once_and_never_as_findings(self):
+        text = self.report()
+        self.assertIn("passed  repo.no-readme", text)
+        self.assertNotIn("PASS  repo.no-readme", text)
+
+    def test_unsaved_work_comes_before_every_other_step(self):
+        self.assertIn("next  save the work a FAIL names before anything else", self.report())
+
+    def test_a_row_word_carries_its_own_plural(self):
+        """A count reads as English or it reads as a bug: stash entries, never stash entrys."""
+        rep = repos.Report()
+        rep.add("WARN", "git.stash-old", "1 repository with a stash older than the retention",
+                [{"repo": "/x/one", "value": 2}], measure=1, by={"/x/one": 2})
+        text = repos.text_report([{"path": "/x/one"}], rep, ["/x"], "stashes over 30 days")
+        self.assertIn("2 stash entries", text)
 
 
 if __name__ == "__main__":

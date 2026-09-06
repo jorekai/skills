@@ -271,24 +271,46 @@ def write_back(graded):
     return written
 
 
+VERDICT_WORD = {"won": "the cost fell or reached zero",
+                "no-change": "the cost stayed inside the tolerance",
+                "returned": "the cost rose past the tolerance"}
+
+
+def plural(n, one, many=None):
+    """A count and its word, so a report never prints "1 row(s)"."""
+    return f"{n} {one if n == 1 else (many or one + 's')}"
+
+
+def short(path):
+    """A path with the home directory written as `~`, so a line stays readable in a terminal."""
+    home = str(Path.home())
+    text = str(path)
+    if text == home:
+        return "~"
+    return "~" + text[len(home):] if text.startswith(home + "/") else text
+
+
 def report(machine, graded, today):
-    out = [f"# {machine}, {today.isoformat()}"]
+    """The console report: one block per row due, the verdict first, the reason under it."""
+    out = [f"grade  {machine}  {today.isoformat()}"]
     if not graded:
-        out.append("nothing due")
-        return "\n".join(out)
+        return "\n".join(out + ["", "nothing due, no log row has reached its verify date"])
+    settled = [g for g in graded if g["verdict"]]
+    out.append(f"{len(settled)} of {plural(len(graded), 'row')} due can be settled, "
+               f"{len(graded) - len(settled)} need a person")
     for g in graded:
-        line = f"{g['id']} {g['check']} {g['target'] or '(machine)'}: then {g['then']}"
+        out += ["", f"{g['id']}  {g['check']} on {short(g['target']) if g['target'] else 'this machine'}"]
         if g["verdict"]:
-            line += f", now {g['now']}, verdict {g['verdict']}"
+            out.append(f"      then {g['then']}, now {g['now']}, verdict {g['verdict']}: "
+                       f"{VERDICT_WORD.get(g['verdict'], '')}")
         else:
-            line += ", no verdict"
-        out.append(line)
+            out.append(f"      then {g['then']}, no verdict yet")
         if g["note"]:
-            out.append(f"    {g['note']}")
+            out.append(f"      {g['note']}")
         if g["audit"]:
-            out.append(f"    measured again from {g['audit']}")
-    ungraded = [g for g in graded if not g["verdict"]]
-    out.append(f"{len(graded) - len(ungraded)} of {len(graded)} row(s) have a verdict")
+            out.append(f"      measured again from {g['audit']}")
+    if settled:
+        out += ["", "next  run the same command with --write to put these verdicts in the log"]
     return "\n".join(out)
 
 

@@ -220,7 +220,7 @@ def analyse(entries, rep, min_count, slow_seconds, examples):
                 for s, n in shapes.most_common(15) if n >= min_count]
     if repeated:
         rep.add("INFO", "friction.repeat-command",
-                f"{len(repeated)} command shape(s) run at least {min_count} times", repeated,
+                f"{plural(len(repeated), 'command shape')} seen at least {min_count} times", repeated,
                 measure=sum(r["count"] for r in repeated), by={r["shape"]: r["count"] for r in repeated})
     else:
         rep.add("PASS", "friction.repeat-command", f"no command shape reaches {min_count} runs", measure=0)
@@ -231,7 +231,7 @@ def analyse(entries, rep, min_count, slow_seconds, examples):
                for s, n in failures.most_common(10) if n >= min_count]
     if failing:
         rep.add("WARN", "friction.failed-command",
-                f"{len(failing)} command shape(s) fail at least {min_count} times", failing,
+                f"{plural(len(failing), 'command shape')} with at least {plural(min_count, 'failed run')}", failing,
                 measure=sum(f["failures"] for f in failing), by={f["shape"]: f["failures"] for f in failing})
     else:
         rep.add("PASS", "friction.failed-command", "no command shape fails often enough to measure", measure=0)
@@ -241,7 +241,7 @@ def analyse(entries, rep, min_count, slow_seconds, examples):
             for s, n in seconds.most_common(10) if n >= slow_seconds]
     if slow:
         rep.add("INFO", "friction.slow-command",
-                f"{len(slow)} command shape(s) cost more than {slow_seconds} seconds in total", slow,
+                f"{plural(len(slow), 'command shape')} over {slow_seconds} seconds in total", slow,
                 measure=round(sum(x["total_seconds"] for x in slow), 1),
                 by={x["shape"]: round(x["total_seconds"], 1) for x in slow})
     else:
@@ -270,7 +270,7 @@ def sequences(entries, rep, min_count):
     data = [{"first": a, "then": b, "count": n} for (a, b), n in pairs.most_common(10) if n >= min_count]
     if data:
         rep.add("INFO", "friction.repeat-sequence",
-                f"{len(data)} pair(s) of commands run one after the other at least {min_count} times", data,
+                f"{plural(len(data), 'pair')} of commands seen one after the other at least {min_count} times", data,
                 measure=sum(d["count"] for d in data),
                 by={f"{d['first']} then {d['then']}": d["count"] for d in data})
     else:
@@ -293,34 +293,104 @@ def retries(entries, rep, min_count, window=180):
     data = [{"shape": s, "count": n} for s, n in counted.most_common(10) if n >= min_count]
     if data:
         rep.add("WARN", "friction.retry-prompt",
-                f"{len(data)} command shape(s) get run again within minutes of failing", data,
+                f"{plural(len(data), 'command shape')} run again within minutes of failing", data,
                 measure=sum(d["count"] for d in data), by={d["shape"]: d["count"] for d in data})
     else:
         rep.add("PASS", "friction.retry-prompt", "no command shape shows a retry loop", measure=0)
 
 
-def text_report(rep, total, sources):
-    c = rep.counts()
-    out = [f"# friction: {total} command(s) from {len(sources)} source(s)",
-           f"FAIL {c.get('FAIL', 0)} · WARN {c.get('WARN', 0)} · INFO {c.get('INFO', 0)} · PASS {c.get('PASS', 0)}", ""]
-    for i in sorted(rep.items, key=lambda x: (LEVEL_ORDER[x["level"]], x["id"])):
-        if i["level"] == "PASS":
-            continue
-        out.append(f"- **{i['level']}** `{i['id']}`: {i['message']}")
-        for d in i["data"][:5]:
-            if "first" in d:
-                out.append(f"    - {d['count']}x: {d['first']}, then {d['then']}")
-            elif "failures" in d:
-                seen = ", ".join(f"exit {k} {v}x" for k, v in d.get("exit_codes", {}).items())
-                out.append(f"    - {d['shape']}: {d['failures']} of {d['runs']} runs failed "
-                           f"({d['rate']}%)" + (f", {seen}" if seen else ""))
-            elif "total_seconds" in d:
-                out.append(f"    - {d['shape']}: {d['total_seconds']}s over {d['runs']} runs "
-                           f"({d['average_seconds']}s each)")
-            elif "count" in d:
-                out.append(f"    - {d['shape']}: {d['count']}x")
-    if not any(i["level"] != "PASS" for i in rep.items):
-        out.append("- nothing above the thresholds")
+# What the number of a count check counts. A cost of "168" says nothing on its own.
+COUNT_WORD = {"friction.repeat-command": ("run", "runs"),
+              "friction.failed-command": ("failed run", "failed runs"),
+              "friction.repeat-sequence": ("pair run", "pair runs"),
+              "friction.retry-prompt": ("retry", "retries"),
+              "friction.agent-sessions": ("session", "sessions")}
+
+
+def clock(seconds):
+    """Seconds in the largest unit that still reads as a number a person can picture."""
+    if seconds < 90:
+        return f"{round(seconds)} seconds"
+    if seconds < 5400:
+        return f"{round(seconds / 60)} minutes"
+    return f"{round(seconds / 3600)} hours"
+
+
+def plural(n, one, many=None):
+    """A count and its word, so a report never prints "1 command(s)"."""
+    return f"{n} {one if n == 1 else (many or one + 's')}"
+
+
+def cost(item):
+    """What the finding costs now, in words, in the unit its check id measures."""
+    m = item.get("measure") or {}
+    value, unit = m.get("value"), m.get("unit")
+    if value is None:
+        return ""
+    if unit == "seconds":
+        return f"costs {clock(value)}"
+    one, many = COUNT_WORD.get(item["id"], ("run", "runs"))
+    return f"costs {plural(int(value), one, many)}"
+
+
+def detail(item):
+    """The rows under one finding as (shape, what it costs) pairs. A command line never appears
+    here: the shape is the finding, the argument is private and stays in the JSON."""
+    rows = []
+    for d in item["data"][:5]:
+        if "first" in d:
+            rows.append((f"{d['first']}, then {d['then']}", plural(d["count"], "time")))
+        elif "failures" in d:
+            seen = ", ".join(f"exit {k} {v} times" for k, v in d.get("exit_codes", {}).items())
+            rows.append((d["shape"], f"{d['failures']} of {plural(d['runs'], 'run')} failed, "
+                                     f"{d['rate']}%" + (f", {seen}" if seen else "")))
+        elif "total_seconds" in d:
+            rows.append((d["shape"], f"{clock(d['total_seconds'])} over {plural(d['runs'], 'run')}, "
+                                     f"{clock(d['average_seconds'])} each"))
+        elif "sessions" in d:
+            home = str(Path.home()).replace("/", "-")
+            name = d["project"]
+            rows.append(("~" + name[len(home):] if name.startswith(home) else name,
+                         plural(d["sessions"], "session")))
+        elif "count" in d:
+            rows.append((d["shape"], plural(d["count"], "run")))
+    return rows
+
+
+def block(rows, indent="      "):
+    """Name and value in two aligned columns, so the shapes can be compared by eye."""
+    if not rows:
+        return []
+    width = min(max(len(name) for name, _ in rows), 46)
+    return [f"{indent}{(name[:width - 1] + '.' if len(name) > width else name).ljust(width)}  {value}"
+            for name, value in rows]
+
+
+def text_report(rep, total, sources, window=""):
+    """The console report: what was read, what costs time, what is only a note."""
+    ranked = sorted(rep.items, key=lambda x: (LEVEL_ORDER[x["level"]],
+                                              -((x.get("measure") or {}).get("value") or 0), x["id"]))
+    findings = [i for i in ranked if i["level"] in ("FAIL", "WARN")]
+    notes = [i for i in ranked if i["level"] == "INFO"]
+    passed = [i for i in ranked if i["level"] == "PASS"]
+    read = ", ".join(f"{Path(s['source']).name} {plural(s['entries'], 'command')}" for s in sources)
+    out = [f"friction  {plural(total, 'command')} from {plural(len(sources), 'source')}"
+           + (f"  ({read})" if read else ""), ]
+    if window:
+        out.append(f"measured against  {window}")
+    out += ["", f"{plural(len(findings), 'finding')} to decide on, "
+                f"{plural(len(notes), 'note')}, {plural(len(passed), 'check')} passed"]
+    for i in findings + notes:
+        label = i["level"] if i["level"] != "INFO" else "note"
+        out += ["", f"{label:<4}  {i['id']}" + (f"  ({cost(i)})" if cost(i) else ""),
+                f"      {i['message']}"]
+        out += block(detail(i))
+        if len(i["data"]) > 5:
+            out.append(f"      and {len(i['data']) - 5} more, the full list is in the JSON")
+    if passed:
+        out += ["", "passed  " + ", ".join(i["id"] for i in passed)]
+    out += ["", "next  a shape is worth changing when it is slow or fails, not when it is only "
+                "frequent; the fix for each id is in the fixes table of jorekai-dx:dx"]
     return "\n".join(out)
 
 
@@ -365,14 +435,16 @@ def main(argv=None):
         per_project, newest = read_sessions(a.sessions)
         data = [{"project": p, "sessions": n} for p, n in per_project.most_common(10)]
         rep.add("INFO", "friction.agent-sessions",
-                f"{sum(per_project.values())} agent session(s) across {len(per_project)} project(s)", data,
+                f"{plural(sum(per_project.values()), 'agent session')} across {plural(len(per_project), 'project')}", data,
                 measure=sum(per_project.values()), by={d["project"]: d["sessions"] for d in data})
 
     if a.json:
         print(json.dumps({"tool": "friction", "target": sources, "window_days": a.days,
                           "counts": rep.counts(), "items": rep.items}, indent=2, ensure_ascii=False))
     else:
-        print(text_report(rep, len(entries), sources))
+        window = (f"the last {plural(a.days, 'day')} \u00b7 shapes seen at least "
+                  f"{plural(a.min_count, 'time')} \u00b7 slow over {plural(a.slow_seconds, 'second')}")
+        print(text_report(rep, len(entries), sources, window))
     return 0
 
 

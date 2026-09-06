@@ -4,6 +4,7 @@
 Run: python3 skills/dx/grade/scripts/test_grade.py
 Writes into a temp folder; no network, no machine access.
 """
+import datetime as dt
 import json
 import os
 import subprocess
@@ -226,6 +227,35 @@ class EndToEndTest(unittest.TestCase):
                                capture_output=True, text=True)
             self.assertEqual(r.returncode, 2)
             self.assertIn("jorekai-dx:setup", r.stdout)
+
+
+class ReportShapeTest(unittest.TestCase):
+    """The console report says what can be settled and what still needs a person."""
+
+    def report(self):
+        graded = [{"id": "2026-W36-01", "check": "disk.cache", "target": "/x/one",
+                   "applied": "2026-09-01", "then": "40 GB", "now": "10 GB", "verdict": "won",
+                   "note": "", "audit": "2026-09-15-machine.json"},
+                  {"id": "2026-W36-02", "check": "auth.stale", "target": "", "applied": "",
+                   "then": "1 count", "now": "", "verdict": "", "note": "no tool owns auth.stale",
+                   "audit": ""}]
+        return grade.report("test-machine", graded, dt.date(2026, 9, 16))
+
+    def test_the_header_says_which_machine_and_which_day(self):
+        self.assertIn("grade  test-machine  2026-09-16", self.report())
+
+    def test_the_counting_line_separates_settled_rows_from_the_rest(self):
+        self.assertIn("1 of 2 rows due can be settled, 1 need a person", self.report())
+
+    def test_a_verdict_is_printed_with_the_reason_behind_it(self):
+        self.assertIn("verdict won: the cost fell or reached zero", self.report())
+
+    def test_writing_the_verdicts_is_named_as_the_next_step(self):
+        self.assertIn("next  run the same command with --write", self.report())
+
+    def test_nothing_due_says_why_there_is_nothing(self):
+        self.assertIn("nothing due, no log row has reached its verify date",
+                      grade.report("test-machine", [], dt.date(2026, 9, 16)))
 
 
 if __name__ == "__main__":

@@ -133,6 +133,32 @@ class StageTest(unittest.TestCase):
             self.assertTrue(any("open row 2026-W36-01" in i for i in now))
             self.assertTrue(any("proposals/shell-alias.md" in i for i in now))
 
+    def test_a_row_naming_a_check_id_no_tool_measures_is_reported_the_same_week(self):
+        """Otherwise the row is refused at its verify date, weeks after anyone could fix it."""
+        with tempfile.TemporaryDirectory() as d:
+            w = Workspace(d)
+            w.machine_filled()
+            w.standards_filled()
+            w.audit()
+            w.rows(ROW.format(id="2026-W36-01", check="pkg.duplicate", target="~/x",
+                              action="removed two copies", cls="safe", then="2 count",
+                              st="applied", applied="2026-09-02", after="2026-09-16"))
+            _, now, _ = w.decide()
+            self.assertTrue(any("pkg.duplicate" in i and "no tool measures" in i for i in now), now)
+            self.assertIn("1 with an unknown check id", status.report(w.read(), TODAY))
+
+    def test_a_row_naming_a_known_check_id_is_not_reported(self):
+        with tempfile.TemporaryDirectory() as d:
+            w = Workspace(d)
+            w.machine_filled()
+            w.standards_filled()
+            w.audit()
+            w.rows(ROW.format(id="2026-W36-01", check="friction.slow-command", target="~/x",
+                              action="cached the install", cls="safe", then="120 seconds",
+                              st="applied", applied="2026-09-02", after="2026-09-16"))
+            _, now, _ = w.decide()
+            self.assertFalse(any("no tool measures" in i for i in now), now)
+
     def test_a_stale_audit_is_reported_even_with_zero_fail(self):
         with tempfile.TemporaryDirectory() as d:
             w = Workspace(d)
@@ -236,6 +262,15 @@ class LadderTest(unittest.TestCase):
     def test_an_unlisted_id_sits_in_the_middle_instead_of_first_or_last(self):
         self.assertEqual(status.rung("something.new"), 5)
 
+    def test_an_exposed_credential_sits_on_the_first_rung(self):
+        self.assertEqual(status.rung("repo.secret-exposed"), 1)
+
+    def test_only_an_id_outside_the_ladder_counts_as_unmeasured(self):
+        """The ladder names every id the tools emit, so it answers both questions."""
+        rows = [{"check": "git.dirty", "_file": "a.md"}, {"check": "friction.retry-prompt", "_file": "a.md"},
+                {"check": "auth.stale", "_file": "b.md"}, {"_file": "b.md"}]
+        self.assertEqual([r["check"] for r in status.unsettled(rows)], ["auth.stale"])
+
 
 class CliTest(unittest.TestCase):
     def test_no_workspace_exits_2_and_names_the_skill(self):
@@ -252,14 +287,23 @@ class CliTest(unittest.TestCase):
                                capture_output=True, text=True)
             self.assertNotEqual(r.returncode, 0)
 
+    def test_the_report_labels_every_block_it_prints(self):
+        """A block nobody can name is a block nobody reads."""
+        with tempfile.TemporaryDirectory() as d:
+            w = Workspace(d)
+            r = subprocess.run([sys.executable, str(HERE / "status.py"), "--root", str(w.root),
+                                "--today", TODAY.isoformat()], capture_output=True, text=True)
+            for label in ("and-now  ", "setup      ", "audits     ", "log        ", "proposals  "):
+                self.assertIn(label, r.stdout)
+
     def test_the_report_prints_stage_and_a_numbered_now_list(self):
         with tempfile.TemporaryDirectory() as d:
             w = Workspace(d)
             r = subprocess.run([sys.executable, str(HERE / "status.py"), "--root", str(w.root),
                                 "--today", TODAY.isoformat()], capture_output=True, text=True)
             self.assertEqual(r.returncode, 0, r.stdout)
-            self.assertIn("stage: ", r.stdout)
-            self.assertIn("now:\n  1. ", r.stdout)
+            self.assertIn("stage  ", r.stdout)
+            self.assertIn("now\n  1. ", r.stdout)
 
 
 if __name__ == "__main__":

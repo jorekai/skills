@@ -1,6 +1,6 @@
 ---
 name: repos
-description: State of every local repository on this machine in one pass via scripts/repos.py: uncommitted changes, commits that exist on no remote, branches with no upstream, a detached HEAD, old stashes, merged branches past the retention, lock files older than their manifest, and missing README, ignore file, or checks. Use when asked which repositories hold unsaved work, before removing anything on the machine, when a repository will not push, or for a sweep across all projects.
+description: State of every local repository on this machine in one pass via scripts/repos.py: untracked credential files no ignore rule covers, uncommitted changes, commits that exist on no remote, branches with no upstream, a detached HEAD, old stashes, merged branches past the retention, lock files older than their manifest, and missing README, ignore file, or checks. Use when asked which repositories hold unsaved work, whether a secret is one commit away from a history, before removing anything on the machine, when a repository will not push, or for a sweep across all projects.
 ---
 
 # Repositories
@@ -41,6 +41,8 @@ Every check is local. Nothing fetches, nothing pushes, nothing is written into a
 
 ## Interpretation
 
+- `repo.secret-exposed` reads two things at once: the file name says credential, and the file is in the list `git add` would add, read from `git ls-files --others --exclude-standard`. An ignored credential file is what an ignore file is for and is no finding. A name is a guess, so the check names files to look at, not proof, and it is built to be wrong by naming too many rather than too few. It never reads a file's contents, so a credential inside a file with an ordinary name is not found here.
+- A credential that is already committed is not this finding. Getting it out needs the history rewritten and the value rotated, and the rotation comes first, because every copy of the repository already holds the value.
 - `git.unpushed` counts commits reachable from no remote, so a branch with no upstream still counts. The question the check asks is whether the work survives losing this disk.
 - The finding names the branches that hold those commits, because the work is rarely on the checked out branch. A repository can be level with its upstream and still hold months of work on a branch beside it.
 - The count is read from the remote refs on this disk, because nothing fetches. Fetch once before pushing: a push can be rejected by a remote that moved, and then the number was a lower bound.

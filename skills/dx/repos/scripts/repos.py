@@ -26,10 +26,17 @@ LEVEL_ORDER = {"FAIL": 0, "WARN": 1, "INFO": 2, "PASS": 3}
 # The unit of every check id this script measures. A measure counts what the finding costs, so
 # lower is better and zero means the check no longer fires (decisions/0014). `--measures` prints
 # this table and scripts/check.sh compares it to the unit named in the theme's fixes.md.
-MEASURES = {"git.dirty": "count", "git.unpushed": "count", "repo.no-remote": "count",
-            "git.no-upstream": "count", "git.detached": "count", "git.stash-old": "count",
+MEASURES = {"repo.secret-exposed": "count", "git.dirty": "count", "git.unpushed": "count",
+            "repo.no-remote": "count", "git.no-upstream": "count", "git.detached": "count",
+            "git.stash-old": "count",
             "git.identity": "count", "git.stale-branch": "count", "repo.lock-drift": "count",
             "repo.no-readme": "count", "repo.no-ignore": "count", "repo.no-ci": "count"}
+# What the number in a row counts, per check id. Without it a row prints a bare number and the
+# reader has to guess whether it means files, commits, or branches.
+ROW_WORD = {"git.dirty": ("changed path", "changed paths"), "git.unpushed": ("commit", "commits"),
+            "git.stash-old": ("stash entry", "stash entries"),
+            "git.stale-branch": ("merged branch", "merged branches"),
+            "repo.secret-exposed": ("credential file", "credential files")}
 SKIP = {".git", "node_modules", ".venv", "venv", "vendor", "target", "dist", "build",
         ".next", ".cache", "Library", ".Trash"}
 CI_PATHS = (".github/workflows", ".gitlab-ci.yml", ".circleci", "Jenkinsfile", ".woodpecker.yml")
@@ -41,6 +48,18 @@ LOCKS = [("package.json", "package-lock.json"), ("package.json", "pnpm-lock.yaml
          ("pyproject.toml", "poetry.lock"), ("pyproject.toml", "uv.lock"),
          ("Cargo.toml", "Cargo.lock"), ("go.mod", "go.sum"),
          ("Gemfile", "Gemfile.lock"), ("composer.json", "composer.lock")]
+# A file name that says the file holds a credential. Matched against the file name alone: a path
+# means nothing, the name is what tools and people agree on.
+SECRET_NAME = re.compile(r"""(?x)
+    ^\.env($|\.) | ^\.(envrc|netrc|npmrc|pypirc|pgpass)$ |
+    ^id_(rsa|dsa|ecdsa|ed25519)$ |
+    ^(secret|secrets|credential|credentials)(\.[a-z0-9]+)?$ |
+    ^service[-_]account.*\.json$ |
+    \.(pem|key|p12|pfx|jks|keystore|ppk|tfvars)$
+""", re.I)
+# The same names carrying a placeholder marker. A repository is supposed to hold `.env.example`,
+# and a check that flags it teaches the reader to skip the check.
+SECRET_PLACEHOLDER = re.compile(r"(example|sample|template|dist|default|\.pub$)", re.I)
 
 
 class Report:
@@ -69,6 +88,21 @@ def git(repo, *args, timeout=10):
     except (OSError, subprocess.TimeoutExpired):
         return None
     return r.stdout.strip() if r.returncode == 0 else None
+
+
+def untracked_secrets(repo, timeout):
+    """Untracked files whose name says credential and that no ignore rule covers, newest ignore
+    rules included: `--exclude-standard` applies the same rules `git add` would. The finding is
+    the pair, not the name alone, because an ignored credential file is what an ignore file is
+    for and a tracked one is already in the history, which is a different problem."""
+    out = git(repo, "ls-files", "--others", "--exclude-standard", timeout=timeout)
+    names = []
+    for line in (out or "").splitlines():
+        path = line.strip()
+        name = path.rsplit("/", 1)[-1]
+        if path and SECRET_NAME.search(name) and not SECRET_PLACEHOLDER.search(name):
+            names.append(path)
+    return sorted(names)
 
 
 def find_repos(paths, depth):
@@ -161,6 +195,7 @@ def read_repo(repo, now, stale_days, stash_days, timeout):
     # The effective address, so a repository that inherits the global one is judged by what a
     # commit would actually carry.
     s["email"] = git(repo, "config", "--get", "user.email", timeout=timeout) or ""
+    s["secrets"] = untracked_secrets(repo, timeout)
     s["readme"] = any((repo / n).exists() for n in READMES)
     s["ignore"] = (repo / ".gitignore").exists()
     s["ci"] = any((repo / c).exists() for c in CI_PATHS)
@@ -196,34 +231,36 @@ def collect(repos, rep, stale_days, expect_email=""):
                 [{"repo": s["path"], "value": v, **(extra(s) if extra else {})} for s, v in hits],
                 measure=len(hits), by={s["path"]: numeric(v) for s, v in hits})
 
+    group("repo.secret-exposed", "FAIL", lambda s: s["secrets"],
+          lambda n: f"{plural(n, 'repository', 'repositories')} with an untracked credential file that nothing ignores")
     group("git.dirty", "FAIL", lambda s: s["dirty"] or 0,
-          lambda n: f"{n} repository(s) hold uncommitted changes")
+          lambda n: f"{plural(n, 'repository', 'repositories')} with uncommitted changes")
     group("git.unpushed", "FAIL", lambda s: s["unpushed"] or 0,
-          lambda n: f"{n} repository(s) hold commits that exist on no remote",
+          lambda n: f"{plural(n, 'repository', 'repositories')} with commits that exist on no remote",
           extra=lambda s: {"branches": s.get("unpushed_branches", [])})
     group("repo.no-remote", "WARN", lambda s: (not s["remotes"]) or None,
-          lambda n: f"{n} repository(s) have no remote, so nothing off this disk holds them")
+          lambda n: f"{plural(n, 'repository', 'repositories')} without a remote, so nothing off this disk holds them")
     group("git.no-upstream", "WARN",
           lambda s: (not s["upstream"] and not s["detached"] and s["remotes"] and s["branch"]) or None,
-          lambda n: f"{n} repository(s) sit on a branch with no upstream")
+          lambda n: f"{plural(n, 'repository', 'repositories')} on a branch with no upstream")
     group("git.detached", "WARN", lambda s: s["detached"] or None,
-          lambda n: f"{n} repository(s) have a detached HEAD")
+          lambda n: f"{plural(n, 'repository', 'repositories')} with a detached HEAD")
     # The count, not the age of the oldest: an age grows on its own, so it can never be graded.
     group("git.stash-old", "WARN", lambda s: len(s["stashes"]),
-          lambda n: f"{n} repository(s) carry a stash older than the retention")
+          lambda n: f"{plural(n, 'repository', 'repositories')} with a stash older than the retention")
     if expect_email:
         group("git.identity", "WARN", lambda s: s["email"] if s["email"] != expect_email else None,
-              lambda n: f"{n} repository(s) would commit under an address other than {expect_email}")
+              lambda n: f"{plural(n, 'repository', 'repositories')} that would commit under an address other than {expect_email}")
     group("git.stale-branch", "INFO", lambda s: len(s["stale_branches"]),
-          lambda n: f"{n} repository(s) keep merged branches older than {stale_days} days")
+          lambda n: f"{plural(n, 'repository', 'repositories')} with merged branches older than {stale_days} days")
     group("repo.lock-drift", "WARN", lambda s: s["lock_drift"],
-          lambda n: f"{n} repository(s) have a lock file older than its manifest")
+          lambda n: f"{plural(n, 'repository', 'repositories')} with a lock file older than its manifest")
     group("repo.no-readme", "INFO", lambda s: (not s["readme"]) or None,
-          lambda n: f"{n} repository(s) have no README")
+          lambda n: f"{plural(n, 'repository', 'repositories')} without a README")
     group("repo.no-ignore", "INFO", lambda s: (not s["ignore"]) or None,
-          lambda n: f"{n} repository(s) have no ignore file")
+          lambda n: f"{plural(n, 'repository', 'repositories')} without an ignore file")
     group("repo.no-ci", "INFO", lambda s: (not s["ci"]) or None,
-          lambda n: f"{n} repository(s) run no checks on push")
+          lambda n: f"{plural(n, 'repository', 'repositories')} that run no checks on push")
 
 
 def cell(value):
@@ -235,26 +272,82 @@ def cell(value):
     return str(value)
 
 
-def text_report(repos, rep):
+def plural(n, one, many=None):
+    """A count and its word, so a report never prints "1 repository(s)"."""
+    return f"{n} {one if n == 1 else (many or one + 's')}"
+
+
+def short(path):
+    """A path with the home directory written as `~`, so a line stays readable in a terminal."""
+    home = str(Path.home())
+    text = str(path)
+    if text == home:
+        return "~"
+    return "~" + text[len(home):] if text.startswith(home + "/") else text
+
+
+def cost(item):
+    """What the finding costs now, in words. Every check here counts repositories."""
+    m = item.get("measure") or {}
+    value = m.get("value")
+    return "" if value is None else f"costs {plural(value, 'repository', 'repositories')}"
+
+
+def detail(item):
+    """The rows under one finding as (repository, what was found) pairs, at most five."""
+    rows = []
+    for d in item["data"][:5]:
+        value = cell(d["value"])
+        names = d.get("branches", [])
+        if names:
+            shown = ", ".join(f"{b['branch']} {plural(b['commits'], 'commit')}" for b in names[:2])
+            rest = f", and {len(names) - 2} more" if len(names) > 2 else ""
+            value = f"{shown}{rest}"
+        if value.isdigit() and item["id"] in ROW_WORD:
+            value = plural(int(value), *ROW_WORD[item["id"]])
+        rows.append((short(d["repo"]), value or "yes"))
+    return rows
+
+
+def block(rows, indent="      "):
+    """Name and value in two aligned columns, so the repositories can be compared by eye."""
+    if not rows:
+        return []
+    width = min(max(len(name) for name, _ in rows), 46)
+    return [f"{indent}{name.ljust(width)}  {value}" for name, value in rows]
+
+
+def text_report(repos, rep, targets, standards):
+    """The console report: what was scanned, what needs a decision, what is only a note."""
     c = rep.counts()
-    out = [f"# repos: {len(repos)} repository(s)",
-           f"FAIL {c.get('FAIL', 0)} · WARN {c.get('WARN', 0)} · INFO {c.get('INFO', 0)} · PASS {c.get('PASS', 0)}", ""]
-    for i in sorted(rep.items, key=lambda x: (LEVEL_ORDER[x["level"]], x["id"])):
-        if i["level"] == "PASS":
-            continue
-        out.append(f"- **{i['level']}** `{i['id']}`: {i['message']}")
-        for d in i["data"][:5]:
-            v = cell(d["value"])
-            line = f"    - {d['repo']}" + (f": {v}" if v else "")
-            names = d.get("branches", [])
-            if names:
-                shown = ", ".join(f"{b['branch']} {b['commits']}" for b in names[:2])
-                line += f" ({shown}" + (f", and {len(names) - 2} more)" if len(names) > 2 else ")")
-            out.append(line)
+    ranked = sorted(rep.items, key=lambda x: (LEVEL_ORDER[x["level"]],
+                                              -((x.get("measure") or {}).get("value") or 0), x["id"]))
+    findings = [i for i in ranked if i["level"] in ("FAIL", "WARN")]
+    notes = [i for i in ranked if i["level"] == "INFO"]
+    passed = [i for i in ranked if i["level"] == "PASS"]
+    out = [f"repos  {plural(len(repos), 'repository', 'repositories')} under "
+           + ", ".join(short(t) for t in targets),
+           f"measured against  {standards}", "",
+           f"{plural(len(findings), 'finding')} to decide on, "
+           f"{plural(len(notes), 'note')}, {plural(len(passed), 'check')} passed"]
+    for i in findings:
+        out += ["", f"{i['level']:<4}  {i['id']}" + (f"  ({cost(i)})" if cost(i) else ""),
+                f"      {i['message']}"]
+        out += block(detail(i))
         if len(i["data"]) > 5:
-            out.append(f"    - and {len(i['data']) - 5} more, full list in the JSON")
-    if not any(i["level"] != "PASS" for i in rep.items):
-        out.append("- nothing open")
+            out.append(f"      and {len(i['data']) - 5} more, the full list is in the JSON")
+    for i in notes:
+        out += ["", f"note  {i['id']}", f"      {i['message']}"]
+        out += block(detail(i))
+        if len(i["data"]) > 5:
+            out.append(f"      and {len(i['data']) - 5} more, the full list is in the JSON")
+    if passed:
+        out += ["", "passed  " + ", ".join(i["id"] for i in passed)]
+    if findings:
+        out += ["", "next  save the work a FAIL names before anything else, then look each id up "
+                    "in the fixes table of jorekai-dx:dx for the fix and the risk class"]
+    else:
+        out += ["", "next  nothing to act on, measure again when this audit ages out"]
     return "\n".join(out)
 
 
@@ -289,7 +382,10 @@ def main(argv=None):
                           "counts": rep.counts(), "repos": states, "items": rep.items},
                          indent=2, ensure_ascii=False))
     else:
-        print(text_report(states, rep))
+        standards = (f"merged branches over {plural(a.stale_days, 'day')} \u00b7 "
+                     f"stashes over {plural(stash_days, 'day')}"
+                     + (f" \u00b7 commits under {a.expect_email}" if a.expect_email else ""))
+        print(text_report(states, rep, [str(Path(p).expanduser()) for p in a.paths], standards))
     return 0
 
 

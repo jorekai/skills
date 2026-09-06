@@ -1,6 +1,6 @@
 ---
 name: and-now
-description: Where a machine stands in the developer experience loop and what comes next, read from the workspace files alone via scripts/status.py: rows past their verify date, open findings from the newest audit, open log rows, proposals without a decision, and unfinished setup.
+description: Where a machine stands in the developer experience loop and what comes next, read from the workspace files alone via scripts/status.py: rows past their verify date, open findings from the newest audit, open log rows, rows naming a check id no tool measures, proposals without a decision, and unfinished setup.
 disable-model-invocation: true
 argument-hint: "[machine]"
 ---
@@ -34,4 +34,5 @@ Answers "we just did that, and now?" from the workspace without touching the mac
 - `stage: setup` with one item means nothing has run on this machine yet. Any other stage means the loop is running, and unfinished setup appears as a ranked item instead of a wall.
 - `stage: measure` means the newest audit still reports failures, or no audit exists. Fixing them comes before anything further down the priority ladder.
 - An audit older than a month is reported as stale. Acting on a month-old measurement is how a fix lands on a machine that already moved on.
+- `unknown check id` counts log rows naming a check id no tool produces. Nothing recomputes such a row at its verify date, so it is refused weeks after it was written and by then nobody remembers what the number meant. Correct the id against [../dx/references/fixes.md](../dx/references/fixes.md), or move the row to `proposals/`.
 - `due for verdict` counts rows whose verify date has passed. A row that never gets graded costs more than it saved, because the next decision has no evidence behind it.

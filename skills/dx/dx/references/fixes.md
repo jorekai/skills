@@ -10,6 +10,7 @@ The classes are defined in [risk-classes.md](risk-classes.md). Above all of them
 
 | Check | What it means | Fix | Class | Measure |
 |---|---|---|---|---|
+| `repo.secret-exposed` | An untracked file whose name says credential and that no ignore rule covers, so one `git add` puts it in the history | Move the value into the secret store this machine already uses, then name the path in the ignore file. Never commit it first and remove it after: a history keeps what it was given | `ask` | Credential files in the target repository that nothing ignores (`count`) |
 | `git.dirty` | The working tree holds changes that exist nowhere else | Commit them, or stash them deliberately, or discard them after looking | `ask` | Changed paths in the target repository (`count`) |
 | `git.unpushed` | Commits exist on this disk and on no remote | Push the branches the finding names, or create them upstream and push. Fetch once first, because the count is read from the remote refs on this disk | `ask` | Commits that exist on no remote (`count`) |
 | `repo.no-remote` | The repository has no remote at all, so losing the disk loses the work | Create the remote and push, or record that the repository is deliberately local in `standards.md` | `ask` | Repositories with no remote (`count`) |

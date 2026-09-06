@@ -2,6 +2,16 @@
 
 One entry per `jorekai-dx` version. The version at the top equals `version` in `skills/dx/.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 1.3.0 (2026-09-05)
+
+- Added: `repo.secret-exposed`, a `FAIL` on the first rung of the ladder: an untracked file whose name says credential and that no ignore rule covers, which is the single state where one `git add` writes a credential into a history. `repo.no-ignore` never caught it, because an ignore file with one line passes that check. It reads names and coverage, never contents, and an ignored or already committed file is a different problem with a different fix.
+- Added: `and-now` reports log rows whose check id no tool measures. Such a row is refused by `jorekai-dx:grade` at its verify date, weeks after anyone could still say what its number meant. The ladder in `status.py` now names every id the tools emit, so it answers both where an id ranks and whether it exists.
+- Changed: every measuring script prints one console shape: two header lines saying what was measured and what it was measured against, one counting line, then each finding with its check id, its cost in one unit, and at most five targets with their own share. Findings run in level order and by cost inside a level, so the report is already in the order the work should happen. The old report opened with four level totals and left the reader to rank the ids by hand.
+- Changed: passing checks are listed once by id instead of being dropped, and a check whose source is missing on this machine is printed as a note. A check that leaves no trace reads the same as a check that never ran.
+- Changed: every report ends on a next step: the largest cost first for `machine`, unsaved work first for `repos`, and slow or failing shapes before frequent ones for `friction`. `grade` names `--write` when there are verdicts to keep.
+- Changed: counts carry the word they count. A row under `git.dirty` says "25 changed paths", one under `friction.slow-command` says "3 hours over 420 runs", and a home path is written as `~`. A bare number left the reader guessing what it measured.
+- Added: `skills/dx/dx/SKILL.md` documents the report shape in one place, so a new script has a contract to follow and a reader has one reading order.
+
 ## 1.2.0 (2026-09-05)
 
 - Added: `jorekai-dx:grade`, model-invoked, settles every log row past its verify date. `grade.py` reads the newest audit of the tool that found the check, recomputes the measure for that row's target, and proposes `won`, `no-change`, or `returned`; `--write` appends the outcome row and closes the action row. A row it cannot grade says why: no audit of that tool, an audit older than the action, a check id the pass did not produce, a measure the row never carried.

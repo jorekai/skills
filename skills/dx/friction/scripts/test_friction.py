@@ -196,5 +196,35 @@ class OutputTest(unittest.TestCase):
         self.assertIn("no history was readable", buffer.getvalue())
 
 
+class ReportShapeTest(unittest.TestCase):
+    """The console report is what a person reads before deciding, so its shape is a contract."""
+
+    def report(self):
+        rep = friction.Report()
+        rep.add("WARN", "friction.failed-command", "1 command shape with at least 3 failed runs",
+                [{"shape": "npm run dev", "failures": 4, "runs": 10, "rate": 40, "exit_codes": {1: 4}}],
+                measure=4, by={"npm run dev": 4})
+        rep.add("PASS", "friction.retry-prompt", "no command shape shows a retry loop", measure=0)
+        return friction.text_report(rep, 10, [], "the last 90 days")
+
+    def test_the_header_says_what_was_read_and_against_what(self):
+        text = self.report()
+        self.assertIn("friction  10 commands from 0 sources", text)
+        self.assertIn("measured against  the last 90 days", text)
+
+    def test_a_finding_names_its_cost_in_the_unit_its_check_measures(self):
+        self.assertIn("WARN  friction.failed-command  (costs 4 failed runs)", self.report())
+
+    def test_seconds_are_printed_in_a_unit_a_person_can_picture(self):
+        self.assertEqual(friction.clock(30), "30 seconds")
+        self.assertEqual(friction.clock(600), "10 minutes")
+        self.assertEqual(friction.clock(7200), "2 hours")
+
+    def test_passed_checks_are_listed_once_and_never_as_findings(self):
+        text = self.report()
+        self.assertIn("passed  friction.retry-prompt", text)
+        self.assertNotIn("PASS  friction.retry-prompt", text)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

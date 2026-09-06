@@ -52,12 +52,24 @@ The workspace sits outside every project because its subject is the machine, not
 
 Each rung depends on the one before it. A finding on a lower rung waits.
 
-1. **No work is at risk.** `git.dirty`, `git.unpushed`, `repo.no-remote`. These outrank everything, including a full disk, and nothing destructive runs against a repository that reports one of them.
+1. **Nothing is lost, and nothing leaks.** `git.dirty`, `git.unpushed`, `repo.no-remote`, `repo.secret-exposed`. These outrank everything, including a full disk, and nothing destructive runs against a repository that reports one of them. An exposed credential sits on this rung because it is the finding a later commit cannot undo: a history keeps what it was given, so the cost is a rotation, not an edit.
 2. **The machine runs.** `disk.low`, `mem.pressure`. Nothing else finishes on a full disk.
 3. **Someone else is waiting.** `pr.review-requested`, `ci.failing`, `alert.open`. The cost of these falls on other people, which is why they come before anything that only costs you.
 4. **The projects and the sessions work.** `repo.lock-drift`, `agent.hook-broken`, `agent.pointer-drift`. A broken hook or a lying pointer costs time in every session until someone looks.
 5. **Space and time come back.** `disk.cache`, `container.*`, `disk.large-dir`, then `friction.*`. Biggest return for the smallest risk first.
 6. **Tidiness.** `git.stale-branch`, `repo.no-readme`, and the rest. Worth doing, never worth doing first.
+
+## Reading a report
+
+Every measuring script prints the same shape without `--json`, so one reading order works everywhere:
+
+1. The first two lines say what was measured and what it was measured against, so a number can be judged without opening `standards.md`.
+2. The counting line says how many findings need a decision, how many notes carry no action, and how many checks passed.
+3. Each finding names its level, its check id, and what it costs now in one unit. Findings come in level order, and the costliest first inside a level.
+4. Under a finding stand at most five targets with their own share of the cost. The rest is in the JSON, which is what the workspace keeps.
+5. The last line says what to do next: act on the largest cost first, and look each id up in [references/fixes.md](references/fixes.md) for the fix and the risk class.
+
+The console report is for the decision, the JSON is for the record. Only the JSON is written to `audits/`.
 
 ## Principles
 

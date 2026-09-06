@@ -142,5 +142,49 @@ class ContainersTest(unittest.TestCase):
         self.assertIn("no-such-container-runtime is not installed", rep.items[0]["message"])
 
 
+class ReportTest(unittest.TestCase):
+    """The console report is what a person reads before deciding, so its shape is a contract."""
+
+    def report(self):
+        rep = machine.Report()
+        rep.add("WARN", "disk.cache", "40.0 GB in 2 cache directories, all refilled on next use",
+                [{"path": "/x/one", "size": 30 * machine.GB}, {"path": "/x/two", "size": 10 * machine.GB}],
+                measure=40 * machine.GB, by={"/x/one": 30 * machine.GB, "/x/two": 10 * machine.GB})
+        rep.add("PASS", "disk.low", "200.0 GB free on /x", measure=0)
+        rep.add("INFO", "container.reclaimable", "docker did not answer")
+        return machine.text_report(rep, "test-machine", "free space floor 100 GB")
+
+    def test_the_header_says_what_was_measured_and_against_what(self):
+        text = self.report()
+        self.assertIn("machine  test-machine", text)
+        self.assertIn("measured against  free space floor 100 GB", text)
+
+    def test_the_counting_line_names_findings_notes_and_passed_checks(self):
+        self.assertIn("1 finding to decide on, 1 note, 1 check passed", self.report())
+
+    def test_a_finding_carries_its_cost_its_targets_and_the_next_step(self):
+        text = self.report()
+        self.assertIn("WARN  disk.cache  (costs 40.0 GB)", text)
+        self.assertIn("30.0 GB", text)
+        self.assertIn("passed  disk.low", text)
+        self.assertIn("next  ", text)
+
+    def test_a_pass_is_never_reported_as_a_finding(self):
+        self.assertNotIn("PASS  disk.low", self.report())
+
+    def test_a_note_names_its_targets_like_a_finding(self):
+        """A note is read the same way as a finding, so it says what it found and where."""
+        rep = machine.Report()
+        rep.add("INFO", "disk.cache", "8.0 GB in 1 cache directory, under the threshold",
+                [{"path": "/x/one", "size": 8 * machine.GB}], measure=8 * machine.GB,
+                by={"/x/one": 8 * machine.GB})
+        text = machine.text_report(rep, "test-machine", "free space floor 100 GB")
+        self.assertIn("note  disk.cache", text)
+        self.assertIn("8.0 GB", text)
+
+    def test_a_home_path_is_written_short(self):
+        self.assertEqual(machine.short(str(Path.home()) + "/one"), "~/one")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

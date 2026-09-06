@@ -32,13 +32,18 @@ SKILL_OF = {"git": "jorekai-dx:repos", "repo": "jorekai-dx:repos",
             "friction": "jorekai-dx:friction"}
 # The priority ladder of the router, as data. Duplicated there on purpose: the router explains it
 # to a person, this ranks it for a machine. An id nobody listed sits in the middle.
-RUNG = {"git.dirty": 1, "git.unpushed": 1, "repo.no-remote": 1, "git.detached": 1, "git.stash-old": 1,
+# It names every id the tools emit, so it is also the table that answers whether an id exists at
+# all: a log row naming an id outside it can never be graded, because no script recomputes it.
+RUNG = {"repo.secret-exposed": 1, "git.dirty": 1, "git.unpushed": 1, "repo.no-remote": 1,
+        "git.detached": 1, "git.stash-old": 1,
         "disk.low": 2, "mem.pressure": 2,
         "pr.review-requested": 3, "ci.failing": 3, "alert.open": 3,
         "repo.lock-drift": 4, "git.no-upstream": 4, "git.identity": 4, "branch.unprotected": 4,
         "agent.no-pointer": 4, "agent.pointer-drift": 4, "agent.hook-broken": 4,
         "agent.permission-drift": 4, "agent.server-unreachable": 4, "pr.stale": 4,
         "disk.cache": 5, "disk.large-dir": 5, "container.reclaimable": 5,
+        "friction.repeat-command": 5, "friction.repeat-sequence": 5, "friction.failed-command": 5,
+        "friction.retry-prompt": 5, "friction.slow-command": 5, "friction.agent-sessions": 5,
         "git.stale-branch": 6, "repo.no-readme": 6, "repo.no-ignore": 6, "repo.no-ci": 6}
 
 
@@ -48,6 +53,13 @@ def skill_for(check_id):
 
 def rung(check_id):
     return RUNG.get(check_id, 5)
+
+
+def unsettled(rows):
+    """Log rows naming a check id no tool measures. A typo, a renamed check, or an id someone
+    invented for a row: each one is a row `jorekai-dx:grade` refuses at its verify date, weeks
+    after it was written. Reading it here costs nothing and says so the same week."""
+    return [r for r in rows if r.get("check") and r["check"] not in RUNG]
 
 
 def week_of(day):
@@ -185,8 +197,15 @@ def decide(s, today):
     # A verdict is what makes the log learn, so a row past its verify date outranks everything else.
     if s["due"]:
         ids = ", ".join(r.get("id", "?") for r in s["due"][:3])
-        now.append(f"grade {len(s['due'])} row(s) past their verify date ({ids}): "
+        now.append(f"grade {plural(len(s['due']), 'row')} past their verify date ({ids}): "
                    "`jorekai-dx:grade` recomputes each measure and writes the verdict")
+    orphan = unsettled(s["rows"])
+    if orphan:
+        ids = sorted({r["check"] for r in orphan})
+        where = ", ".join(sorted({r["_file"] for r in orphan})[:2])
+        now.append(f"{plural(len(orphan), 'log row')} name a check id no tool measures "
+                   f"({', '.join(ids[:3])} in {where}): correct the id or drop the row, "
+                   "because nothing recomputes its measure at the verify date")
     audits = s["audits"]
     if not audits:
         stage = "measure"
@@ -203,7 +222,7 @@ def decide(s, today):
         stale = [e for e in audits.values() if e["age"] > s["max_age"]]
         if stale:
             names = ", ".join(f"{e['kind']} ({plural(e['age'], 'day')})" for e in sorted(stale, key=lambda x: -x["age"])[:3])
-            now.append(f"{len(stale)} audit(s) describe a machine that has moved on: {names}. Measure again before acting")
+            now.append(f"{plural(len(stale), 'audit')} describe a machine that has moved on: {names}. Measure again before acting")
         if "repos" not in audits:
             now.append("no `jorekai-dx:repos` audit exists: nothing destructive may run until one does")
 
@@ -222,29 +241,40 @@ def decide(s, today):
 
 
 def report(s, today):
-    out = [f"# {s['machine']}, {today.isoformat()} ({week_of(today)})", ""]
-    out.append("setup        config " + ("filled" if s["config"] else "TEMPLATE")
-               + " | standards " + ("filled" if s["standards"] else "TEMPLATE")
-               + " | machine config " + ("filled" if s["machine_config"] else "TEMPLATE"))
+    """The console report: what the workspace holds, then the stage and the next steps."""
+    out = [f"and-now  {s['machine']}  {today.isoformat()}, week {week_of(today)}", "",
+           "setup      config " + ("filled" if s["config"] else "TEMPLATE")
+           + " \u00b7 standards " + ("filled" if s["standards"] else "TEMPLATE")
+           + " \u00b7 machine config " + ("filled" if s["machine_config"] else "TEMPLATE")]
     if s["audits"]:
+        label = "audits    "
         for kind, a in s["audits"].items():
-            out.append(kind.ljust(13) + f"{a['file']} ({plural(a['age'], 'day')} old): "
-                       f"FAIL {a['fail']}, WARN {a['warn']}")
+            out.append(f"{label} {kind.ljust(8)} {a['file']}, {plural(a['age'], 'day')} old, "
+                       f"{a['fail']} FAIL, {a['warn']} WARN")
+            label = "          "
     else:
-        out.append("audits       none")
+        out.append("audits     none, so nothing here is measured yet")
     by = {}
     for r in s["rows"]:
         by[r.get("status", "?")] = by.get(r.get("status", "?"), 0) + 1
-    out.append(f"log          {len(s['rows'])} rows: " + (", ".join(f"{k} {v}" for k, v in sorted(by.items())) or "empty")
-               + f" | due for verdict {len(s['due'])}"
-               + (f" | next verify {s['next_verify'].isoformat()}" if s["next_verify"] else ""))
-    out.append(f"proposals    {', '.join(s['proposals']) or 'none'}")
+    orphan = unsettled(s["rows"])
+    out.append(f"log        {plural(len(s['rows']), 'row')}: "
+               + (", ".join(f"{v} {k}" for k, v in sorted(by.items())) or "empty")
+               + f" \u00b7 {len(s['due'])} due for a verdict"
+               + (f" \u00b7 {len(orphan)} with an unknown check id" if orphan else "")
+               + (f" \u00b7 next verify {s['next_verify'].isoformat()}" if s["next_verify"] else ""))
+    out.append(f"proposals  {', '.join(s['proposals']) or 'none'}")
     stage, now, then = decide(s, today)
-    out += ["", f"stage: {stage}", "now:"]
-    out += [f"  {i}. {step}" for i, step in enumerate(now, 1)]
+    out += ["", f"stage  {stage}", "", "now"]
+    out += [f"  {i}. {short_paths(step)}" for i, step in enumerate(now, 1)]
     if then:
-        out += ["then:"] + [f"  - {t}" for t in then]
+        out += ["", "then"] + [f"  - {short_paths(t)}" for t in then]
     return "\n".join(out)
+
+
+def short_paths(text):
+    """The home directory inside a sentence written as `~`, so a step fits one line."""
+    return text.replace(str(Path.home()), "~")
 
 
 def main():

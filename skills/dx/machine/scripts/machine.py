@@ -67,6 +67,16 @@ class Report:
         return c
 
 
+def plural(n, one, many=None):
+    """A count and its word, so a report never prints "1 directory(s)"."""
+    return f"{n} {one if n == 1 else (many or one + 's')}"
+
+
+def number(n):
+    """A threshold without a trailing zero: 100 GB, not 100.0 GB."""
+    return f"{n:g}"
+
+
 def human(n):
     """Bytes as a short string. Exact numbers stay in the JSON."""
     for unit in ("B", "KB", "MB", "GB", "TB"):
@@ -112,7 +122,7 @@ def volume(path, rep, min_free_gb):
     data = [{"path": str(path), "free": usage.free, "total": usage.total, "short_of_floor": short,
              "used_percent": round(100 * usage.used / usage.total, 1) if usage.total else None}]
     if free_gb < min_free_gb:
-        rep.add("FAIL", "disk.low", f"{human(usage.free)} free on {path}, below the floor of {min_free_gb} GB",
+        rep.add("FAIL", "disk.low", f"{human(usage.free)} free on {path}, below the floor of {number(min_free_gb)} GB",
                 data, measure=short, by={str(path): short})
     else:
         rep.add("PASS", "disk.low", f"{human(usage.free)} free on {path}", data,
@@ -132,10 +142,10 @@ def caches(rep, min_gb):
     if not found:
         rep.add("PASS", "disk.cache", "no known cache directory exists here", measure=0)
     elif total >= min_gb * GB:
-        rep.add("WARN", "disk.cache", f"{human(total)} in {len(found)} cache directory(s), all refilled on next use",
+        rep.add("WARN", "disk.cache", f"{human(total)} in {plural(len(found), 'cache directory', 'cache directories')}, all refilled on next use",
                 found, measure=total, by=by)
     else:
-        rep.add("INFO", "disk.cache", f"{human(total)} in {len(found)} cache directory(s)", found,
+        rep.add("INFO", "disk.cache", f"{human(total)} in {plural(len(found), 'cache directory', 'cache directories')}, under the threshold", found,
                 measure=total, by=by)
 
 
@@ -164,10 +174,10 @@ def large_dirs(paths, rep, large_gb):
         return
     if hits:
         rep.add("WARN", "disk.large-dir",
-                f"{human(sum(h['size'] for h in hits))} in {len(hits)} rebuildable tree(s) over {large_gb} GB",
+                f"{human(sum(h['size'] for h in hits))} in {plural(len(hits), 'rebuildable tree')} over {number(large_gb)} GB",
                 hits, measure=sum(h["size"] for h in hits), by={h["path"]: h["size"] for h in hits})
     else:
-        rep.add("PASS", "disk.large-dir", f"no rebuildable tree over {large_gb} GB", measure=0)
+        rep.add("PASS", "disk.large-dir", f"no rebuildable tree over {number(large_gb)} GB", measure=0)
 
 
 def memory(rep):
@@ -269,21 +279,85 @@ def _gb(text):
     return n * {"": 1 / GB, "K": 1 / (1024 ** 2), "M": 1 / 1024, "G": 1.0, "T": 1024.0}[m.group(2)]
 
 
-def text_report(rep):
+def short(path):
+    """A path with the home directory written as `~`, so a line stays readable in a terminal."""
+    home = str(Path.home())
+    text = str(path)
+    if text == home:
+        return "~"
+    return "~" + text[len(home):] if text.startswith(home + os.sep) else text
+
+
+def cost(item):
+    """What the finding costs now, in words. Empty when the check carries no measure."""
+    m = item.get("measure") or {}
+    value, unit = m.get("value"), m.get("unit")
+    if value is None:
+        return ""
+    if unit == "bytes":
+        return f"costs {human(value)}"
+    if unit == "percent":
+        return f"costs {value} points below the floor"
+    return f"costs {value}"
+
+
+def detail(item):
+    """The rows under one finding as (name, value) pairs, at most five."""
+    rows = []
+    for d in item["data"][:5]:
+        if "used_percent" in d:
+            rows.append((short(d["path"]), f"{human(d['free'])} free of {human(d['total'])}, "
+                                           f"{d['used_percent']}% used"))
+        elif "available_percent" in d:
+            rows.append(("this machine", f"{human(d['available'])} available of {human(d['total'])}, "
+                                         f"{d['available_percent']}% of it"))
+        elif "size" in d and "path" in d:
+            rows.append((short(d["path"]), human(d["size"]) + (f", rebuilt by {d['kind']}" if d.get("kind") else "")))
+        elif d.get("type"):
+            rows.append((str(d["type"]), f"{d.get('reclaimable') or '0B'} reclaimable of "
+                                         f"{d.get('size') or '0B'}, {d.get('active')} in use"))
+    return rows
+
+
+def block(rows, indent="      "):
+    """Name and value in two aligned columns, so sizes can be compared by eye."""
+    if not rows:
+        return []
+    width = min(max(len(name) for name, _ in rows), 46)
+    return [f"{indent}{name.ljust(width)}  {value}" for name, value in rows]
+
+
+def text_report(rep, target, floors):
+    """The console report: what was measured, what needs a decision, what is only a note."""
     c = rep.counts()
-    out = [f"# machine: {platform.system()}",
-           f"FAIL {c.get('FAIL', 0)} · WARN {c.get('WARN', 0)} · INFO {c.get('INFO', 0)} · PASS {c.get('PASS', 0)}", ""]
-    for i in sorted(rep.items, key=lambda x: (LEVEL_ORDER[x["level"]], x["id"])):
-        if i["level"] == "PASS":
-            continue
-        out.append(f"- **{i['level']}** `{i['id']}`: {i['message']}")
-        for d in i["data"][:5]:
-            if "size" in d and "path" in d:
-                out.append(f"    - {d['path']}: {human(d['size'])}")
+    ranked = sorted(rep.items, key=lambda x: (LEVEL_ORDER[x["level"]],
+                                              -((x.get("measure") or {}).get("value") or 0)
+                                              if (x.get("measure") or {}).get("unit") == "bytes" else 0,
+                                              x["id"]))
+    findings = [i for i in ranked if i["level"] in ("FAIL", "WARN")]
+    notes = [i for i in ranked if i["level"] == "INFO"]
+    passed = [i for i in ranked if i["level"] == "PASS"]
+    out = [f"machine  {target}", f"measured against  {floors}", "",
+           f"{plural(len(findings), 'finding')} to decide on, "
+           f"{plural(len(notes), 'note')}, {plural(len(passed), 'check')} passed"]
+    for i in findings:
+        head = f"{i['level']:<4}  {i['id']}"
+        out += ["", head + (f"  ({cost(i)})" if cost(i) else ""), f"      {i['message']}"]
+        out += block(detail(i))
         if len(i["data"]) > 5:
-            out.append(f"    - and {len(i['data']) - 5} more, full list in the JSON")
-    if not any(i["level"] != "PASS" for i in rep.items):
-        out.append("- nothing open")
+            out.append(f"      and {len(i['data']) - 5} more, the full list is in the JSON")
+    for i in notes:
+        out += ["", f"note  {i['id']}", f"      {i['message']}"]
+        out += block(detail(i))
+    if passed:
+        out += ["", "passed  " + ", ".join(i["id"] for i in passed)]
+    if findings:
+        out += ["", "next  take the largest cost first, then look its id up in the fixes table "
+                    "of jorekai-dx:dx for the fix and the risk class"]
+    else:
+        out += ["", "next  nothing to act on, measure again when this audit ages out"]
+    if c.get("FAIL"):
+        out += ["      a FAIL outranks every WARN, whatever the totals say"]
     return "\n".join(out)
 
 
@@ -312,7 +386,9 @@ def main(argv=None):
         print(json.dumps({"tool": "machine", "target": platform.node(), "counts": rep.counts(),
                           "items": rep.items}, indent=2, ensure_ascii=False))
     else:
-        print(text_report(rep))
+        floors = (f"free space floor {number(a.min_free_gb)} GB \u00b7 memory floor {MEM_FLOOR}% \u00b7 "
+                  f"trees over {number(a.large_gb)} GB \u00b7 container storage over {number(a.reclaim_gb)} GB")
+        print(text_report(rep, platform.node(), floors))
     return 0
 
 
