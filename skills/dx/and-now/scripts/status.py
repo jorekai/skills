@@ -185,8 +185,8 @@ def decide(s, today):
     # A verdict is what makes the log learn, so a row past its verify date outranks everything else.
     if s["due"]:
         ids = ", ".join(r.get("id", "?") for r in s["due"][:3])
-        now.append(f"grade {len(s['due'])} row(s) past their verify date ({ids}): recompute the measure, "
-                   "write Now and the verdict in the outcomes table, and set Status")
+        now.append(f"grade {len(s['due'])} row(s) past their verify date ({ids}): "
+                   "`jorekai-dx:grade` recomputes each measure and writes the verdict")
     audits = s["audits"]
     if not audits:
         stage = "measure"
@@ -216,7 +216,8 @@ def decide(s, today):
     if not now:
         now.append("nothing open: measure again when the newest audit ages out")
     if s["next_verify"]:
-        then.append(f"{s['next_verify'].isoformat()}: first verify date reached, grade the row it belongs to")
+        then.append(f"{s['next_verify'].isoformat()}: first verify date reached, "
+                    "`jorekai-dx:grade` settles the row it belongs to")
     return stage, now, then
 
 

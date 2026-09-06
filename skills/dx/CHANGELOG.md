@@ -2,6 +2,17 @@
 
 One entry per `jorekai-dx` version. The version at the top equals `version` in `skills/dx/.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 1.2.0 (2026-09-05)
+
+- Added: `jorekai-dx:grade`, model-invoked, settles every log row past its verify date. `grade.py` reads the newest audit of the tool that found the check, recomputes the measure for that row's target, and proposes `won`, `no-change`, or `returned`; `--write` appends the outcome row and closes the action row. A row it cannot grade says why: no audit of that tool, an audit older than the action, a check id the pass did not produce, a measure the row never carried.
+- Added: every finding carries `measure` beside `id`, `level`, `message`, and `data`: a `value`, its `unit`, and `by` with the same measure per target. A passing check measures zero, which is what turns "the finding is gone" into a fact instead of an absence.
+- Added: `scaffold.py --append-row` writes one action row from named fields, computes the id and the verify date, and refuses a check id, a risk class, or a measure the loop cannot use. A row written by hand with the wrong number of columns was skipped in silence by every reader.
+- Added: `repos.py`, `machine.py`, and `friction.py` answer `--measures` with the unit of every check id they emit, and `scripts/check.sh` fails when that unit is missing from the fixes table.
+- Changed: a measure counts a cost, so lower is better and zero means the check no longer fires (`decisions/0014`). `disk.low` measures the bytes missing from the floor instead of the free bytes, `mem.pressure` the percentage points missing from it, and `git.stash-old` counts stash entries past the retention instead of the age of the oldest, because an age drifts on its own and can never be graded.
+- Added: `git.unpushed` names the branches that hold the commits and how many each holds, read from one call that attributes every commit to a source ref. A repository can be level with its upstream and still hold months of work on a branch beside it, and the count alone sent the reader looking for it by hand.
+- Changed: `references/fixes.md` and the `repos` interpretation say to fetch before pushing. The count is read from the remote refs on this disk, so a push can be rejected by a remote that moved, which is what happened on the first machine this ran against.
+- Changed: `references/fixes.md` names the unit of every check id, and the steps that write a log row in `repos`, `machine`, `github`, and `agent-config` call the scaffold instead of formatting a table row.
+
 ## 1.1.0 (2026-09-05)
 
 - Fixed: `status.py` reads the newest audit per kind instead of the newest file overall. A `disk.low` failure went silent the moment a repository pass ran after it, so `jorekai-dx:and-now` answered "nothing open" on a machine with two gigabytes free. Failing ids from every kind are now ranked by the router's ladder, and each one names the skill that owns it.

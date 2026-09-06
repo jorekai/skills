@@ -4,6 +4,7 @@
 Usage:
   repos.py PATH [PATH ...] [--depth N] [--stale-days N] [--stash-days N]
            [--expect-email ADDRESS] [--timeout S] [--json]
+  repos.py --measures                     the unit every check id is measured in
 
 `scaffold.py --flags` in the setup skill prints these arguments from the workspace standards.
 
@@ -22,6 +23,13 @@ import time
 from pathlib import Path
 
 LEVEL_ORDER = {"FAIL": 0, "WARN": 1, "INFO": 2, "PASS": 3}
+# The unit of every check id this script measures. A measure counts what the finding costs, so
+# lower is better and zero means the check no longer fires (decisions/0014). `--measures` prints
+# this table and scripts/check.sh compares it to the unit named in the theme's fixes.md.
+MEASURES = {"git.dirty": "count", "git.unpushed": "count", "repo.no-remote": "count",
+            "git.no-upstream": "count", "git.detached": "count", "git.stash-old": "count",
+            "git.identity": "count", "git.stale-branch": "count", "repo.lock-drift": "count",
+            "repo.no-readme": "count", "repo.no-ignore": "count", "repo.no-ci": "count"}
 SKIP = {".git", "node_modules", ".venv", "venv", "vendor", "target", "dist", "build",
         ".next", ".cache", "Library", ".Trash"}
 CI_PATHS = (".github/workflows", ".gitlab-ci.yml", ".circleci", "Jenkinsfile", ".woodpecker.yml")
@@ -39,8 +47,13 @@ class Report:
     def __init__(self):
         self.items = []
 
-    def add(self, level, cid, message, data=None):
-        self.items.append({"id": cid, "level": level, "message": message, "data": data or []})
+    def add(self, level, cid, message, data=None, measure=None, by=None):
+        """One finding. `measure` is what it costs now, in the unit MEASURES gives the id, and
+        `by` is the same cost per target, so a log row about one repository grades against it."""
+        unit = MEASURES.get(cid)
+        self.items.append({"id": cid, "level": level, "message": message, "data": data or [],
+                           "measure": {"value": measure, "unit": unit, "by": by or {}}
+                           if unit and measure is not None else None})
 
     def counts(self):
         c = {}
@@ -109,10 +122,21 @@ def read_repo(repo, now, stale_days, stash_days, timeout):
 
     # Commits that exist on no remote at all. A branch with no upstream still counts here,
     # which is the point: the question is whether the work survives losing this disk.
+    # The source ref of each commit is counted too, because the work is rarely on the checked out
+    # branch, and a count alone sends the reader looking for it by hand. A commit reachable from
+    # several branches is attributed to one of them, so the branch counts sum to the total.
     s["unpushed"] = 0
+    s["unpushed_branches"] = []
     if s["remotes"]:
-        out = git(repo, "log", "--branches", "--not", "--remotes", "--format=%H", timeout=timeout)
-        s["unpushed"] = len([l for l in (out or "").splitlines() if l])
+        out = git(repo, "log", "--branches", "--not", "--remotes", "--source", "--format=%S", timeout=timeout)
+        counted = {}
+        for name in (out or "").splitlines():
+            name = name.strip()
+            if name:
+                counted[name] = counted.get(name, 0) + 1
+        s["unpushed"] = sum(counted.values())
+        s["unpushed_branches"] = [{"branch": b, "commits": n}
+                                  for b, n in sorted(counted.items(), key=lambda x: (-x[1], x[0]))]
 
     s["stashes"] = []
     for line in (git(repo, "stash", "list", "--format=%ct", timeout=timeout) or "").splitlines():
@@ -148,21 +172,35 @@ def read_repo(repo, now, stale_days, stash_days, timeout):
     return s
 
 
+def numeric(value):
+    """A finding's value as a number: a count stays itself, a list becomes its length, a flag one."""
+    if isinstance(value, bool):
+        return 1
+    if isinstance(value, (list, tuple)):
+        return len(value)
+    if isinstance(value, (int, float)):
+        return value
+    return 1
+
+
 def collect(repos, rep, stale_days, expect_email=""):
     """One item per check id, listing the repositories it applies to. Never one item per path."""
-    def group(cid, level, pick, message):
+    def group(cid, level, pick, message, extra=None):
+        """`extra` adds fields a single check needs, such as which branches hold the work."""
         hits = [(s, pick(s)) for s in repos]
         hits = [(s, v) for s, v in hits if v]
         if not hits:
-            rep.add("PASS", cid, f"no repository matches {cid}")
+            rep.add("PASS", cid, f"no repository matches {cid}", measure=0)
             return
         rep.add(level, cid, message(len(hits)),
-                [{"repo": s["path"], "value": v} for s, v in hits])
+                [{"repo": s["path"], "value": v, **(extra(s) if extra else {})} for s, v in hits],
+                measure=len(hits), by={s["path"]: numeric(v) for s, v in hits})
 
     group("git.dirty", "FAIL", lambda s: s["dirty"] or 0,
           lambda n: f"{n} repository(s) hold uncommitted changes")
     group("git.unpushed", "FAIL", lambda s: s["unpushed"] or 0,
-          lambda n: f"{n} repository(s) hold commits that exist on no remote")
+          lambda n: f"{n} repository(s) hold commits that exist on no remote",
+          extra=lambda s: {"branches": s.get("unpushed_branches", [])})
     group("repo.no-remote", "WARN", lambda s: (not s["remotes"]) or None,
           lambda n: f"{n} repository(s) have no remote, so nothing off this disk holds them")
     group("git.no-upstream", "WARN",
@@ -170,7 +208,8 @@ def collect(repos, rep, stale_days, expect_email=""):
           lambda n: f"{n} repository(s) sit on a branch with no upstream")
     group("git.detached", "WARN", lambda s: s["detached"] or None,
           lambda n: f"{n} repository(s) have a detached HEAD")
-    group("git.stash-old", "WARN", lambda s: max(s["stashes"]) if s["stashes"] else 0,
+    # The count, not the age of the oldest: an age grows on its own, so it can never be graded.
+    group("git.stash-old", "WARN", lambda s: len(s["stashes"]),
           lambda n: f"{n} repository(s) carry a stash older than the retention")
     if expect_email:
         group("git.identity", "WARN", lambda s: s["email"] if s["email"] != expect_email else None,
@@ -206,7 +245,12 @@ def text_report(repos, rep):
         out.append(f"- **{i['level']}** `{i['id']}`: {i['message']}")
         for d in i["data"][:5]:
             v = cell(d["value"])
-            out.append(f"    - {d['repo']}" + (f": {v}" if v else ""))
+            line = f"    - {d['repo']}" + (f": {v}" if v else "")
+            names = d.get("branches", [])
+            if names:
+                shown = ", ".join(f"{b['branch']} {b['commits']}" for b in names[:2])
+                line += f" ({shown}" + (f", and {len(names) - 2} more)" if len(names) > 2 else ")")
+            out.append(line)
         if len(i["data"]) > 5:
             out.append(f"    - and {len(i['data']) - 5} more, full list in the JSON")
     if not any(i["level"] != "PASS" for i in rep.items):
@@ -216,7 +260,7 @@ def text_report(repos, rep):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("paths", nargs="+")
+    ap.add_argument("paths", nargs="*")
     ap.add_argument("--depth", type=int, default=3, help="how deep under a path a repository is still found")
     ap.add_argument("--stale-days", type=int, default=90, help="a merged branch older than this is reported")
     ap.add_argument("--stash-days", type=int, default=None, help="a stash older than this is reported")
@@ -225,7 +269,14 @@ def main(argv=None):
     ap.add_argument("--timeout", type=float, default=10, help="seconds for one git call")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--now", type=int, default=None, help="unix seconds, for tests")
+    ap.add_argument("--measures", action="store_true", help="print the unit of every check id")
     a = ap.parse_args(argv)
+    if a.measures:
+        for cid, unit in sorted(MEASURES.items()):
+            print(f"{cid} {unit}")
+        return 0
+    if not a.paths:
+        ap.error("a PATH is required")
     now = a.now if a.now is not None else int(time.time())
     found = find_repos(a.paths, a.depth)
     stash_days = a.stale_days if a.stash_days is None else a.stash_days

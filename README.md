@@ -131,13 +131,16 @@ Where the SEO workspace lives in the site's repository, the DX workspace is a pr
 | Reclaim | `jorekai-dx:machine` | Free space against the floor, cache directories by size, rebuildable dependency and build trees, available memory, and what the container runtime reports as reclaimable; full JSON in `audits/` | "The disk is full" is not a task. A list of trees a manifest rebuilds, ordered by bytes returned per risk taken, is one. |
 | Unblock | `jorekai-dx:github` | Failed runs on default branches, pull requests past the retention, reviews requested from the account, open alerts, unprotected branches; one table per class from subagents, saved as an audit | The only findings whose cost falls on someone else. A review someone waits on outranks a red pipeline nobody is releasing. |
 | Align | `jorekai-dx:agent-config` | Per project: the pointer file, its accuracy, permissions against the standard, hooks whose command exists, servers that answer | A broken hook fails on every tool call in that project, and a pointer that names a moved path costs more than no pointer at all. |
+| Grade | `jorekai-dx:grade` | The verdict for every log row past its verify date: the starting measure, the recomputed one, and `won`, `no-change`, or `returned` written back into the log | A loop that never settles its rows is a list of good intentions. The verdict is arithmetic on two numbers from the same script, so it costs nothing to be honest. |
 | Automate | `jorekai-dx:friction` | Command shapes that repeat, pairs run in order, shapes that fail, retry loops, slowest totals; `proposals/<slug>.md`, never a change to the machine | Two commands that always follow each other are one command that does not exist yet. Every line is redacted before it is counted. |
 
 ### The DX log
 
-`machines/<hostname>/log/2026-W36.md`, one file per week. Every action has an id, the check id that found it, the risk class it ran under, the measure it started from (`Then`), a status (`todo`, `applied`, `verify`, `won`, `no-change`, `returned`, `dropped`), and a verify date. `scaffold.py --due` lists what is due.
+`machines/<hostname>/log/2026-W36.md`, one file per week. Every action has an id, the check id that found it, the risk class it ran under, the measure it started from (`Then`), a status (`todo`, `applied`, `verify`, `won`, `no-change`, `returned`, `dropped`), and a verify date. `scaffold.py --append-row` writes the row from named fields, and `scaffold.py --due` lists what is due.
 
-An action is written down only with a measure the same script can recompute: reclaimed bytes, a count of failing checks, a duration. Anything else goes to `proposals/` instead, so the log never fills with "cleaned up, feels better". `returned` is the interesting verdict: the finding came back inside the verify window, so the fix treated a symptom.
+An action is written down only with a measure the same script can recompute, as one number and one unit: `42 GB`, `12 count`, `600 seconds`. Every measure counts a cost, so lower is better and zero means the finding is gone; free space is logged as the bytes missing from the floor for that reason. Anything without such a measure goes to `proposals/` instead, so the log never fills with "cleaned up, feels better".
+
+`jorekai-dx:grade` settles a due row: it reads the newest audit of the tool that found the check, recomputes the measure for that row's target, and writes `won`, `no-change`, or `returned`. `dropped` stays a human word for an action nobody carried out. `returned` is the interesting verdict: the finding came back inside the verify window, so the fix treated a symptom.
 
 A commit that carries an action out in a project repository ends with the trailer `DX-Log: <row id>`, so the diff and the reason find each other later.
 
@@ -148,17 +151,18 @@ Theme `skills/dx/`. You call user-invoked skills yourself (`/jorekai-dx:<name>` 
 | Skill | Invoked by | Deterministic part |
 |---|---|---|
 | `jorekai-dx:dx` | user | Router: workspace, flows, priority ladder, `references/fixes.md` (check id, fix, class, measure), `references/risk-classes.md`, `references/tools.md`, `references/sources.md` |
-| `jorekai-dx:setup` | user | `scripts/scaffold.py`: create the workspace, `--log` (log path, next id, commit trailer), `--due` (rows past their verify date, with their `Then` value), `--check` (missing files, directories, and sections a template has gained) |
+| `jorekai-dx:setup` | user | `scripts/scaffold.py`: create the workspace, `--log` (log path, next id, commit trailer), `--append-row` (one action row from named fields), `--due` (rows past their verify date, with their `Then` value), `--check` (missing files, directories, and sections a template has gained) |
 | `jorekai-dx:and-now` | user | `scripts/status.py [machine]`: stage and next steps from the workspace files, no machine access and no network |
 | `jorekai-dx:repos` | model | `scripts/repos.py PATH ...`: every local repository in one pass, one item per check id with the full list under `data`, no fetch and no push |
 | `jorekai-dx:machine` | model | `scripts/machine.py [PATH ...]`: volume, memory, caches, rebuildable trees, container storage; measures only, removes nothing |
 | `jorekai-dx:github` | model | no script of its own: one subagent per class, each returning one table with a fixed word limit |
 | `jorekai-dx:agent-config` | model | no script of its own: subagents read at most ten projects each and return one table |
+| `jorekai-dx:grade` | model | `scripts/grade.py [machine] [--write]`: the verdict for every row past its verify date, measured against the newest audit of the tool that found the check |
 | `jorekai-dx:friction` | user | `scripts/friction.py --db F --history F --sessions D`: shapes, sequences, failures, retries, slow totals; redacts every line before counting and prints no command line at all |
 
 ### The check id
 
-Every finding carries a dotted id: `git.dirty`, `disk.cache`, `ci.failing`, `agent.hook-broken`, `friction.retry-prompt`. The id is the join key between a script's output, the log row, and `skills/dx/dx/references/fixes.md`, which gives each one its meaning, its fix, its risk class, and the measure that grades it later. A finding whose id has no measure in that table is a proposal, not an action.
+Every finding carries a dotted id: `git.dirty`, `disk.cache`, `ci.failing`, `agent.hook-broken`, `friction.retry-prompt`. The id is the join key between a script's output, the log row, and `skills/dx/dx/references/fixes.md`, which gives each one its meaning, its fix, its risk class, and the measure that grades it later, with the unit that measure is written in. A finding whose id has no measure in that table is a proposal, not an action.
 
 ### Risk classes
 

@@ -68,6 +68,20 @@ for fixes in $(git ls-files 'skills/*/*/references/fixes.md'); do
              | xargs grep -ohE "\"$ns\.[a-z][a-z-]*\"" 2>/dev/null | tr -d '"' | sort -u)
 done
 
+# Every unit a script measures in is the unit its fixes row names, written as (`unit`) at the end
+# of the measure column. A row graded against a number in another unit is graded against nothing.
+for fixes in $(git ls-files 'skills/*/*/references/fixes.md'); do
+  theme=$(echo "$fixes" | cut -d/ -f2)
+  [[ "$fixes" == "skills/$theme/$theme/references/fixes.md" ]] || continue
+  while IFS= read -r script; do
+    while read -r id unit; do
+      [[ -n "$id" && -n "$unit" ]] || continue
+      row=$(grep -m1 "| \`$id\`" "$fixes")
+      [[ "$row" == *"(\`$unit\`)"* ]] || hit "unit: $script measures $id in $unit, $fixes does not say so"
+    done < <(python3 "$script" --measures 2>/dev/null)
+  done < <(git ls-files "skills/$theme/*/scripts/*.py" | grep -v '/test_')
+done
+
 # Sources older than 180 days are a warning, not a hit: refresh them when touching the skill.
 python3 scripts/sources_age.py --days 180 | sed 's/^/warning: stale source: /' | grep -v ': 0 row' >&2
 
@@ -101,6 +115,8 @@ t python3 skills/dx/repos/scripts/test_repos.py
 t python3 skills/dx/machine/scripts/test_machine.py
 t python3 skills/dx/repos/scripts/repos.py --help
 t python3 skills/dx/machine/scripts/machine.py --help
+t python3 skills/dx/grade/scripts/test_grade.py
+t python3 skills/dx/grade/scripts/grade.py --help
 t python3 skills/dx/friction/scripts/test_friction.py
 t python3 skills/dx/friction/scripts/friction.py --help
 t bash -n skills/seo/connect/templates/wizard.sh

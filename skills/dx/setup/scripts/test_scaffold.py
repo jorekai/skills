@@ -192,5 +192,115 @@ class FlagsTest(unittest.TestCase):
             self.assertNotIn("--expect-email", repos)
 
 
+class AppendRowTest(unittest.TestCase):
+    """A row written by hand is one miscounted column away from being skipped in silence."""
+
+    def build(self, d, verify_days="14"):
+        root = Path(d) / "dx"
+        subprocess.run([sys.executable, SCRIPT, "--root", str(root), "example-machine"],
+                       capture_output=True, text=True, check=True)
+        std = root / "standards.md"
+        std.write_text(std.read_text(encoding="utf-8").replace(
+            "- verify_window_days: (days between an applied action and its verdict)",
+            f"- verify_window_days: {verify_days}"), encoding="utf-8")
+        return root
+
+    def add(self, root, *args):
+        return subprocess.run([sys.executable, SCRIPT, "--root", str(root), "example-machine",
+                               "--append-row", "--today", "2026-09-05", *args],
+                              capture_output=True, text=True)
+
+    def log_text(self, root):
+        return (root / "machines" / "example-machine" / "log" / "2026-W36.md").read_text(encoding="utf-8")
+
+    def row(self, root):
+        return [l for l in self.log_text(root).splitlines() if l.startswith("| 2026-W36-")][0]
+
+    def test_the_cells_land_in_the_order_the_table_header_names(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = self.build(d)
+            got = self.add(root, "--check-id", "disk.cache", "--target", "/tmp/cache",
+                           "--action", "empty the biggest ones", "--class", "safe", "--then", "42 GB")
+            self.assertEqual(got.returncode, 0, got.stderr)
+            self.assertIn("| 2026-W36-01 | disk.cache | /tmp/cache | empty the biggest ones "
+                          "| safe | 42 GB | todo |  |  |  |", self.log_text(root))
+
+    def test_a_second_row_takes_the_next_id(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = self.build(d)
+            self.add(root, "--check-id", "disk.cache", "--target", "/tmp/a", "--action", "x",
+                     "--class", "safe", "--then", "1 GB")
+            got = self.add(root, "--check-id", "disk.cache", "--target", "/tmp/b", "--action", "y",
+                           "--class", "safe", "--then", "2 GB")
+            self.assertIn("id: 2026-W36-02", got.stdout)
+
+    def test_applied_sets_the_date_and_the_verify_date_from_the_standard(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = self.build(d)
+            self.add(root, "--check-id", "disk.cache", "--target", "/tmp/a", "--action", "x",
+                     "--class", "safe", "--then", "1 GB", "--status", "applied")
+            self.assertIn("| applied | 2026-09-05 | 2026-09-19 |", self.row(root))
+
+    def test_an_applied_date_makes_the_row_applied(self):
+        """A date without the status is a row that is never due, so it is never graded."""
+        with tempfile.TemporaryDirectory() as d:
+            root = self.build(d)
+            self.add(root, "--check-id", "disk.cache", "--target", "/tmp/a", "--action", "x",
+                     "--class", "safe", "--then", "1 GB", "--applied", "2026-09-01")
+            self.assertIn("| applied | 2026-09-01 | 2026-09-15 |", self.row(root))
+
+    def test_verify_days_beats_the_standard(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = self.build(d)
+            self.add(root, "--check-id", "disk.cache", "--target", "/tmp/a", "--action", "x",
+                     "--class", "safe", "--then", "1 GB", "--status", "applied", "--verify-days", "3")
+            self.assertIn("2026-09-08", self.row(root))
+
+    def test_an_applied_row_without_a_verify_window_is_refused(self):
+        """A row nobody can grade is worse than no row: it looks like work that was checked."""
+        with tempfile.TemporaryDirectory() as d:
+            root = self.build(d, verify_days="")
+            got = self.add(root, "--check-id", "disk.cache", "--target", "/tmp/a", "--action", "x",
+                           "--class", "safe", "--then", "1 GB", "--status", "applied")
+            self.assertNotEqual(got.returncode, 0)
+            self.assertIn("verify_window_days", got.stderr)
+
+    def test_a_measure_a_script_cannot_recompute_is_refused(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = self.build(d)
+            for bad in ("41 gigs", "a lot", "", "12", "half"):
+                with self.subTest(bad=bad):
+                    got = self.add(root, "--check-id", "disk.cache", "--target", "/tmp/a",
+                                   "--action", "x", "--class", "safe", "--then", bad)
+                    self.assertNotEqual(got.returncode, 0)
+                    self.assertIn("not a measure", got.stderr)
+
+    def test_a_check_id_or_class_outside_the_table_is_refused(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = self.build(d)
+            bad_id = self.add(root, "--check-id", "Disk Cache", "--target", "/tmp/a", "--action", "x",
+                              "--class", "safe", "--then", "1 GB")
+            self.assertIn("not a check id", bad_id.stderr)
+            bad_class = self.add(root, "--check-id", "disk.cache", "--target", "/tmp/a", "--action", "x",
+                                 "--class", "maybe", "--then", "1 GB")
+            self.assertIn("not a risk class", bad_class.stderr)
+
+    def test_an_action_without_a_sentence_is_refused(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = self.build(d)
+            got = self.add(root, "--check-id", "disk.cache", "--target", "/tmp/a", "--action", "",
+                           "--class", "safe", "--then", "1 GB")
+            self.assertNotEqual(got.returncode, 0)
+
+    def test_a_pipe_and_a_line_break_stay_inside_the_cell(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = self.build(d)
+            self.add(root, "--check-id", "friction.slow-command", "--target", "build | test",
+                     "--action", "write one\ncommand", "--class", "safe", "--then", "600 seconds")
+            row = self.row(root)
+            self.assertIn("build \\| test", row)
+            self.assertEqual(row.count(" | "), 9)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

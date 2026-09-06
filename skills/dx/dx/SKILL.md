@@ -23,11 +23,13 @@ The workspace sits outside every project because its subject is the machine, not
 3. `jorekai-dx:machine`: free space, memory, caches, container storage.
 4. `jorekai-dx:agent-config`: what a session finds when it opens each project.
 
-**Weekly**, ten minutes: `jorekai-dx:and-now` reads the workspace and names the stage, at most three open items, and the next dated event. Each item that gets done leaves a log row with a verify date.
+**Weekly**, ten minutes: `jorekai-dx:and-now` reads the workspace and names the stage, at most three open items, and the next dated event. Each item that gets done leaves a log row with a verify date, and `jorekai-dx:grade` settles the rows whose date has come.
 
 **Monthly**: `jorekai-dx:friction` over the last quarter of command history, then at most three proposals. `jorekai-dx:github` for what is waiting on other people.
 
 **The disk is full, or the machine crawls**: `jorekai-dx:machine` first for the numbers, then `jorekai-dx:repos` before removing anything inside a repository.
+
+**A verify date has come**: `jorekai-dx:grade`. It recomputes each due row's measure from the newest audit of the tool that found it and writes the verdict. A row it cannot grade says what is missing, usually a pass that has to run again.
 
 **Something is red, or a review is waiting**: `jorekai-dx:github`.
 
@@ -44,6 +46,7 @@ The workspace sits outside every project because its subject is the machine, not
 | What is red, stuck, or waiting on a review across the repositories? | `jorekai-dx:github` | agent or you |
 | Does a session find its way in every project? | `jorekai-dx:agent-config` | agent or you |
 | What does my command history say costs the most time? | `jorekai-dx:friction` | you |
+| Did the fix hold, and what do the due rows say? | `jorekai-dx:grade` | agent or you |
 
 ## Priority ladder
 
@@ -59,6 +62,7 @@ Each rung depends on the one before it. A finding on a lower rung waits.
 ## Principles
 
 - A change is logged only with a measure the same script can recompute later. Reclaimed bytes, a count of failing checks, a duration. Without one it is a proposal, not an action.
+- Every measure counts a cost, written as one number and one unit, so lower is better and zero means the finding is gone. Free space is logged as the bytes missing from the floor for that reason. A measure that drifts on its own, such as an age, is the wrong measure.
 - Every destructive action carries a class, and the class decides the flow, not the judgment of the moment. See [references/risk-classes.md](references/risk-classes.md).
 - Findings are facts, fixes are decisions. A script reports what is, a person or the model decides what happens.
 - The same finding gets one row, not one row per affected path.

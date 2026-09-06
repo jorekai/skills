@@ -20,7 +20,7 @@ This skill needs the network and an authenticated command line for the forge; bo
 3. **Rank by what blocks other people, then by age.** A review someone is waiting on outranks a red pipeline on a repository nobody is releasing. An open alert on a repository with a remote that others pull outranks both. Look each id up in [../dx/references/fixes.md](../dx/references/fixes.md).
    Done when the answer is at most five rows and every row names the next action and its owner.
 
-4. **Write the findings as an audit and log only what was done.** Save the tables as `audits/YYYY-MM-DD-github.json` in the same shape the other passes use: `tool`, `target`, `counts`, and `items` with a check id, a level, a message, and the list under `data`. Then one log row per check id that was acted on, with the count as the measure.
+4. **Write the findings as an audit and log only what was done.** Save the tables as `audits/YYYY-MM-DD-github.json` in the same shape the other passes use: `tool`, `target`, `counts`, and `items` with a check id, a level, a message, the list under `data`, and a `measure` block of `value`, `unit`, and `by`. Without that block a row about a forge finding cannot be graded later. Then one log row per check id that was acted on, written with `scaffold.py --append-row`, with the count as the measure.
    Done when the JSON parses and `jorekai-dx:and-now` reports its counts.
 
 The check ids this skill produces are `ci.failing`, `pr.review-requested`, `pr.stale`, `alert.open`, and `branch.unprotected`. Each has a row in [../dx/references/fixes.md](../dx/references/fixes.md).

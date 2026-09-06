@@ -4,6 +4,7 @@
 Usage:
   friction.py [--history FILE ...] [--db FILE ...] [--sessions DIR ...]
               [--days N] [--min-count N] [--slow-seconds N] [--examples N] [--json]
+  friction.py --measures                  the unit every check id is measured in
 
 Every command line is redacted before it is counted and again before it is printed, so a token,
 a credential flag, an address, or a home path never reaches the output. Commands are grouped by
@@ -24,6 +25,13 @@ from pathlib import Path
 
 LEVEL_ORDER = {"FAIL": 0, "WARN": 1, "INFO": 2, "PASS": 3}
 HOME = str(Path.home())
+# The unit of every check id this script measures. A measure counts what the finding costs, so
+# lower is better and zero means the check no longer fires (decisions/0014). The cost of a shape
+# is its runs, its failures, or the seconds it spends, never the number of shapes reported.
+# `--measures` prints this table and scripts/check.sh compares it to the theme's fixes.md.
+MEASURES = {"friction.repeat-command": "count", "friction.failed-command": "count",
+            "friction.slow-command": "seconds", "friction.repeat-sequence": "count",
+            "friction.retry-prompt": "count", "friction.agent-sessions": "count"}
 
 # Applied in this order to every command line before it is counted or printed. The list is
 # deliberately wide: a false redaction costs a less readable example, a missed one costs a secret.
@@ -171,8 +179,13 @@ class Report:
     def __init__(self):
         self.items = []
 
-    def add(self, level, cid, message, data=None):
-        self.items.append({"id": cid, "level": level, "message": message, "data": data or []})
+    def add(self, level, cid, message, data=None, measure=None, by=None):
+        """One finding. `measure` is what it costs now, in the unit MEASURES gives the id, and
+        `by` is the same cost per shape, so a log row about one shape grades against that shape."""
+        unit = MEASURES.get(cid)
+        self.items.append({"id": cid, "level": level, "message": message, "data": data or [],
+                           "measure": {"value": measure, "unit": unit, "by": by or {}}
+                           if unit and measure is not None else None})
 
     def counts(self):
         c = {}
@@ -207,9 +220,10 @@ def analyse(entries, rep, min_count, slow_seconds, examples):
                 for s, n in shapes.most_common(15) if n >= min_count]
     if repeated:
         rep.add("INFO", "friction.repeat-command",
-                f"{len(repeated)} command shape(s) run at least {min_count} times", repeated)
+                f"{len(repeated)} command shape(s) run at least {min_count} times", repeated,
+                measure=sum(r["count"] for r in repeated), by={r["shape"]: r["count"] for r in repeated})
     else:
-        rep.add("PASS", "friction.repeat-command", f"no command shape reaches {min_count} runs")
+        rep.add("PASS", "friction.repeat-command", f"no command shape reaches {min_count} runs", measure=0)
 
     failing = [{"shape": s, "failures": n, "runs": shapes[s],
                 "rate": round(100 * n / shapes[s]),
@@ -217,18 +231,21 @@ def analyse(entries, rep, min_count, slow_seconds, examples):
                for s, n in failures.most_common(10) if n >= min_count]
     if failing:
         rep.add("WARN", "friction.failed-command",
-                f"{len(failing)} command shape(s) fail at least {min_count} times", failing)
+                f"{len(failing)} command shape(s) fail at least {min_count} times", failing,
+                measure=sum(f["failures"] for f in failing), by={f["shape"]: f["failures"] for f in failing})
     else:
-        rep.add("PASS", "friction.failed-command", "no command shape fails often enough to measure")
+        rep.add("PASS", "friction.failed-command", "no command shape fails often enough to measure", measure=0)
 
     slow = [{"shape": s, "total_seconds": n, "runs": shapes[s],
              "average_seconds": round(n / shapes[s], 1)}
             for s, n in seconds.most_common(10) if n >= slow_seconds]
     if slow:
         rep.add("INFO", "friction.slow-command",
-                f"{len(slow)} command shape(s) cost more than {slow_seconds} seconds in total", slow)
+                f"{len(slow)} command shape(s) cost more than {slow_seconds} seconds in total", slow,
+                measure=round(sum(x["total_seconds"] for x in slow), 1),
+                by={x["shape"]: round(x["total_seconds"], 1) for x in slow})
     else:
-        rep.add("PASS", "friction.slow-command", "no command shape passes the time threshold")
+        rep.add("PASS", "friction.slow-command", "no command shape passes the time threshold", measure=0)
 
     sequences(entries, rep, min_count)
     retries(entries, rep, min_count)
@@ -253,9 +270,11 @@ def sequences(entries, rep, min_count):
     data = [{"first": a, "then": b, "count": n} for (a, b), n in pairs.most_common(10) if n >= min_count]
     if data:
         rep.add("INFO", "friction.repeat-sequence",
-                f"{len(data)} pair(s) of commands run one after the other at least {min_count} times", data)
+                f"{len(data)} pair(s) of commands run one after the other at least {min_count} times", data,
+                measure=sum(d["count"] for d in data),
+                by={f"{d['first']} then {d['then']}": d["count"] for d in data})
     else:
-        rep.add("PASS", "friction.repeat-sequence", f"no command pair repeats {min_count} times")
+        rep.add("PASS", "friction.repeat-sequence", f"no command pair repeats {min_count} times", measure=0)
 
 
 def retries(entries, rep, min_count, window=180):
@@ -274,9 +293,10 @@ def retries(entries, rep, min_count, window=180):
     data = [{"shape": s, "count": n} for s, n in counted.most_common(10) if n >= min_count]
     if data:
         rep.add("WARN", "friction.retry-prompt",
-                f"{len(data)} command shape(s) get run again within minutes of failing", data)
+                f"{len(data)} command shape(s) get run again within minutes of failing", data,
+                measure=sum(d["count"] for d in data), by={d["shape"]: d["count"] for d in data})
     else:
-        rep.add("PASS", "friction.retry-prompt", "no command shape shows a retry loop")
+        rep.add("PASS", "friction.retry-prompt", "no command shape shows a retry loop", measure=0)
 
 
 def text_report(rep, total, sources):
@@ -315,7 +335,12 @@ def main(argv=None):
     ap.add_argument("--examples", type=int, default=2, help="redacted example lines per finding, 0 for none")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--now", type=int, default=None, help="unix seconds, for tests")
+    ap.add_argument("--measures", action="store_true", help="print the unit of every check id")
     a = ap.parse_args(argv)
+    if a.measures:
+        for cid, unit in sorted(MEASURES.items()):
+            print(f"{cid} {unit}")
+        return 0
     now = a.now if a.now is not None else int(time.time())
     cutoff = now - a.days * 86400
 
@@ -340,7 +365,8 @@ def main(argv=None):
         per_project, newest = read_sessions(a.sessions)
         data = [{"project": p, "sessions": n} for p, n in per_project.most_common(10)]
         rep.add("INFO", "friction.agent-sessions",
-                f"{sum(per_project.values())} agent session(s) across {len(per_project)} project(s)", data)
+                f"{sum(per_project.values())} agent session(s) across {len(per_project)} project(s)", data,
+                measure=sum(per_project.values()), by={d["project"]: d["sessions"] for d in data})
 
     if a.json:
         print(json.dumps({"tool": "friction", "target": sources, "window_days": a.days,

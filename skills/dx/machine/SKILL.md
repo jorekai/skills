@@ -27,8 +27,15 @@ Nothing is removed by this skill's measurement. What may follow is decided by th
 3. **Act by class.** `safe` runs and reports what came back. `confirm` shows the exact paths and the total first, asks once, then runs. `ask` prints the command and stops. A rebuildable tree inside a repository is removed only when that repository is clean and pushed, which `jorekai-dx:repos` answers.
    Done when every removal names the class it ran under and the bytes it returned.
 
-4. **Log the measure, then re-measure at the verify date.** One row per check id with the free figure or the reclaimed bytes as `Then`. The same command recomputes it later, which is what makes the row gradeable.
-   Done when each row carries a number the script produces, not an estimate.
+4. **Log the measure, then re-measure at the verify date.** One row per check id, written by the scaffold, with the finding's own measure as `Then`:
+
+   ```bash
+   python3 ../setup/scripts/scaffold.py --root <workspace> --append-row --check-id <id> \
+     --target <path> --action "<what happened>" --class <class> --then "<number> GB" --status applied
+   ```
+
+   The number comes from the finding's `measure` block: the path's own entry under `by`, or `value` for the whole machine. Free space is measured as the bytes missing from the floor, so a row that reaches zero says the floor is met.
+   Done when each row carries a number the script produces, not an estimate, and a verify date.
 
 ## Interpretation
 

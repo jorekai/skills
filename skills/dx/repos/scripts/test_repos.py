@@ -199,7 +199,7 @@ class CollectTest(unittest.TestCase):
         s = {"path": "/x/app", "name": "app", "branch": "main", "detached": False, "dirty": 0,
              "remotes": ["origin"], "upstream": "origin/main", "unpushed": 0, "stashes": [],
              "stale_branches": [], "default_branch": "main", "readme": True, "ignore": True,
-             "ci": True, "lock_drift": [], "email": ""}
+             "ci": True, "lock_drift": [], "email": "", "unpushed_branches": []}
         s.update(over)
         return s
 
@@ -219,6 +219,13 @@ class CollectTest(unittest.TestCase):
         self.assertEqual(got["git.dirty"]["level"], "FAIL")
         self.assertEqual(got["git.unpushed"]["level"], "FAIL")
         self.assertEqual(got["repo.no-readme"]["level"], "INFO")
+
+    def test_unpushed_names_the_branches_that_hold_the_work(self):
+        """The work is rarely on the checked out branch, and a count alone hides where it is."""
+        state = self.base(unpushed=13, unpushed_branches=[{"branch": "feat/a", "commits": 10},
+                                                          {"branch": "feat/b", "commits": 3}])
+        got = self.items([state])
+        self.assertEqual(got["git.unpushed"]["data"][0]["branches"][0]["branch"], "feat/a")
 
     def test_a_repository_without_a_remote_is_flagged_once(self):
         got = self.items([self.base(remotes=[], upstream=None)])

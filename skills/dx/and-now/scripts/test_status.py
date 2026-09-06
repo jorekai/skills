@@ -115,7 +115,8 @@ class StageTest(unittest.TestCase):
             w.rows(ROW.format(id="2026-W36-01", check="disk.cache", target="~/x", action="cleared",
                               cls="safe", then="41", st="applied", applied="2026-09-02", after="2026-09-16"))
             _, now, then = w.decide()
-            self.assertEqual(then, ["2026-09-16: first verify date reached, grade the row it belongs to"])
+            self.assertEqual(then, ["2026-09-16: first verify date reached, "
+                                    "`jorekai-dx:grade` settles the row it belongs to"])
             self.assertFalse(any("past their verify date" in i for i in now))
 
     def test_an_open_row_and_a_proposal_are_both_listed(self):

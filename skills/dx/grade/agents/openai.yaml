@@ -1,0 +1,3 @@
+interface:
+  display_name: "DX grade"
+  short_description: "Verdicts for log rows past their verify date"

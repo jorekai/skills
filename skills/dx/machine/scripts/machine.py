@@ -4,6 +4,7 @@
 Usage:
   machine.py [PATH ...] [--min-free-gb N] [--large-gb N] [--reclaim-gb N]
              [--runtime NAME] [--json]
+  machine.py --measures                   the unit every check id is measured in
 
 `scaffold.py --flags` in the setup skill prints these arguments from the workspace standards.
 
@@ -25,6 +26,15 @@ from pathlib import Path
 
 LEVEL_ORDER = {"FAIL": 0, "WARN": 1, "INFO": 2, "PASS": 3}
 GB = 1024 ** 3
+# Available memory under this percentage is a finding, and the measure is the distance to it.
+MEM_FLOOR = 15
+# The unit of every check id this script measures. A measure counts what the finding costs, so
+# lower is better and zero means the check no longer fires (decisions/0014). Two checks read
+# naturally as a benefit and are inverted here: free space becomes bytes short of the floor,
+# available memory becomes percentage points below it. `--measures` prints this table and
+# scripts/check.sh compares it to the unit named in the theme's fixes.md.
+MEASURES = {"disk.low": "bytes", "disk.cache": "bytes", "disk.large-dir": "bytes",
+            "mem.pressure": "percent", "container.reclaimable": "bytes"}
 # Trees a package manager or a build rebuilds from a manifest that is already in the repository.
 REBUILDABLE = {"node_modules", ".venv", "venv", "target", "build", "dist", ".next", ".nuxt",
                ".turbo", ".gradle", "__pycache__", ".pytest_cache", ".mypy_cache"}
@@ -42,8 +52,13 @@ class Report:
     def __init__(self):
         self.items = []
 
-    def add(self, level, cid, message, data=None):
-        self.items.append({"id": cid, "level": level, "message": message, "data": data or []})
+    def add(self, level, cid, message, data=None, measure=None, by=None):
+        """One finding. `measure` is what it costs now, in the unit MEASURES gives the id, and
+        `by` is the same cost per target, so a log row about one path grades against that path."""
+        unit = MEASURES.get(cid)
+        self.items.append({"id": cid, "level": level, "message": message, "data": data or [],
+                           "measure": {"value": measure, "unit": unit, "by": by or {}}
+                           if unit and measure is not None else None})
 
     def counts(self):
         c = {}
@@ -92,12 +107,16 @@ def volume(path, rep, min_free_gb):
         rep.add("INFO", "disk.low", f"free space on {path} is not readable")
         return None
     free_gb = usage.free / GB
-    data = [{"path": str(path), "free": usage.free, "total": usage.total,
+    # The measure is the distance to the floor, not the free space: zero means the check passes.
+    short = max(0, int(min_free_gb * GB) - usage.free)
+    data = [{"path": str(path), "free": usage.free, "total": usage.total, "short_of_floor": short,
              "used_percent": round(100 * usage.used / usage.total, 1) if usage.total else None}]
     if free_gb < min_free_gb:
-        rep.add("FAIL", "disk.low", f"{human(usage.free)} free on {path}, below the floor of {min_free_gb} GB", data)
+        rep.add("FAIL", "disk.low", f"{human(usage.free)} free on {path}, below the floor of {min_free_gb} GB",
+                data, measure=short, by={str(path): short})
     else:
-        rep.add("PASS", "disk.low", f"{human(usage.free)} free on {path}", data)
+        rep.add("PASS", "disk.low", f"{human(usage.free)} free on {path}", data,
+                measure=0, by={str(path): 0})
     return usage
 
 
@@ -109,12 +128,15 @@ def caches(rep, min_gb):
             found.append({"path": str(p), "size": dir_size(p)})
     total = sum(f["size"] for f in found)
     found.sort(key=lambda f: -f["size"])
+    by = {f["path"]: f["size"] for f in found}
     if not found:
-        rep.add("PASS", "disk.cache", "no known cache directory exists here")
+        rep.add("PASS", "disk.cache", "no known cache directory exists here", measure=0)
     elif total >= min_gb * GB:
-        rep.add("WARN", "disk.cache", f"{human(total)} in {len(found)} cache directory(s), all refilled on next use", found)
+        rep.add("WARN", "disk.cache", f"{human(total)} in {len(found)} cache directory(s), all refilled on next use",
+                found, measure=total, by=by)
     else:
-        rep.add("INFO", "disk.cache", f"{human(total)} in {len(found)} cache directory(s)", found)
+        rep.add("INFO", "disk.cache", f"{human(total)} in {len(found)} cache directory(s)", found,
+                measure=total, by=by)
 
 
 def large_dirs(paths, rep, large_gb):
@@ -142,9 +164,10 @@ def large_dirs(paths, rep, large_gb):
         return
     if hits:
         rep.add("WARN", "disk.large-dir",
-                f"{human(sum(h['size'] for h in hits))} in {len(hits)} rebuildable tree(s) over {large_gb} GB", hits)
+                f"{human(sum(h['size'] for h in hits))} in {len(hits)} rebuildable tree(s) over {large_gb} GB",
+                hits, measure=sum(h["size"] for h in hits), by={h["path"]: h["size"] for h in hits})
     else:
-        rep.add("PASS", "disk.large-dir", f"no rebuildable tree over {large_gb} GB")
+        rep.add("PASS", "disk.large-dir", f"no rebuildable tree over {large_gb} GB", measure=0)
 
 
 def memory(rep):
@@ -178,11 +201,14 @@ def memory(rep):
         rep.add("INFO", "mem.pressure", "memory is not measurable on this system")
         return
     percent = round(100 * avail / total, 1)
-    data = [{"total": total, "available": avail, "available_percent": percent}]
-    if percent < 15:
-        rep.add("WARN", "mem.pressure", f"{percent}% of memory is available ({human(avail)} of {human(total)})", data)
+    # As with free space, the measure is the distance to the floor, so zero means the check passes.
+    short = round(max(0.0, MEM_FLOOR - percent), 1)
+    data = [{"total": total, "available": avail, "available_percent": percent, "short_of_floor": short}]
+    if percent < MEM_FLOOR:
+        rep.add("WARN", "mem.pressure", f"{percent}% of memory is available ({human(avail)} of {human(total)})",
+                data, measure=short)
     else:
-        rep.add("PASS", "mem.pressure", f"{percent}% of memory is available", data)
+        rep.add("PASS", "mem.pressure", f"{percent}% of memory is available", data, measure=0)
 
 
 def containers(rep, reclaim_gb, named=""):
@@ -221,8 +247,15 @@ def containers(rep, reclaim_gb, named=""):
         return
     got = " · ".join(f"{d['type']} {d['reclaimable']}" for d in data if d.get("reclaimable"))
     big = any(_gb(d.get("reclaimable")) >= reclaim_gb for d in data)
+    by = {str(d["type"]): _bytes(d.get("reclaimable")) for d in data}
     rep.add("WARN" if big else "INFO", "container.reclaimable",
-            f"{runtime} reports reclaimable storage: {got or 'none'}", data)
+            f"{runtime} reports reclaimable storage: {got or 'none'}", data,
+            measure=sum(by.values()), by=by)
+
+
+def _bytes(text):
+    """A size string as whole bytes. The runtime prints "12.3GB (40%)", the log needs a number."""
+    return int(_gb(text) * GB)
 
 
 def _gb(text):
@@ -263,7 +296,12 @@ def main(argv=None):
     ap.add_argument("--runtime", default="", metavar="NAME",
                     help="the container runtime on this machine; without it the known ones are tried")
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--measures", action="store_true", help="print the unit of every check id")
     a = ap.parse_args(argv)
+    if a.measures:
+        for cid, unit in sorted(MEASURES.items()):
+            print(f"{cid} {unit}")
+        return 0
     rep = Report()
     volume(Path(a.paths[0]).expanduser() if a.paths else Path.home(), rep, a.min_free_gb)
     memory(rep)

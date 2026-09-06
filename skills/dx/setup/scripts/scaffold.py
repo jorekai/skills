@@ -6,6 +6,9 @@ Usage:
   scaffold.py [--root ~/dx] --check         list missing files, directories and template sections
   scaffold.py [--root ~/dx] --log           print this week's log path (created if missing), the next action id, and its commit trailer
   scaffold.py [--root ~/dx] --due           print actions whose verify-after date has passed
+  scaffold.py [--root ~/dx] --append-row --check-id ID --target T --action A --class C
+                              --then "N unit" [--status applied]
+                                            add one action row to this week's log and print its id
 
 MACHINE defaults to this machine's host name. Stdlib only.
 Exit code 1 only when --check finds something missing.
@@ -22,6 +25,15 @@ ROOT_FILES = {"config.md": "config.md", "standards.md": "standards.md"}
 MACHINE_FILES = {"config.md": "machine-config.md"}
 DIRS = ["audits", "log", "proposals"]
 ID_RE = re.compile(r"\b(\d{4}-W\d{2})-(\d{2})\b")
+CHECK_RE = re.compile(r"[a-z]+\.[a-z][a-z-]*")
+CLASSES = ("safe", "confirm", "ask")
+# The closed set of units a measure may carry, with what one of them is worth in the base unit of
+# its family. A measure counts what a finding costs, so lower is better and zero means the check no
+# longer fires. Duplicated in grade/scripts/grade.py on purpose: each skill stays standalone.
+UNITS = {"B": ("bytes", 1), "KB": ("bytes", 1024), "MB": ("bytes", 1024 ** 2),
+         "GB": ("bytes", 1024 ** 3), "TB": ("bytes", 1024 ** 4), "bytes": ("bytes", 1),
+         "count": ("count", 1), "percent": ("percent", 1), "seconds": ("seconds", 1)}
+MEASURE_RE = re.compile(r"^\s*(-?\d+(?:\.\d+)?)\s*([A-Za-z]+)\s*$")
 KEY_RE = re.compile(r"^-\s*([A-Za-z_]+):\s*(.*)$")
 # Host names, lower case, dots allowed for a fully qualified name. Every folder below is named
 # after this value, so "..", "." and a name with a separator in it never become a path segment.
@@ -218,7 +230,8 @@ def week_bounds(day):
     return f"{year}-W{week:02d}", start, start + dt.timedelta(days=6)
 
 
-def log(root, machine, today):
+def week_log(root, machine, today):
+    """This week's log file, created from the template when it does not exist yet."""
     week, start, end = week_bounds(today)
     logdir = root / "machines" / machine / "log"
     logdir.mkdir(parents=True, exist_ok=True)
@@ -226,13 +239,97 @@ def log(root, machine, today):
     if not p.exists():
         p.write_text(render("log-week.md", WEEK=week, START=start.isoformat(),
                             END=end.isoformat(), MACHINE=machine), encoding="utf-8")
+    return p, week
+
+
+def next_id(logdir, week):
+    """The next free action id in this week, read from every log file so none is reused."""
     used = [int(n) for f in logdir.glob("*.md")
             for w, n in ID_RE.findall(f.read_text(encoding="utf-8")) if w == week]
-    nid = f"{week}-{(max(used) + 1) if used else 1:02d}"
+    return f"{week}-{(max(used) + 1) if used else 1:02d}"
+
+
+def log(root, machine, today):
+    p, week = week_log(root, machine, today)
+    nid = next_id(p.parent, week)
     print(f"log: {p}")
     print(f"next id: {nid}")
     # The commit that carries out the action ends with this line, so `git log --grep` finds it later.
     print(f"commit trailer: DX-Log: {nid}")
+
+
+def parse_measure(text):
+    """`40 GB` as (40.0, "GB"); None when the number or the unit is not one a script recomputes.
+
+    Duplicated in grade/scripts/grade.py on purpose: each skill stays standalone."""
+    m = MEASURE_RE.match(text or "")
+    if not m or m.group(2) not in UNITS:
+        return None
+    return float(m.group(1)), m.group(2)
+
+
+def escape(text):
+    """One table cell: a pipe inside it is escaped, and a line break would end the row."""
+    return " ".join(str(text).split()).replace("|", "\\|")
+
+
+def insert_row(text, heading, cells):
+    """Add one row at the end of the first table under `heading`, in that table's column order."""
+    lines = text.splitlines()
+    try:
+        start = next(i for i, l in enumerate(lines) if l.strip() == heading)
+    except StopIteration:
+        sys.exit(f"no section {heading} in the log file")
+    head = next((i for i in range(start + 1, len(lines)) if lines[i].strip().startswith("|")), None)
+    if head is None:
+        sys.exit(f"no table under {heading} in the log file")
+    columns = [c.strip().lower() for c in split_cells(lines[head])]
+    unknown = [k for k in cells if k not in columns]
+    if unknown:
+        sys.exit(f"the table under {heading} has no column(s): {', '.join(unknown)}")
+    end = head
+    while end + 1 < len(lines) and lines[end + 1].strip().startswith("|"):
+        end += 1
+    row = "| " + " | ".join(escape(cells.get(c, "")) for c in columns) + " |"
+    lines.insert(end + 1, row)
+    return "\n".join(lines) + "\n", row
+
+
+def append_row(root, machine, today, a):
+    """Write one action row. Every field is named, so a miscounted column cannot happen."""
+    if not CHECK_RE.fullmatch(a.check_id or ""):
+        sys.exit(f"not a check id: {a.check_id!r}")
+    if a.klass not in CLASSES:
+        sys.exit(f"not a risk class: {a.klass!r}, one of {', '.join(CLASSES)}")
+    measure = parse_measure(a.then)
+    if not measure:
+        sys.exit(f"not a measure: {a.then!r}. A number and one of {', '.join(sorted(UNITS))}")
+    if not a.action:
+        sys.exit("an action needs a sentence saying what happens")
+    # A date without the status is a row nobody grades, so the date decides the status.
+    status = "applied" if a.applied else a.status
+    applied = a.applied or (today.isoformat() if status == "applied" else "")
+    verify = ""
+    if applied:
+        days = a.verify_days if a.verify_days is not None else \
+            (int(value(root / "standards.md", "verify_window_days") or 0) or None)
+        if not days:
+            sys.exit("no verify window: set verify_window_days in standards.md or pass --verify-days")
+        verify = (dt.date.fromisoformat(applied) + dt.timedelta(days=days)).isoformat()
+    p, week = week_log(root, machine, today)
+    nid = next_id(p.parent, week)
+    value_, unit = measure
+    text, row = insert_row(p.read_text(encoding="utf-8"), "## Actions",
+                           {"id": nid, "check": a.check_id, "target": a.target, "action": a.action,
+                            "class": a.klass, "then": f"{value_:g} {unit}", "status": status,
+                            "applied": applied, "verify after": verify})
+    p.write_text(text, encoding="utf-8")
+    print(f"log: {p}")
+    print(f"id: {nid}")
+    print(row)
+    print(f"commit trailer: DX-Log: {nid}")
+    if verify:
+        print(f"verify after: {verify}")
 
 
 def split_cells(line):
@@ -282,6 +379,19 @@ def main():
     ap.add_argument("--log", action="store_true")
     ap.add_argument("--due", action="store_true")
     ap.add_argument("--flags", action="store_true")
+    ap.add_argument("--append-row", action="store_true", help="add one action row to this week's log")
+    ap.add_argument("--check-id", default="", metavar="ID", help="the check id the action closes")
+    ap.add_argument("--target", default="", help="the repository, path, or shape the action is about")
+    ap.add_argument("--action", default="", help="what happens, in one sentence")
+    ap.add_argument("--class", dest="klass", default="", metavar="CLASS",
+                    help="the risk class from the fixes table: " + ", ".join(CLASSES))
+    ap.add_argument("--then", default="", metavar="MEASURE",
+                    help="the measure before the action, a number and a unit: " + ", ".join(sorted(UNITS)))
+    ap.add_argument("--status", default="todo", choices=("todo", "applied"),
+                    help="applied sets today as the applied date and computes the verify date")
+    ap.add_argument("--applied", default="", metavar="YYYY-MM-DD")
+    ap.add_argument("--verify-days", type=int, default=None,
+                    help="days until the verdict; without it standards.md decides")
     ap.add_argument("--today", default=None, help="YYYY-MM-DD, for tests")
     a = ap.parse_args()
     root = Path(a.root).expanduser()
@@ -292,6 +402,10 @@ def main():
     if a.flags:
         for m in names:
             flags(root, m)
+        return
+    if a.append_row:
+        for m in names:
+            append_row(root, m, today, a)
         return
     if a.log or a.due:
         for m in names:

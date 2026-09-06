@@ -29,12 +29,21 @@ Every check is local. Nothing fetches, nothing pushes, nothing is written into a
 3. **Act by class, never by judgment.** `safe` runs and reports. `confirm` shows the exact list and the total first, asks once, then runs. `ask` prints the command and the reason and stops. A repository that holds uncommitted or unpushed work is `ask` for every check, whatever the check's own class says.
    Done when every action taken has a class recorded, and every refused one has a reason.
 
-4. **Log what was done, not what was found.** One row per check id in the current week's log file, with the measure from the JSON as `Then` and a verify date from `verify_window_days`. A finding nobody acted on is not a row.
-   Done when each row names the check id, the class, and a measure the same script recomputes.
+4. **Log what was done, not what was found.** One row per check id, written by the scaffold so no column is miscounted and no measure is prose:
+
+   ```bash
+   python3 ../setup/scripts/scaffold.py --root <workspace> --append-row --check-id <id> \
+     --target <repository> --action "<what happened>" --class <class> --then "<number> count" --status applied
+   ```
+
+   The number comes from the finding's `measure` block in the JSON: the target's own entry under `by` for a row about one repository, `value` for a row about all of them. A finding nobody acted on is not a row.
+   Done when each row names the check id, the class, a measure the same script recomputes, and a verify date.
 
 ## Interpretation
 
 - `git.unpushed` counts commits reachable from no remote, so a branch with no upstream still counts. The question the check asks is whether the work survives losing this disk.
+- The finding names the branches that hold those commits, because the work is rarely on the checked out branch. A repository can be level with its upstream and still hold months of work on a branch beside it.
+- The count is read from the remote refs on this disk, because nothing fetches. Fetch once before pushing: a push can be rejected by a remote that moved, and then the number was a lower bound.
 - A repository with no remote reports `repo.no-remote` and no unpushed count. Counting every commit there would drown the repositories that do have a remote and are behind it.
 - `git.stale-branch` uses reachability from the default branch, so a branch listed there is contained in it and deleting the branch loses no commit. Rebased or squashed work is not reachable and is not listed, which is the safe direction to be wrong in.
 - `repo.lock-drift` compares modification times. It is a fast test, not a proof: touching a manifest without changing a dependency produces the same signal.
