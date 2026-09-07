@@ -239,7 +239,7 @@ def collect(repos, rep, stale_days, expect_email=""):
           lambda n: f"{plural(n, 'repository', 'repositories')} with commits that exist on no remote",
           extra=lambda s: {"branches": s.get("unpushed_branches", [])})
     group("repo.no-remote", "WARN", lambda s: (not s["remotes"]) or None,
-          lambda n: f"{plural(n, 'repository', 'repositories')} without a remote, so nothing off this disk holds them")
+          lambda n: f"{plural(n, 'repository', 'repositories')} without a remote, so nothing off this disk holds that work")
     group("git.no-upstream", "WARN",
           lambda s: (not s["upstream"] and not s["detached"] and s["remotes"] and s["branch"]) or None,
           lambda n: f"{plural(n, 'repository', 'repositories')} on a branch with no upstream")
@@ -260,7 +260,7 @@ def collect(repos, rep, stale_days, expect_email=""):
     group("repo.no-ignore", "INFO", lambda s: (not s["ignore"]) or None,
           lambda n: f"{plural(n, 'repository', 'repositories')} without an ignore file")
     group("repo.no-ci", "INFO", lambda s: (not s["ci"]) or None,
-          lambda n: f"{plural(n, 'repository', 'repositories')} that run no checks on push")
+          lambda n: f"{plural(n, 'repository', 'repositories')} that {verb(n, 'run')} no checks on push")
 
 
 def cell(value):
@@ -270,6 +270,11 @@ def cell(value):
     if isinstance(value, (list, tuple)):
         return ", ".join(str(x) for x in value)
     return str(value)
+
+
+def verb(n, form, one=None):
+    """The verb that agrees with a count. English inverts the s: one row waits, two rows wait."""
+    return (one or form + "s") if n == 1 else form
 
 
 def plural(n, one, many=None):

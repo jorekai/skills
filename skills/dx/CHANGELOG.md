@@ -2,6 +2,10 @@
 
 One entry per `jorekai-dx` version. The version at the top equals `version` in `skills/dx/.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 2.1.1 (2026-09-07)
+
+- Fixed: a count and the verb after it disagreed in seven report lines, so a single finding read "1 week file sit at the old flat log path" and "1 need a person". Where the sentence carried a pronoun for the counted thing it was rewritten instead, because "moves them" and "holds them" have no singular that reads well.
+
 ## 2.1.0 (2026-09-07)
 
 - Added: `grade.py --namespaces` prints which tool owns which check id namespace. `scripts/check.sh` compares it to the ids the theme's fixes table names, so a namespace that no tool grades cannot reach the log unnoticed.

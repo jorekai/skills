@@ -251,7 +251,7 @@ class ReportShapeTest(unittest.TestCase):
         self.assertIn("grade  test-machine  2026-09-16", self.report())
 
     def test_the_counting_line_separates_settled_rows_from_the_rest(self):
-        self.assertIn("1 of 2 rows due can be settled, 1 need a person", self.report())
+        self.assertIn("1 of 2 rows due can be settled, 1 needs a person", self.report())
 
     def test_a_verdict_is_printed_with_the_reason_behind_it(self):
         self.assertIn("verdict won: the cost fell or reached zero", self.report())

@@ -109,6 +109,11 @@ def table_rows(text, heading):
     return rows
 
 
+def verb(n, form, one=None):
+    """The verb that agrees with a count. English inverts the s: one row waits, two rows wait."""
+    return (one or form + "s") if n == 1 else form
+
+
 def plural(n, word):
     """"1 day", "2 days"."""
     return f"{n} {word}" if n == 1 else f"{n} {word}s"
@@ -202,18 +207,19 @@ def decide(s, today):
     # A verdict is what makes the log learn, so a row past its verify date outranks everything else.
     if s["due"]:
         ids = ", ".join(r.get("id", "?") for r in s["due"][:3])
-        now.append(f"grade {plural(len(s['due']), 'row')} past their verify date ({ids}): "
+        now.append(f"grade {plural(len(s['due']), 'row')} past the verify date ({ids}): "
                    "`jorekai-dx:grade` recomputes each measure and writes the verdict")
     if s["stray_logs"]:
         names = ", ".join(s["stray_logs"][:3])
-        now.append(f"{plural(len(s['stray_logs']), 'week file')} sit at the old flat log path "
-                   f"({names}): `jorekai-dx:setup` with `--migrate-log` moves them into log/dx/, "
-                   "until then no reader here sees their rows")
+        now.append(f"{plural(len(s['stray_logs']), 'week file')} "
+                   f"{verb(len(s['stray_logs']), 'sit')} at the old flat log path "
+                   f"({names}): `jorekai-dx:setup` with `--migrate-log` moves what it finds into "
+                   "log/dx/, and until then no reader here sees those rows")
     orphan = unsettled(s["rows"])
     if orphan:
         ids = sorted({r["check"] for r in orphan})
         where = ", ".join(sorted({r["_file"] for r in orphan})[:2])
-        now.append(f"{plural(len(orphan), 'log row')} name a check id no tool measures "
+        now.append(f"{plural(len(orphan), 'log row')} {verb(len(orphan), 'name')} a check id no tool measures "
                    f"({', '.join(ids[:3])} in {where}): correct the id or drop the row, "
                    "because nothing recomputes its measure at the verify date")
     audits = s["audits"]

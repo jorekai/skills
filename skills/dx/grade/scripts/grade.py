@@ -280,6 +280,11 @@ VERDICT_WORD = {"won": "the cost fell or reached zero",
                 "returned": "the cost rose past the tolerance"}
 
 
+def verb(n, form, one=None):
+    """The verb that agrees with a count. English inverts the s: one row waits, two rows wait."""
+    return (one or form + "s") if n == 1 else form
+
+
 def plural(n, one, many=None):
     """A count and its word, so a report never prints "1 row(s)"."""
     return f"{n} {one if n == 1 else (many or one + 's')}"
@@ -300,8 +305,9 @@ def report(machine, graded, today):
     if not graded:
         return "\n".join(out + ["", "nothing due, no log row has reached its verify date"])
     settled = [g for g in graded if g["verdict"]]
+    rest = len(graded) - len(settled)
     out.append(f"{len(settled)} of {plural(len(graded), 'row')} due can be settled, "
-               f"{len(graded) - len(settled)} need a person")
+               f"{rest} {verb(rest, 'need')} a person")
     for g in graded:
         out += ["", f"{g['id']}  {g['check']} on {short(g['target']) if g['target'] else 'this machine'}"]
         if g["verdict"]:

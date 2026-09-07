@@ -293,7 +293,7 @@ def retries(entries, rep, min_count, window=180):
     data = [{"shape": s, "count": n} for s, n in counted.most_common(10) if n >= min_count]
     if data:
         rep.add("WARN", "friction.retry-prompt",
-                f"{plural(len(data), 'command shape')} run again within minutes of failing", data,
+                f"{plural(len(data), 'command shape')} {verb(len(data), 'run')} again within minutes of failing", data,
                 measure=sum(d["count"] for d in data), by={d["shape"]: d["count"] for d in data})
     else:
         rep.add("PASS", "friction.retry-prompt", "no command shape shows a retry loop", measure=0)
@@ -314,6 +314,11 @@ def clock(seconds):
     if seconds < 5400:
         return f"{round(seconds / 60)} minutes"
     return f"{round(seconds / 3600)} hours"
+
+
+def verb(n, form, one=None):
+    """The verb that agrees with a count. English inverts the s: one row waits, two rows wait."""
+    return (one or form + "s") if n == 1 else form
 
 
 def plural(n, one, many=None):

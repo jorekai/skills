@@ -103,7 +103,7 @@ class StageTest(unittest.TestCase):
             w.rows(ROW.format(id="2026-W36-01", check="disk.cache", target="~/x", action="cleared",
                               cls="safe", then="41", st="applied", applied="2026-08-20", after="2026-09-03"))
             _, now, _ = w.decide()
-            self.assertIn("past their verify date", now[0])
+            self.assertIn("past the verify date", now[0])
             self.assertIn("`git.dirty` still fails", now[1])
 
     def test_a_future_verify_date_becomes_the_then_line(self):
@@ -117,7 +117,7 @@ class StageTest(unittest.TestCase):
             _, now, then = w.decide()
             self.assertEqual(then, ["2026-09-16: first verify date reached, "
                                     "`jorekai-dx:grade` settles the row it belongs to"])
-            self.assertFalse(any("past their verify date" in i for i in now))
+            self.assertFalse(any("past the verify date" in i for i in now))
 
     def test_an_open_row_and_a_proposal_are_both_listed(self):
         with tempfile.TemporaryDirectory() as d:
