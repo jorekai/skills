@@ -21,6 +21,7 @@ prints title, meta description, H1, og:title, dateModified as a table, then the 
 
 Stdlib only. Exit code 1 when any URL could not be fetched.
 """
+import os
 import argparse
 import json
 import re
@@ -44,6 +45,29 @@ NUMBER_RE = re.compile(r"(?:ab\s+)?\d[\d.,]*\s?(?:€|EUR|%|\$)", re.I)
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         return None
+
+
+# Colour is a hint on a report that reads the same without it (decisions/0022). It is off unless
+# the output is a terminal, so a pipe, a redirect and a captured test all read plain text.
+# NO_COLOR turns it off everywhere, FORCE_COLOR turns it on, which is how a test proves both.
+PAINT = {"FAIL": "1;31", "WARN": "33", "PASS": "32", "INFO": "36", "head": "1", "id": "1",
+         "dim": "2"}
+
+
+def colour_on(stream=sys.stdout):
+    if os.environ.get("NO_COLOR"):
+        return False
+    if os.environ.get("FORCE_COLOR"):
+        return True
+    return stream.isatty() and os.environ.get("TERM", "") != "dumb"
+
+
+COLOUR = colour_on()
+
+
+def paint(text, key):
+    """`text` in the colour its role carries. Every escape removed leaves the same report."""
+    return f"\033[{PAINT[key]}m{text}\033[0m" if COLOUR and key in PAINT else text
 
 
 _OPENER = urllib.request.build_opener(_NoRedirect)
@@ -202,9 +226,9 @@ def inspect(url, query=None):
 
 
 def render(o):
-    lines = [f"## {o['url']}"]
+    lines = [paint(f"## {o['url']}", "head")]
     if o.get("error") or not o.get("status"):
-        lines.append(f"fetch failed: {o.get('error') or 'no body'}")
+        lines.append(paint(f"fetch failed: {o.get('error') or 'no body'}", "FAIL"))
         return "\n".join(lines) + "\n"
     if o["final_url"] != o["url"]:
         lines.append(f"redirected to {o['final_url']} ({o['status']})")

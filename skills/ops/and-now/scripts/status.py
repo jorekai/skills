@@ -9,11 +9,35 @@ workspace files, the newest audit per tool under audits/, the log tables under l
 proposals/. Never touches a host and never the network.
 Stdlib only. Exit code 2 when the workspace or a named host folder does not exist.
 """
+import os
 import argparse
 import datetime as dt
 import re
 import sys
 from pathlib import Path
+
+# Colour is a hint on a report that reads the same without it (decisions/0022). It is off unless
+# the output is a terminal, so a pipe, a redirect and a captured test all read plain text.
+# NO_COLOR turns it off everywhere, FORCE_COLOR turns it on, which is how a test proves both.
+PAINT = {"FAIL": "1;31", "WARN": "33", "PASS": "32", "INFO": "36", "head": "1", "id": "1",
+         "dim": "2"}
+
+
+def colour_on(stream=sys.stdout):
+    if os.environ.get("NO_COLOR"):
+        return False
+    if os.environ.get("FORCE_COLOR"):
+        return True
+    return stream.isatty() and os.environ.get("TERM", "") != "dumb"
+
+
+COLOUR = colour_on()
+
+
+def paint(text, key):
+    """`text` in the colour its role carries. Every escape removed leaves the same report."""
+    return f"\033[{PAINT[key]}m{text}\033[0m" if COLOUR and key in PAINT else text
+
 
 THEME = "ops"
 DATE_RE = re.compile(r"(\d{4}-\d{2}-\d{2})")
@@ -263,7 +287,7 @@ def decide(s, today):
 
 def report(s, today):
     """The console report: what the workspace holds, then the stage and the next steps."""
-    out = [f"and-now  {s['host']}  {today.isoformat()}", "",
+    out = [paint(f"and-now  {s['host']}  {today.isoformat()}", "head"), "",
            "setup      access " + (s["access"] or "MISSING")
            + " · plane " + (s["control_plane"] or "UNDETECTED")
            + " · profile " + (s["profile"] or "UNCHOSEN")]
@@ -286,10 +310,10 @@ def report(s, today):
                + (f" · next verify {s['next_verify'].isoformat()}" if s["next_verify"] else ""))
     out.append(f"proposals  {', '.join(s['proposals']) or 'none'}")
     stage, now, then = decide(s, today)
-    out += ["", f"stage  {stage}", "", "now"]
+    out += ["", f"{paint('stage', 'head')}  {stage}", "", paint("now", "head")]
     out += [f"  {i}. {short_paths(step)}" for i, step in enumerate(now, 1)]
     if then:
-        out += ["", "then"] + [f"  - {short_paths(t)}" for t in then]
+        out += ["", paint("then", "head")] + [f"  - {short_paths(t)}" for t in then]
     return "\n".join(out)
 
 

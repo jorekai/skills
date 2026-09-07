@@ -15,6 +15,7 @@ Rules for every file in this repository and for every agent or person who edits 
 - Filler and marketing: delve, leverage, seamless, robust, crucial, game-changer, unlock, "in today's", "it's worth noting", "here's the thing", "let that sink in", and their relatives. Say the fact.
 - Hedging without content ("might possibly", "it could be argued"). Either the claim has a source, or it is labelled a heuristic, or it goes.
 - Emoji, decorative tables, headers as decoration. A table holds data with at least two columns of it.
+- Colour that carries information. A console report is coloured by the role a word already has, never instead of a word, and only when the output is a terminal (`decisions/0022`).
 - Praise of the reader or the tool. No "great question", no "powerful".
 - Claims about how a platform, product, or Google feature behaves without a row in that theme's `references/sources.md`, beside its router (URL and check date, verified against the primary source). Unverified means labelled as a heuristic or left out.
 

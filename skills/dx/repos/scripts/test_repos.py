@@ -5,6 +5,7 @@ Run: python3 skills/dx/repos/scripts/test_repos.py
 Builds throwaway repositories in a temp folder; no network, no remote, no fetch.
 """
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -14,6 +15,8 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import repos  # noqa: E402
+
+SCRIPT = os.path.abspath(repos.__file__)
 
 ENV = dict(os.environ, GIT_AUTHOR_NAME="Test", GIT_AUTHOR_EMAIL="test@example.com",
            GIT_COMMITTER_NAME="Test", GIT_COMMITTER_EMAIL="test@example.com",
@@ -338,6 +341,36 @@ class ReportTest(unittest.TestCase):
                 [{"repo": "/x/one", "value": 2}], measure=1, by={"/x/one": 2})
         text = repos.text_report([{"path": "/x/one"}], rep, ["/x"], "stashes over 30 days")
         self.assertIn("2 stash entries", text)
+
+
+class ColourTest(unittest.TestCase):
+    """Colour is a hint on a report that reads the same without it (decisions/0022)."""
+
+    def run_report(self, root, env=None):
+        e = dict(os.environ)
+        e.pop("FORCE_COLOR", None)
+        e.pop("NO_COLOR", None)
+        e.update(env or {})
+        return subprocess.run([sys.executable, SCRIPT, str(root)], capture_output=True,
+                              text=True, env=e).stdout
+
+    def test_a_pipe_reads_plain_text(self):
+        """Nothing here runs on a terminal: a redirect, a test and a subagent see no escape."""
+        with tempfile.TemporaryDirectory() as d:
+            self.assertNotIn("\033", self.run_report(Path(d)))
+
+    def test_no_colour_wins_over_force_colour(self):
+        with tempfile.TemporaryDirectory() as d:
+            out = self.run_report(Path(d), {"FORCE_COLOR": "1", "NO_COLOR": "1"})
+            self.assertNotIn("\033", out)
+
+    def test_every_escape_removed_leaves_the_same_report(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            plain = self.run_report(root)
+            painted = self.run_report(root, {"FORCE_COLOR": "1"})
+            self.assertIn("\033", painted)
+            self.assertEqual(re.sub(r"\033\[[0-9;]*m", "", painted), plain)
 
 
 if __name__ == "__main__":

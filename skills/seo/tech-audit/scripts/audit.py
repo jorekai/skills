@@ -21,6 +21,7 @@ itself the finding. Redirects are followed only to http:// and https:// targets.
 
 Exit code 0 always; findings are in the report, not the exit status.
 """
+import os
 import argparse
 import csv
 import json
@@ -891,6 +892,29 @@ def crawl(start_final, limit, rep, timeout, delay, urls_in_sitemap, rp=None):
 
 # --------------------------------------------------------------------------- main
 
+# Colour is a hint on a report that reads the same without it (decisions/0022). It is off unless
+# the output is a terminal, so a pipe, a redirect and a captured test all read plain text.
+# NO_COLOR turns it off everywhere, FORCE_COLOR turns it on, which is how a test proves both.
+PAINT = {"FAIL": "1;31", "WARN": "33", "PASS": "32", "INFO": "36", "head": "1", "id": "1",
+         "dim": "2"}
+
+
+def colour_on(stream=sys.stdout):
+    if os.environ.get("NO_COLOR"):
+        return False
+    if os.environ.get("FORCE_COLOR"):
+        return True
+    return stream.isatty() and os.environ.get("TERM", "") != "dumb"
+
+
+COLOUR = colour_on()
+
+
+def paint(text, key):
+    """`text` in the colour its role carries. Every escape removed leaves the same report."""
+    return f"\033[{PAINT[key]}m{text}\033[0m" if COLOUR and key in PAINT else text
+
+
 LEVEL_ORDER = {"FAIL": 0, "WARN": 1, "INFO": 2, "PASS": 3}
 
 
@@ -936,16 +960,18 @@ def check_rendered(path, raw, final, rep, section="Page"):
 
 def render(rep, url):
     c = rep.counts()
-    out = [f"# Tech SEO audit: {url}", "",
-           f"FAIL {c.get('FAIL', 0)} · WARN {c.get('WARN', 0)} · INFO {c.get('INFO', 0)} · PASS {c.get('PASS', 0)}", ""]
+    counts = " · ".join(f"{paint(level, level)} {c.get(level, 0)}"
+                        for level in ("FAIL", "WARN", "INFO", "PASS"))
+    out = [paint(f"# Tech SEO audit: {url}", "head"), "", counts, ""]
     for section in ("Page", "Site", "Crawl"):
         items = [i for i in rep.items if i["section"] == section]
         if not items:
             continue
-        out.append(f"## {section}")
+        out.append(paint(f"## {section}", "head"))
         out.append("")
         for i in sorted(items, key=lambda x: LEVEL_ORDER[x["level"]]):
-            out.append(f"- **{i['level']}** `{i['id']}`: {i['message']}")
+            level = paint(f"**{i['level']}**", i["level"])
+            out.append(f"- {level} `{paint(i['id'], 'id')}`: {i['message']}")
         out.append("")
     return "\n".join(out)
 

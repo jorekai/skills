@@ -34,6 +34,29 @@ import zipfile
 # position 1 about 27 % overall and 11 % when an AI Overview shows. Ahrefs, 300,000 keywords,
 # desktop GSC data, Dec 2025: position 1 at 7.3 % without and 1.6 % with an AI Overview.
 # Pass --expected-ctr-1 to scale the curve to the site's own top queries.
+# Colour is a hint on a report that reads the same without it (decisions/0022). It is off unless
+# the output is a terminal, so a pipe, a redirect and a captured test all read plain text.
+# NO_COLOR turns it off everywhere, FORCE_COLOR turns it on, which is how a test proves both.
+PAINT = {"FAIL": "1;31", "WARN": "33", "PASS": "32", "INFO": "36", "head": "1", "id": "1",
+         "dim": "2"}
+
+
+def colour_on(stream=sys.stdout):
+    if os.environ.get("NO_COLOR"):
+        return False
+    if os.environ.get("FORCE_COLOR"):
+        return True
+    return stream.isatty() and os.environ.get("TERM", "") != "dumb"
+
+
+COLOUR = colour_on()
+
+
+def paint(text, key):
+    """`text` in the colour its role carries. Every escape removed leaves the same report."""
+    return f"\033[{PAINT[key]}m{text}\033[0m" if COLOUR and key in PAINT else text
+
+
 EXPECTED_CTR = {1: .28, 2: .15, 3: .11, 4: .08, 5: .07, 6: .05, 7: .04, 8: .03, 9: .03, 10: .025}
 
 # A median over a handful of rows is noise, not a baseline. The same holds for the suggestion.
@@ -293,7 +316,7 @@ def table(headers, rows):
 
 
 def render(res, a):
-    o = ["# GSC opportunities", ""]
+    o = [paint("# GSC opportunities", "head"), ""]
     o.append(f"Thresholds: impressions ≥ {a.min_impressions}, striking distance = position {a.pos_min}–{a.pos_max}. "
              f"Queries: {res['n_queries']}, pages: {res['n_pages']}.")
     if res.get("brand"):

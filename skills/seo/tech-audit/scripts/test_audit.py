@@ -5,12 +5,16 @@ Run: python3 skills/seo/tech-audit/scripts/test_audit.py
 No network: fetch() is replaced by a fake site.
 """
 import os
+import re
+import subprocess
 import sys
 import tempfile
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import audit  # noqa: E402
+
+SCRIPT = os.path.abspath(audit.__file__)
 
 HOST = "https://example.com"
 
@@ -445,6 +449,31 @@ class RedirectMap(unittest.TestCase):
     def test_a_file_without_urls_is_the_finding(self):
         ids = self.run_map("old,new\nnot a url,also not\n")
         self.assertEqual(ids["redirects.map"]["level"], "FAIL")
+
+
+class ColourTest(unittest.TestCase):
+    """Colour is a hint on a report that reads the same without it (decisions/0022)."""
+
+    def report(self):
+        rep = audit.Report()
+        rep.add("Page", "FAIL", "title.missing", "no title")
+        rep.add("Site", "WARN", "sitemap.stale", "lastmod is old")
+        return rep
+
+    def test_a_pipe_reads_plain_text(self):
+        out = subprocess.run([sys.executable, SCRIPT, "--help"], capture_output=True,
+                             text=True).stdout
+        self.assertNotIn("\033", out)
+
+    def test_every_escape_removed_leaves_the_same_report(self):
+        rep = self.report()
+        audit.COLOUR = False
+        plain = audit.render(rep, "https://example.com")
+        audit.COLOUR = True
+        painted = audit.render(rep, "https://example.com")
+        audit.COLOUR = audit.colour_on()
+        self.assertIn("\033", painted)
+        self.assertEqual(re.sub(r"\033\[[0-9;]*m", "", painted), plain)
 
 
 if __name__ == "__main__":

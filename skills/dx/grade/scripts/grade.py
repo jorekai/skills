@@ -14,12 +14,40 @@ Reads the workspace only: the log tables and the newest audit per tool under aud
 measures the machine itself, so a stale audit is reported instead of guessed at.
 Stdlib only. Exit code 2 when the workspace or a named machine folder does not exist.
 """
+import os
 import argparse
 import datetime as dt
 import json
 import re
 import sys
 from pathlib import Path
+
+# Colour is a hint on a report that reads the same without it (decisions/0022). It is off unless
+# the output is a terminal, so a pipe, a redirect and a captured test all read plain text.
+# NO_COLOR turns it off everywhere, FORCE_COLOR turns it on, which is how a test proves both.
+PAINT = {"FAIL": "1;31", "WARN": "33", "PASS": "32", "INFO": "36", "head": "1", "id": "1",
+         "dim": "2"}
+
+
+def colour_on(stream=sys.stdout):
+    if os.environ.get("NO_COLOR"):
+        return False
+    if os.environ.get("FORCE_COLOR"):
+        return True
+    return stream.isatty() and os.environ.get("TERM", "") != "dumb"
+
+
+COLOUR = colour_on()
+
+
+def paint(text, key):
+    """`text` in the colour its role carries. Every escape removed leaves the same report."""
+    return f"\033[{PAINT[key]}m{text}\033[0m" if COLOUR and key in PAINT else text
+
+
+# A verdict is coloured by what it says about the cost, not by being a verdict.
+VERDICT_PAINT = {"won": "PASS", "no-change": "WARN", "returned": "FAIL"}
+
 
 DATE_RE = re.compile(r"(\d{4}-\d{2}-\d{2})")
 ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}$")
@@ -301,7 +329,7 @@ def short(path):
 
 def report(machine, graded, today):
     """The console report: one block per row due, the verdict first, the reason under it."""
-    out = [f"grade  {machine}  {today.isoformat()}"]
+    out = [paint(f"grade  {machine}  {today.isoformat()}", "head")]
     if not graded:
         return "\n".join(out + ["", "nothing due, no log row has reached its verify date"])
     settled = [g for g in graded if g["verdict"]]
@@ -309,18 +337,20 @@ def report(machine, graded, today):
     out.append(f"{len(settled)} of {plural(len(graded), 'row')} due can be settled, "
                f"{rest} {verb(rest, 'need')} a person")
     for g in graded:
-        out += ["", f"{g['id']}  {g['check']} on {short(g['target']) if g['target'] else 'this machine'}"]
+        where = short(g["target"]) if g["target"] else "this machine"
+        out += ["", f"{paint(g['id'], 'id')}  {g['check']} on {where}"]
         if g["verdict"]:
-            out.append(f"      then {g['then']}, now {g['now']}, verdict {g['verdict']}: "
+            verdict = paint(g["verdict"], VERDICT_PAINT.get(g["verdict"], "dim"))
+            out.append(f"      then {g['then']}, now {g['now']}, verdict {verdict}: "
                        f"{VERDICT_WORD.get(g['verdict'], '')}")
         else:
-            out.append(f"      then {g['then']}, no verdict yet")
+            out.append(f"      then {g['then']}, {paint('no verdict yet', 'INFO')}")
         if g["note"]:
-            out.append(f"      {g['note']}")
+            out.append(paint(f"      {g['note']}", "dim"))
         if g["audit"]:
-            out.append(f"      measured again from {g['audit']}")
+            out.append(paint(f"      measured again from {g['audit']}", "dim"))
     if settled:
-        out += ["", "next  run the same command with --write to put these verdicts in the log"]
+        out += ["", paint("next", "head") + "  run the same command with --write to put these verdicts in the log"]
     return "\n".join(out)
 
 

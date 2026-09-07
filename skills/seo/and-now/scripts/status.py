@@ -8,12 +8,36 @@ No argument: every domain folder under --root. Reads config, connections, strate
 the newest audits/*.json, the log tables, exports/, briefs/, drafts/. Never touches the network.
 Stdlib only. Exit code 2 when the root or a named domain folder does not exist.
 """
+import os
 import argparse
 import datetime as dt
 import json
 import re
 import sys
 from pathlib import Path
+
+# Colour is a hint on a report that reads the same without it (decisions/0022). It is off unless
+# the output is a terminal, so a pipe, a redirect and a captured test all read plain text.
+# NO_COLOR turns it off everywhere, FORCE_COLOR turns it on, which is how a test proves both.
+PAINT = {"FAIL": "1;31", "WARN": "33", "PASS": "32", "INFO": "36", "head": "1", "id": "1",
+         "dim": "2"}
+
+
+def colour_on(stream=sys.stdout):
+    if os.environ.get("NO_COLOR"):
+        return False
+    if os.environ.get("FORCE_COLOR"):
+        return True
+    return stream.isatty() and os.environ.get("TERM", "") != "dumb"
+
+
+COLOUR = colour_on()
+
+
+def paint(text, key):
+    """`text` in the colour its role carries. Every escape removed leaves the same report."""
+    return f"\033[{PAINT[key]}m{text}\033[0m" if COLOUR and key in PAINT else text
+
 
 DATE_RE = re.compile(r"(\d{4}-\d{2}-\d{2})")
 ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}$")
@@ -227,13 +251,14 @@ def decide(s, today):
 
 def report(s, today):
     c = s["connections"]
-    out = [f"# {s['domain']}, {today.isoformat()} ({week_of(today)})", ""]
+    out = [paint(f"# {s['domain']}, {today.isoformat()} ({week_of(today)})", "head"), ""]
     out.append("setup        config " + ("filled" if s["config"] else "TEMPLATE")
                + " | connections: " + ", ".join(f"{k.split('_')[0].lower()} {v.split()[0] if v else 'MISSING'}" for k, v in c.items())
                + " | strategy " + ("filled" if s["strategy"] else "TEMPLATE")
                + " | glossary " + ("filled" if s["glossary"] else "TEMPLATE"))
     a = s["audit"]
-    out.append("audit        " + (f"{a['file']}: FAIL {a['fail']}, WARN {a['warn']}" if a else "none"))
+    out.append("audit        " + (f"{a['file']}: {paint('FAIL', 'FAIL')} {a['fail']}, "
+                                  f"{paint('WARN', 'WARN')} {a['warn']}" if a else "none"))
     by = {}
     for r in s["rows"]:
         by[r.get("status", "?")] = by.get(r.get("status", "?"), 0) + 1
@@ -246,7 +271,7 @@ def report(s, today):
     out.append(f"drafts       {', '.join(s['drafts']) or 'none'}")
     out.append(f"reports      {', '.join(s['reports']) or 'none'}")
     stage, now, then = decide(s, today)
-    out += ["", f"stage: {stage}", "now:"]
+    out += ["", f"{paint('stage', 'head')}: {stage}", paint("now:", "head")]
     out += [f"  {i}. {step}" for i, step in enumerate(now, 1)]
     if then:
         out += ["then:"] + [f"  - {t}" for t in then]

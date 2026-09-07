@@ -2,6 +2,10 @@
 
 One entry per `jorekai-ops` version. The version at the top equals `version` in `skills/ops/.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 0.2.0 (2026-09-07)
+
+- Added: every script that prints a report colours it, and only when the output is a terminal. `NO_COLOR` turns it off, `FORCE_COLOR` turns it on, and removing every escape leaves the same report, so a pipe, a redirect, a captured test and a subagent read what they always read. A level word, a verdict, a check id and a measure carry the colour their role already has; nothing is coloured for its looks. `decisions/0022`.
+
 ## 0.1.0 (2026-09-07)
 
 - Added: the theme itself. A host that serves was already being kept by hand in the machines workspace, under check ids no tool measured and no table explained. `jorekai-ops` gives that work a router, a ladder, a fixes table with a fix per control plane, and three measuring passes.

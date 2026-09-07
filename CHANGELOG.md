@@ -2,6 +2,10 @@
 
 One entry per plugin version. The version at the top equals `version` in `.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 1.10.0 (2026-09-07)
+
+- Added: every script that prints a report colours it, and only when the output is a terminal. `NO_COLOR` turns it off, `FORCE_COLOR` turns it on, and removing every escape leaves the same report, so a pipe, a redirect, a captured test and a subagent read what they always read. A level word, a verdict, a check id and a measure carry the colour their role already has; nothing is coloured for its looks. `decisions/0022`.
+
 ## 1.9.1 (2026-09-04)
 
 - Fixed: `status.py` no longer returns early when the connect wizard or the grill has not run. Unfinished setup is an item in the `now` list and the stage comes from the whole folder, so open `tech` rows, rows due for a verdict, drafts and the missing monthly report stay visible. `decisions/0010` records the rule.

@@ -16,12 +16,36 @@ theme (decisions/0015). This theme writes machines/<host>/log/ops/ and nothing e
 HOST defaults to this machine's host name. Stdlib only.
 Exit code 1 only when --check finds something missing.
 """
+import os
 import argparse
 import datetime as dt
 import platform
 import re
 import sys
 from pathlib import Path
+
+# Colour is a hint on a report that reads the same without it (decisions/0022). It is off unless
+# the output is a terminal, so a pipe, a redirect and a captured test all read plain text.
+# NO_COLOR turns it off everywhere, FORCE_COLOR turns it on, which is how a test proves both.
+PAINT = {"FAIL": "1;31", "WARN": "33", "PASS": "32", "INFO": "36", "head": "1", "id": "1",
+         "dim": "2"}
+
+
+def colour_on(stream=sys.stdout):
+    if os.environ.get("NO_COLOR"):
+        return False
+    if os.environ.get("FORCE_COLOR"):
+        return True
+    return stream.isatty() and os.environ.get("TERM", "") != "dumb"
+
+
+COLOUR = colour_on()
+
+
+def paint(text, key):
+    """`text` in the colour its role carries. Every escape removed leaves the same report."""
+    return f"\033[{PAINT[key]}m{text}\033[0m" if COLOUR and key in PAINT else text
+
 
 TEMPLATES = Path(__file__).resolve().parent.parent / "templates"
 THEME = "ops"
@@ -74,14 +98,14 @@ def create(root, host):
     for target, tpl in ROOT_FILES.items():
         p = root / target
         if p.exists():
-            print(f"exists  {p}")
+            print(paint("exists", "dim") + f"  {p}")
         else:
             p.write_text(render(tpl), encoding="utf-8")
-            print(f"created {p}")
+            print(paint("created", "PASS") + f" {p}")
     base = root / "machines" / host
     for d in DIRS:
         if not (base / d).is_dir():
-            print(f"created {base / d}/")
+            print(paint("created", "PASS") + f" {base / d}/")
         (base / d).mkdir(parents=True, exist_ok=True)
         keep = base / d / ".gitkeep"
         if not keep.exists():
@@ -89,10 +113,10 @@ def create(root, host):
     for target, tpl in HOST_FILES.items():
         p = base / target
         if p.exists():
-            print(f"exists  {p}")
+            print(paint("exists", "dim") + f"  {p}")
         else:
             p.write_text(render(tpl, HOST=host), encoding="utf-8")
-            print(f"created {p}")
+            print(paint("created", "PASS") + f" {p}")
 
 
 def headings(text):
@@ -131,9 +155,9 @@ def check(root):
             if not (base / d).is_dir():
                 missing.append(base / d)
     for m in missing:
-        print(f"missing {m}")
+        print(paint("missing", "WARN") + f" {m}")
     for f, h in stale:
-        print(f"section missing {f}: {h}")
+        print(paint("section missing", "WARN") + f" {f}: {h}")
     total = len(missing) + len(stale)
     print("ok" if not total else f"{total} missing")
     return 1 if total else 0

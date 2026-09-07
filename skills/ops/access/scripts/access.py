@@ -15,6 +15,7 @@ path, so the whole pass runs against a captured tree in a test.
 
 Stdlib only. Exit code 0 always; findings are in the report, not the exit status.
 """
+import os
 import argparse
 import base64
 import binascii
@@ -23,6 +24,29 @@ import json
 import re
 import sys
 from pathlib import Path
+
+# Colour is a hint on a report that reads the same without it (decisions/0022). It is off unless
+# the output is a terminal, so a pipe, a redirect and a captured test all read plain text.
+# NO_COLOR turns it off everywhere, FORCE_COLOR turns it on, which is how a test proves both.
+PAINT = {"FAIL": "1;31", "WARN": "33", "PASS": "32", "INFO": "36", "head": "1", "id": "1",
+         "dim": "2"}
+
+
+def colour_on(stream=sys.stdout):
+    if os.environ.get("NO_COLOR"):
+        return False
+    if os.environ.get("FORCE_COLOR"):
+        return True
+    return stream.isatty() and os.environ.get("TERM", "") != "dumb"
+
+
+COLOUR = colour_on()
+
+
+def paint(text, key):
+    """`text` in the colour its role carries. Every escape removed leaves the same report."""
+    return f"\033[{PAINT[key]}m{text}\033[0m" if COLOUR and key in PAINT else text
+
 
 LEVEL_ORDER = {"FAIL": 0, "WARN": 1, "INFO": 2, "PASS": 3}
 # The unit of every check id this script measures. A measure counts what the finding costs, so
@@ -345,7 +369,7 @@ def collect(s, rep, a):
             if orphans:
                 rep.add("FAIL", "key.orphan",
                         f"{plural(len(orphans), 'key')} {verb(len(orphans), 'sit')} on an account the standards do not name, "
-                        "so nobody owns the way in they open",
+                        "so nobody owns the way in",
                         data=[key_row(k) for k in orphans], measure=len(orphans),
                         by=count_by([key_row(k) for k in orphans], "target"))
             else:
@@ -494,7 +518,7 @@ def block(rows, indent="      "):
     if not rows:
         return []
     width = min(max(len(name) for name, _ in rows), 46)
-    return [f"{indent}{name.ljust(width)}  {value}" for name, value in rows]
+    return [f"{indent}{paint(name.ljust(width), 'dim')}  {value}" for name, value in rows]
 
 
 def detail(item):
@@ -508,29 +532,30 @@ def text_report(s, rep, target, standards):
     findings = [i for i in ranked if i["level"] in ("FAIL", "WARN")]
     notes = [i for i in ranked if i["level"] == "INFO"]
     passed = [i for i in ranked if i["level"] == "PASS"]
-    out = [f"access  {target}  {plural(len(s['accounts']), 'account')}, "
-           f"{plural(len(s['keys']), 'key')}",
+    out = [paint(f"access  {target}  {plural(len(s['accounts']), 'account')}, "
+                 f"{plural(len(s['keys']), 'key')}", "head"),
            f"measured against  {standards}", "",
            f"{plural(len(findings), 'finding')} to decide on, "
            f"{plural(len(notes), 'note')}, {plural(len(passed), 'check')} passed"]
     for i in findings + notes:
-        head = f"{i['level']:<4}  {i['id']}" if i["level"] != "INFO" else f"note  {i['id']}"
-        out += ["", head + (f"  ({cost(i)})" if i["level"] != "INFO" and cost(i) else ""),
+        tag = paint("note" if i["level"] == "INFO" else f"{i['level']:<4}", i["level"])
+        price = f"  ({cost(i)})" if i["level"] != "INFO" and cost(i) else ""
+        out += ["", f"{tag}  {paint(i['id'], 'id')}" + paint(price, "dim"),
                 f"      {i['message']}"]
         out += block(detail(i))
         if len(i["data"]) > 5:
             out.append(f"      and {len(i['data']) - 5} more, the full list is in the JSON")
     if passed:
-        out += ["", "passed  " + ", ".join(i["id"] for i in passed)]
+        out += ["", paint("passed  " + ", ".join(i["id"] for i in passed), "dim")]
     if any(i["id"] == "access.single-path" for i in findings):
-        out += ["", "next  close `access.single-path` before anything else, because every other fix "
+        out += ["", paint("next", "head") + "  close `access.single-path` before anything else, because every other fix "
                     "here needs a second way in, then look each id up in the fixes table of "
                     "jorekai-ops:ops for the fix per control plane and the risk class"]
     elif findings:
-        out += ["", "next  take the findings in ladder order and look each id up in the fixes table "
+        out += ["", paint("next", "head") + "  take the findings in ladder order and look each id up in the fixes table "
                     "of jorekai-ops:ops for the fix per control plane and the risk class"]
     else:
-        out += ["", "next  nothing to act on, measure again when this audit ages out"]
+        out += ["", paint("next", "head") + "  nothing to act on, measure again when this audit ages out"]
     return "\n".join(out)
 
 

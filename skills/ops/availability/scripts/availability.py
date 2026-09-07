@@ -16,6 +16,7 @@ stopped, or written, and only `code.behind` looks at a repository, locally and w
 
 Stdlib only. Exit code 0 always; findings are in the report, not the exit status.
 """
+import os
 import argparse
 import datetime as dt
 import json
@@ -23,6 +24,29 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+
+# Colour is a hint on a report that reads the same without it (decisions/0022). It is off unless
+# the output is a terminal, so a pipe, a redirect and a captured test all read plain text.
+# NO_COLOR turns it off everywhere, FORCE_COLOR turns it on, which is how a test proves both.
+PAINT = {"FAIL": "1;31", "WARN": "33", "PASS": "32", "INFO": "36", "head": "1", "id": "1",
+         "dim": "2"}
+
+
+def colour_on(stream=sys.stdout):
+    if os.environ.get("NO_COLOR"):
+        return False
+    if os.environ.get("FORCE_COLOR"):
+        return True
+    return stream.isatty() and os.environ.get("TERM", "") != "dumb"
+
+
+COLOUR = colour_on()
+
+
+def paint(text, key):
+    """`text` in the colour its role carries. Every escape removed leaves the same report."""
+    return f"\033[{PAINT[key]}m{text}\033[0m" if COLOUR and key in PAINT else text
+
 
 LEVEL_ORDER = {"FAIL": 0, "WARN": 1, "INFO": 2, "PASS": 3}
 # The unit of every check id this script measures. A measure counts what the finding costs, so
@@ -342,7 +366,7 @@ def block(rows, indent="      "):
     if not rows:
         return []
     width = min(max(len(name) for name, _ in rows), 46)
-    return [f"{indent}{name.ljust(width)}  {value}" for name, value in rows]
+    return [f"{indent}{paint(name.ljust(width), 'dim')}  {value}" for name, value in rows]
 
 
 def detail(item):
@@ -356,25 +380,26 @@ def text_report(services, rep, target, standards):
     findings = [i for i in ranked if i["level"] in ("FAIL", "WARN")]
     notes = [i for i in ranked if i["level"] == "INFO"]
     passed = [i for i in ranked if i["level"] == "PASS"]
-    out = [f"availability  {target}  {plural(len(services), 'service')}",
+    out = [paint(f"availability  {target}  {plural(len(services), 'service')}", "head"),
            f"measured against  {standards}", "",
            f"{plural(len(findings), 'finding')} to decide on, "
            f"{plural(len(notes), 'note')}, {plural(len(passed), 'check')} passed"]
     for i in findings + notes:
-        head = f"{i['level']:<4}  {i['id']}" if i["level"] != "INFO" else f"note  {i['id']}"
-        out += ["", head + (f"  ({cost(i)})" if i["level"] != "INFO" and cost(i) else ""),
+        tag = paint("note" if i["level"] == "INFO" else f"{i['level']:<4}", i["level"])
+        price = f"  ({cost(i)})" if i["level"] != "INFO" and cost(i) else ""
+        out += ["", f"{tag}  {paint(i['id'], 'id')}" + paint(price, "dim"),
                 f"      {i['message']}"]
         out += block(detail(i))
         if len(i["data"]) > 5:
             out.append(f"      and {len(i['data']) - 5} more, the full list is in the JSON")
     if passed:
-        out += ["", "passed  " + ", ".join(i["id"] for i in passed)]
+        out += ["", paint("passed  " + ", ".join(i["id"] for i in passed), "dim")]
     if findings:
-        out += ["", "next  bring back what is down before anything that is only behind, then look "
+        out += ["", paint("next", "head") + "  bring back what is down before anything that is only behind, then look "
                     "each id up in the fixes table of jorekai-ops:ops for the fix per control "
                     "plane and the risk class"]
     else:
-        out += ["", "next  nothing to act on, measure again when this audit ages out"]
+        out += ["", paint("next", "head") + "  nothing to act on, measure again when this audit ages out"]
     return "\n".join(out)
 
 

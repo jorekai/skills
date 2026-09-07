@@ -7,6 +7,7 @@ Builds a captured tree in a temp folder; no network, no ssh, nothing read from t
 import base64
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -265,6 +266,36 @@ class ContractTest(unittest.TestCase):
         self.assertEqual(access.verb(2, "permit"), "permit")
         self.assertEqual(access.verb(1, "are", "is"), "is")
         self.assertEqual(access.verb(0, "are", "is"), "are")
+
+
+class ColourTest(unittest.TestCase):
+    """Colour is a hint on a report that reads the same without it (decisions/0022)."""
+
+    def run_report(self, root, env=None):
+        e = dict(os.environ)
+        e.pop("FORCE_COLOR", None)
+        e.pop("NO_COLOR", None)
+        e.update(env or {})
+        return subprocess.run([sys.executable, SCRIPT, "--root", str(root)], capture_output=True,
+                              text=True, env=e).stdout
+
+    def test_a_pipe_reads_plain_text(self):
+        """Nothing here runs on a terminal: a redirect, a test and a subagent see no escape."""
+        with tempfile.TemporaryDirectory() as d:
+            self.assertNotIn("\033", self.run_report(build(d, sshd="PermitRootLogin yes\n")))
+
+    def test_no_colour_wins_over_force_colour(self):
+        with tempfile.TemporaryDirectory() as d:
+            out = self.run_report(build(d, sshd="PermitRootLogin yes\n"), {"FORCE_COLOR": "1", "NO_COLOR": "1"})
+            self.assertNotIn("\033", out)
+
+    def test_every_escape_removed_leaves_the_same_report(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = build(d, sshd="PermitRootLogin yes\n")
+            plain = self.run_report(root)
+            painted = self.run_report(root, {"FORCE_COLOR": "1"})
+            self.assertIn("\033", painted)
+            self.assertEqual(re.sub(r"\033\[[0-9;]*m", "", painted), plain)
 
 
 if __name__ == "__main__":

@@ -127,6 +127,18 @@ for fixes in $(git ls-files 'skills/*/*/references/fixes.md'); do
   done < <(git ls-files "skills/$theme/*/scripts/*.py" | grep -v '/test_')
 done
 
+# Colour is a hint on a report that reads the same without it (decisions/0022). A script that
+# paints carries the terminal guard, and an escape reaches the output through paint() alone: one
+# written anywhere else would land in a pipe, a file, and every grep in this repository.
+for s in $(git ls-files 'skills/*/*/scripts/*.py' | grep -v '/test_'); do
+  grep -q 'def paint(' "$s" || continue
+  grep -q 'stream.isatty()' "$s" || hit "colour: $s paints without the terminal guard"
+  grep -q 'NO_COLOR' "$s" || hit "colour: $s paints without honouring NO_COLOR"
+done
+while IFS= read -r line; do hit "colour: an escape outside paint(): $line"; done \
+  < <(git ls-files 'skills/*/*/scripts/*' | grep -v '/test_' \
+      | xargs grep -nF '\033[' 2>/dev/null | grep -v 'PAINT\[key\]')
+
 # Sources older than 180 days are a warning, not a hit: refresh them when touching the skill.
 python3 scripts/sources_age.py --days 180 | sed 's/^/warning: stale source: /' | grep -v ': 0 row' >&2
 

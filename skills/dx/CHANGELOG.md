@@ -2,6 +2,10 @@
 
 One entry per `jorekai-dx` version. The version at the top equals `version` in `skills/dx/.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 2.2.0 (2026-09-07)
+
+- Added: every script that prints a report colours it, and only when the output is a terminal. `NO_COLOR` turns it off, `FORCE_COLOR` turns it on, and removing every escape leaves the same report, so a pipe, a redirect, a captured test and a subagent read what they always read. A level word, a verdict, a check id and a measure carry the colour their role already has; nothing is coloured for its looks. `decisions/0022`.
+
 ## 2.1.1 (2026-09-07)
 
 - Fixed: a count and the verb after it disagreed in seven report lines, so a single finding read "1 week file sit at the old flat log path" and "1 need a person". Where the sentence carried a pronoun for the counted thing it was rewritten instead, because "moves them" and "holds them" have no singular that reads well.

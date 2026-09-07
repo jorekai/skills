@@ -73,6 +73,8 @@ Every measuring script prints the same shape without `--json`, so one reading or
 
 The console report is for the decision, the JSON is for the record. Only the JSON is written to `audits/`.
 
+A terminal gets the same report in colour: the level word, the verdict, the check id and the measure carry the colour their role already has. Nothing is coloured that a word does not already say, and a pipe, a redirect and a subagent see plain text. Reason: `decisions/0022`.
+
 ## Principles
 
 - Measuring and changing are different accounts. The pass that measures has no privilege, so it can run as often as anyone likes without widening anything.
