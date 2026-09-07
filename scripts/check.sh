@@ -56,16 +56,20 @@ done < <(git ls-files '*.md' | grep -vE '^(CHANGELOG\.md|decisions/)' | xargs gr
 
 # Every check id a script emits has a row in its theme's fixes table. A finding whose id nobody
 # explains cannot be acted on, and an id that outlives its check is how the table starts lying.
-ns='(git|repo|disk|mem|container|ci|pr|alert|branch|agent|friction)'
 for fixes in $(git ls-files 'skills/*/*/references/fixes.md'); do
   theme=$(echo "$fixes" | cut -d/ -f2)
   # Only the theme's own router table is the contract; a sub-skill may keep fixes of its own.
   [[ "$fixes" == "skills/$theme/$theme/references/fixes.md" ]] || continue
+  # The namespaces come from the table itself, not from a list in this script. A hard-coded list
+  # lets every id of a new namespace escape this gate in silence, which is how the table starts
+  # lying: the check exists to catch an id nobody explains.
+  ns=$(grep -ohE '^\| `[a-z]+\.[a-z][a-z-]*`' "$fixes" | sed 's/.*`\([a-z]*\)\..*/\1/' | sort -u | paste -sd'|' -)
+  [[ -n "$ns" ]] || { hit "fixes: $fixes names no check id, so nothing can be checked against it"; continue; }
   while IFS= read -r id; do
     [[ -n "$id" ]] || continue
     grep -q "| \`$id\`" "$fixes" || hit "fixes: check id $id has no row in $fixes"
   done < <(git ls-files "skills/$theme/*/scripts/*.py" | grep -v '/test_' \
-             | xargs grep -ohE "\"$ns\.[a-z][a-z-]*\"" 2>/dev/null | tr -d '"' | sort -u)
+             | xargs grep -ohE "\"($ns)\.[a-z][a-z-]*\"" 2>/dev/null | tr -d '"' | sort -u)
 done
 
 # Every unit a script measures in is the unit its fixes row names, written as (`unit`) at the end
@@ -119,6 +123,19 @@ t python3 skills/dx/grade/scripts/test_grade.py
 t python3 skills/dx/grade/scripts/grade.py --help
 t python3 skills/dx/friction/scripts/test_friction.py
 t python3 skills/dx/friction/scripts/friction.py --help
+t python3 skills/ops/setup/scripts/test_scaffold.py
+t python3 skills/ops/and-now/scripts/test_status.py
+t python3 skills/ops/access/scripts/test_access.py
+t python3 skills/ops/availability/scripts/test_availability.py
+t python3 skills/ops/setup/scripts/scaffold.py --root "$(mktemp -d)/dx" example-host
+t python3 skills/ops/setup/scripts/scaffold.py --help
+t python3 skills/ops/and-now/scripts/status.py --help
+t python3 skills/ops/access/scripts/access.py --help
+t python3 skills/ops/availability/scripts/availability.py --help
+t python3 skills/ops/grade/scripts/test_grade.py
+t python3 skills/ops/grade/scripts/grade.py --help
+t python3 skills/ops/grade/scripts/grade.py --namespaces
+t bash -n skills/ops/setup/scripts/remote.sh
 t bash -n skills/seo/connect/templates/wizard.sh
 t bash -n skills/seo/connect/scripts/indexnow.sh
 t bash -n scripts/link.sh

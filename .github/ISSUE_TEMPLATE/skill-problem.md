@@ -4,7 +4,7 @@ about: A skill gave a wrong, stale, or unhelpful result
 labels: skill
 ---
 
-**Skill**: `/jorekai-seo:<name>`
+**Skill**: `/jorekai-<theme>:<name>`
 
 **What happened**: the output, quoted, and the input that produced it (no customer data).
 

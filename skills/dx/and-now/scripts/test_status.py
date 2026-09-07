@@ -54,7 +54,7 @@ class Workspace:
     def rows(self, *rows):
         subprocess.run([sys.executable, str(SCAFFOLD), "--root", str(self.root), MACHINE,
                         "--log", "--today", TODAY.isoformat()], capture_output=True, text=True, check=True)
-        p = self.base / "log" / "2026-W36.md"
+        p = self.base / "log" / "dx" / "2026-W36.md"
         p.write_text(p.read_text() + "\n".join(rows) + "\n")
 
     def read(self):
@@ -304,6 +304,24 @@ class CliTest(unittest.TestCase):
             self.assertEqual(r.returncode, 0, r.stdout)
             self.assertIn("stage  ", r.stdout)
             self.assertIn("now\n  1. ", r.stdout)
+
+
+class StrayLogTest(unittest.TestCase):
+    """A week file at the old flat path is invisible to every reader (decisions/0015)."""
+
+    def test_a_flat_week_file_is_named_and_the_fix_is_the_migration(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d) / "dx"
+            base = root / "machines" / "example-machine"
+            (base / "log" / "dx").mkdir(parents=True)
+            (base / "config.md").write_text("- project_roots: ~/code\n", encoding="utf-8")
+            (root / "config.md").write_text("- git_email: a@b.c\n", encoding="utf-8")
+            (root / "standards.md").write_text("- verify_window_days: 14\n", encoding="utf-8")
+            (base / "log" / "2026-W35.md").write_text("# 2026-W35\n", encoding="utf-8")
+            s = status.read_machine(root, "example-machine", dt.date(2026, 9, 7))
+            self.assertEqual(s["stray_logs"], ["2026-W35.md"])
+            text = status.report(s, dt.date(2026, 9, 7))
+            self.assertIn("--migrate-log", text)
 
 
 if __name__ == "__main__":

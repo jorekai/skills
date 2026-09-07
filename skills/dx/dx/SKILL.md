@@ -10,7 +10,7 @@ One loop drives everything: **measure the friction, fix the thing that costs the
 
 ## Workspace
 
-Every skill reads and writes one private repository, `~/dx` in the examples and recorded during setup: `config.md` (what holds across machines), `standards.md` (what good looks like here), and one folder per machine under `machines/<hostname>/` holding `config.md` (project roots, history sources, budgets), `audits/` (one JSON per run), `log/` (every change and its outcome, one file per ISO week), and `proposals/` (what nobody has decided yet). Layout and log format: `README.md` in the workspace, written by `jorekai-dx:setup`.
+Every skill reads and writes one private repository, `~/dx` in the examples and recorded during setup: `config.md` (what holds across machines), `standards.md` (what good looks like here), and one folder per machine under `machines/<hostname>/` holding `config.md` (project roots, history sources, budgets), `audits/` (one JSON per run), `log/dx/` (every change and its outcome, one file per ISO week), and `proposals/` (what nobody has decided yet). Layout and log format: `README.md` in the workspace, written by `jorekai-dx:setup`.
 
 The workspace sits outside every project because its subject is the machine, not one repository. It is private because it names project paths and hostnames. No workspace yet: `jorekai-dx:setup` first.
 

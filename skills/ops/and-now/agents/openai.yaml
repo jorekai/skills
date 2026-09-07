@@ -1,0 +1,5 @@
+interface:
+  display_name: "Ops and now?"
+  short_description: "Stage of the host and the next step"
+policy:
+  allow_implicit_invocation: false

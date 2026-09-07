@@ -2,6 +2,12 @@
 
 One entry per `jorekai-dx` version. The version at the top equals `version` in `skills/dx/.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 2.0.0 (2026-09-07)
+
+- Changed: the week log moved from `machines/<host>/log/` to `machines/<host>/log/dx/`. A second theme measures the same host now, and a flat folder put two appenders into one week file and left every reader deciding whether an unknown check id was its own gap or another theme's business. `decisions/0015` records the rule and the id namespaces each theme owns.
+- Added: `scaffold.py --migrate-log` moves existing week files down one level. It never overwrites: a week that already exists below is left where it is and both files are named, because two files of the same week are two records.
+- Added: `scaffold.py --check` and `jorekai-dx:and-now` report a week file still sitting at the old flat path. Such a file is read by nobody, so it has to be named rather than silently skipped.
+
 ## 1.3.0 (2026-09-05)
 
 - Added: `repo.secret-exposed`, a `FAIL` on the first rung of the ladder: an untracked file whose name says credential and that no ignore rule covers, which is the single state where one `git add` writes a credential into a history. `repo.no-ignore` never caught it, because an ignore file with one line passes that check. It reads names and coverage, never contents, and an ignored or already committed file is a different problem with a different fix.

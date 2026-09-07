@@ -1,0 +1,3 @@
+interface:
+  display_name: "Ops availability"
+  short_description: "Whether the services the standards name run, fire, and are current"

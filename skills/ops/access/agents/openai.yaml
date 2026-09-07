@@ -1,0 +1,3 @@
+interface:
+  display_name: "Ops access"
+  short_description: "Who can reach the host, with which keys and sudo rules"

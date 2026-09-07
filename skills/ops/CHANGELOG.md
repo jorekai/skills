@@ -1,0 +1,15 @@
+# Changelog
+
+One entry per `jorekai-ops` version. The version at the top equals `version` in `skills/ops/.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
+
+## 0.1.0 (2026-09-07)
+
+- Added: the theme itself. A host that serves was already being kept by hand in the machines workspace, under check ids no tool measured and no table explained. `jorekai-ops` gives that work a router, a ladder, a fixes table with a fix per control plane, and three measuring passes.
+- Added: `jorekai-ops:setup` takes a host into the shared workspace, detects what owns its configuration, creates a reading account without privilege and a changing account with named sudo, proves both from a fresh connection, and writes the chosen profile into `standards.md`. The order is the content: the second way in exists before anything hardens the first.
+- Added: `jorekai-ops:access` measures who can reach the host, in eleven checks from `ssh.root-login` to `user.unlisted`. `access.single-path` measures the ways in missing from the bar, which makes "this host has one key and no console" a number that reaches zero instead of a worry. A way in counts only with the date a fresh connection proved it, so `access_paths` carries `name@YYYY-MM-DD` and an undated entry never reaches the check.
+- Added: `jorekai-ops:availability` measures whether the services the standards name run, fire, are hardened, and sit at the commit they should, in nine checks. A failed unit and a stopped one are counted apart, because they need different fixes.
+- Added: `jorekai-ops:grade` settles a log row whose verify date has passed, by recomputing its measure from the newest audit of the tool that found it. Without it the theme would write rows with a measure and a date and have nothing that reads either back. `--namespaces` prints which tool owns which check id namespace, and `scripts/check.sh` compares that to the fixes table in both directions.
+- Added: `jorekai-ops:and-now` reads the workspace alone and names the stage, the open items in ladder order, and the next verify date. A row whose tool has not shipped yet is reported as parked, naming the skill that will measure it, rather than as an id nobody owns.
+- Added: `setup/scripts/remote.sh` sends a measuring script over ssh, runs it as the reading account, removes it, and returns the JSON. `--fetch` reads a report a timer on the host wrote instead, `--probe` says only whether the host answers, and `--dry-run` prints the remote command without running it. Arguments are quoted the POSIX way, because the remote login shell is not always bash.
+- Added: gate 2 in front of every change to access: two independent ways in proved from fresh connections, a backup copy, and a rollback timer that is cancelled only after a new connection succeeds. `decisions/0016`.
+- Added: `safe` is off until a host turns it on. `scaffold.py --append-row` runs a row classed `safe` as `confirm` while `allow_safe` is `no`, and records the class that actually ran. `decisions/0017`.

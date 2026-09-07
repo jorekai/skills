@@ -4,6 +4,7 @@
 Usage:
   scaffold.py [--root ~/dx] [MACHINE ...]   create folders and files; never overwrites
   scaffold.py [--root ~/dx] --check         list missing files, directories and template sections
+  scaffold.py [--root ~/dx] --migrate-log   move week files from log/ down into log/dx/
   scaffold.py [--root ~/dx] --log           print this week's log path (created if missing), the next action id, and its commit trailer
   scaffold.py [--root ~/dx] --due           print actions whose verify-after date has passed
   scaffold.py [--root ~/dx] --append-row --check-id ID --target T --action A --class C
@@ -21,9 +22,12 @@ import sys
 from pathlib import Path
 
 TEMPLATES = Path(__file__).resolve().parent.parent / "templates"
+# One log folder per theme under a shared machine folder (decisions/0015). Two themes measure
+# the same host, and a flat log/ would put two appenders into one week file.
+THEME = "dx"
 ROOT_FILES = {"config.md": "config.md", "standards.md": "standards.md"}
 MACHINE_FILES = {"config.md": "machine-config.md"}
-DIRS = ["audits", "log", "proposals"]
+DIRS = ["audits", f"log/{THEME}", "proposals"]
 ID_RE = re.compile(r"\b(\d{4}-W\d{2})-(\d{2})\b")
 CHECK_RE = re.compile(r"[a-z]+\.[a-z][a-z-]*")
 CLASSES = ("safe", "confirm", "ask")
@@ -139,6 +143,8 @@ def check(root):
         missing.append(root / "machines" / "<hostname>" / "config.md")
     for m in found:
         base = root / "machines" / m
+        for f in stray_logs(root, m):
+            stale.append((f, "at the old flat path, run --migrate-log"))
         for f, tpl in MACHINE_FILES.items():
             p = base / f
             if not p.exists():
@@ -230,10 +236,38 @@ def week_bounds(day):
     return f"{year}-W{week:02d}", start, start + dt.timedelta(days=6)
 
 
+def log_dir(root, machine):
+    """This theme's log folder inside the shared machine folder (decisions/0015)."""
+    return root / "machines" / machine / "log" / THEME
+
+
+def migrate_log(root, machine):
+    """Move week files written under the old flat log/ into log/<theme>/. Never overwrites."""
+    old = root / "machines" / machine / "log"
+    new = log_dir(root, machine)
+    moved = 0
+    for f in sorted(old.glob("*.md")) if old.is_dir() else []:
+        new.mkdir(parents=True, exist_ok=True)
+        target = new / f.name
+        if target.exists():
+            print(f"exists  {target}, left {f} in place")
+            continue
+        f.rename(target)
+        print(f"moved   {f} to {target}")
+        moved += 1
+    print("nothing to move" if not moved else f"{moved} week file(s) moved")
+
+
+def stray_logs(root, machine):
+    """Week files still sitting in the old flat log/. They are invisible to every reader."""
+    old = root / "machines" / machine / "log"
+    return sorted(old.glob("*.md")) if old.is_dir() else []
+
+
 def week_log(root, machine, today):
     """This week's log file, created from the template when it does not exist yet."""
     week, start, end = week_bounds(today)
-    logdir = root / "machines" / machine / "log"
+    logdir = log_dir(root, machine)
     logdir.mkdir(parents=True, exist_ok=True)
     p = logdir / f"{week}.md"
     if not p.exists():
@@ -357,7 +391,7 @@ def table_rows(text, heading):
 
 def due(root, machine, today):
     found = 0
-    for f in sorted((root / "machines" / machine / "log").glob("*.md")):
+    for f in sorted(log_dir(root, machine).glob("*.md")):
         for r in table_rows(f.read_text(encoding="utf-8"), "## Actions"):
             after = r.get("verify after", "")
             if r.get("status", "") in ("applied", "verify") and re.fullmatch(r"\d{4}-\d{2}-\d{2}", after) \
@@ -376,6 +410,8 @@ def main():
     ap.add_argument("machines", nargs="*")
     ap.add_argument("--root", default="~/dx")
     ap.add_argument("--check", action="store_true")
+    ap.add_argument("--migrate-log", action="store_true",
+                    help="move week files from log/ into log/%s/ (decisions/0015)" % THEME)
     ap.add_argument("--log", action="store_true")
     ap.add_argument("--due", action="store_true")
     ap.add_argument("--flags", action="store_true")
@@ -399,6 +435,10 @@ def main():
     if a.check:
         sys.exit(check(root))
     names = [machine_name(m) for m in a.machines] or [machine_name()]
+    if a.migrate_log:
+        for m in names:
+            migrate_log(root, m)
+        return
     if a.flags:
         for m in names:
             flags(root, m)

@@ -20,6 +20,7 @@ DATE_RE = re.compile(r"(\d{4}-\d{2}-\d{2})")
 ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}$")
 KEY_RE = re.compile(r"^-\s*([A-Za-z_]+):\s*(.*)$")
 AUDIT_MAX_AGE = 30          # days; overridden by audit_max_age_days in standards.md
+THEME = "dx"                # this theme's log folder inside the machine folder (decisions/0015)
 KIND_RE = re.compile(r"^\d{4}-\d{2}-\d{2}-(.+)$")
 
 # Which skill produces and fixes a check id, by namespace. Naming the skill is the difference
@@ -156,7 +157,8 @@ def read_machine(root, machine, today):
     s["max_age"] = int(max_age) if max_age.isdigit() else AUDIT_MAX_AGE
 
     rows = []
-    for f in sorted((base / "log").glob("*.md")) if (base / "log").is_dir() else []:
+    logdir = base / "log" / THEME
+    for f in sorted(logdir.glob("*.md")) if logdir.is_dir() else []:
         for r in table_rows(f.read_text(encoding="utf-8"), "## Actions"):
             r["_file"] = f.name
             rows.append(r)
@@ -169,6 +171,9 @@ def read_machine(root, machine, today):
               if r.get("status") in ("applied", "verify") and ISO_DATE.match(r.get("verify after", ""))
               and dt.date.fromisoformat(r["verify after"]) > today]
     s["next_verify"] = min(future) if future else None
+    # A week file left at the old flat path is read by nobody, so it is reported, not merged.
+    s["stray_logs"] = sorted(p.name for p in (base / "log").glob("*.md")) \
+        if (base / "log").is_dir() else []
     s["proposals"] = sorted(p.stem for p in (base / "proposals").glob("*.md")) if (base / "proposals").is_dir() else []
     return s
 
@@ -199,6 +204,11 @@ def decide(s, today):
         ids = ", ".join(r.get("id", "?") for r in s["due"][:3])
         now.append(f"grade {plural(len(s['due']), 'row')} past their verify date ({ids}): "
                    "`jorekai-dx:grade` recomputes each measure and writes the verdict")
+    if s["stray_logs"]:
+        names = ", ".join(s["stray_logs"][:3])
+        now.append(f"{plural(len(s['stray_logs']), 'week file')} sit at the old flat log path "
+                   f"({names}): `jorekai-dx:setup` with `--migrate-log` moves them into log/dx/, "
+                   "until then no reader here sees their rows")
     orphan = unsettled(s["rows"])
     if orphan:
         ids = sorted({r["check"] for r in orphan})
@@ -264,6 +274,8 @@ def report(s, today):
                + (f" \u00b7 {len(orphan)} with an unknown check id" if orphan else "")
                + (f" \u00b7 next verify {s['next_verify'].isoformat()}" if s["next_verify"] else ""))
     out.append(f"proposals  {', '.join(s['proposals']) or 'none'}")
+    if s["stray_logs"]:
+        out.append(f"stray log  {plural(len(s['stray_logs']), 'week file')} still at log/, not log/dx/")
     stage, now, then = decide(s, today)
     out += ["", f"stage  {stage}", "", "now"]
     out += [f"  {i}. {short_paths(step)}" for i, step in enumerate(now, 1)]

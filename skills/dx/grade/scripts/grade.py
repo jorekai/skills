@@ -22,6 +22,7 @@ from pathlib import Path
 
 DATE_RE = re.compile(r"(\d{4}-\d{2}-\d{2})")
 ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}$")
+THEME = "dx"                # this theme's log folder in the machine folder (decisions/0015)
 # The closed set of units a measure may carry, with what one of them is worth in the base unit of
 # its family. Duplicated in setup/scripts/scaffold.py on purpose: each skill stays standalone.
 UNITS = {"B": ("bytes", 1), "KB": ("bytes", 1024), "MB": ("bytes", 1024 ** 2),
@@ -189,7 +190,7 @@ def grade_row(row, found):
 
 def due_rows(base_dir, today, only):
     rows = []
-    folder = base_dir / "log"
+    folder = base_dir / "log" / THEME
     for f in sorted(folder.glob("*.md")) if folder.is_dir() else []:
         for r in table_rows(f.read_text(encoding="utf-8"), "## Actions"):
             if only and r.get("id") not in only:

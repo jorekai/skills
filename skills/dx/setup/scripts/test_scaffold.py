@@ -106,7 +106,7 @@ class WorkspaceTest(unittest.TestCase):
             first = subprocess.run(args, capture_output=True, text=True, check=True).stdout
             self.assertIn("next id: 2026-W36-01", first)
             self.assertIn("commit trailer: DX-Log: 2026-W36-01", first)
-            week = root / "machines" / "example-machine" / "log" / "2026-W36.md"
+            week = root / "machines" / "example-machine" / "log" / "dx" / "2026-W36.md"
             week.write_text(week.read_text() + "| 2026-W36-01 | disk.cache | ~/x | cleared | safe | 41 | applied | 2026-09-02 | 2026-09-16 | |\n")
             second = subprocess.run(args, capture_output=True, text=True, check=True).stdout
             self.assertIn("next id: 2026-W36-02", second)
@@ -116,7 +116,7 @@ class WorkspaceTest(unittest.TestCase):
             root = self.build(d)
             subprocess.run([sys.executable, SCRIPT, "--root", str(root), "example-machine", "--log",
                             "--today", "2026-09-05"], capture_output=True, text=True, check=True)
-            week = root / "machines" / "example-machine" / "log" / "2026-W36.md"
+            week = root / "machines" / "example-machine" / "log" / "dx" / "2026-W36.md"
             week.write_text(week.read_text()
                             + "| 2026-W36-01 | disk.cache | ~/x | cleared | safe | 41 | applied | 2026-09-02 | 2026-09-16 | |\n"
                             + "| 2026-W36-02 | git.stash-old | ~/y | dropped | ask | 3 | applied | 2026-09-02 | 2026-09-04 | |\n")
@@ -211,7 +211,7 @@ class AppendRowTest(unittest.TestCase):
                               capture_output=True, text=True)
 
     def log_text(self, root):
-        return (root / "machines" / "example-machine" / "log" / "2026-W36.md").read_text(encoding="utf-8")
+        return (root / "machines" / "example-machine" / "log" / "dx" / "2026-W36.md").read_text(encoding="utf-8")
 
     def row(self, root):
         return [l for l in self.log_text(root).splitlines() if l.startswith("| 2026-W36-")][0]
@@ -300,6 +300,56 @@ class AppendRowTest(unittest.TestCase):
             row = self.row(root)
             self.assertIn("build \\| test", row)
             self.assertEqual(row.count(" | "), 9)
+
+
+class MigrateLogTest(unittest.TestCase):
+    """The log moved to log/<theme>/ (decisions/0015). A week file left flat is read by nobody."""
+
+    def build(self, d):
+        root = Path(d) / "dx"
+        subprocess.run([sys.executable, SCRIPT, "--root", str(root), "example-machine"],
+                       capture_output=True, text=True, check=True)
+        return root
+
+    def flat(self, root, name="2026-W35.md", body="# 2026-W35\n"):
+        old = root / "machines" / "example-machine" / "log"
+        old.mkdir(parents=True, exist_ok=True)
+        p = old / name
+        p.write_text(body, encoding="utf-8")
+        return p
+
+    def test_a_flat_week_file_moves_down_one_level(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = self.build(d)
+            old = self.flat(root)
+            r = subprocess.run([sys.executable, SCRIPT, "--root", str(root), "--migrate-log",
+                                "example-machine"], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertFalse(old.exists())
+            moved = root / "machines" / "example-machine" / "log" / "dx" / "2026-W35.md"
+            self.assertEqual(moved.read_text(encoding="utf-8"), "# 2026-W35\n")
+
+    def test_a_name_that_already_exists_below_is_left_alone(self):
+        """Two files of the same week are two records. Overwriting one loses a week of rows."""
+        with tempfile.TemporaryDirectory() as d:
+            root = self.build(d)
+            old = self.flat(root, body="# old\n")
+            below = root / "machines" / "example-machine" / "log" / "dx" / "2026-W35.md"
+            below.parent.mkdir(parents=True, exist_ok=True)
+            below.write_text("# new\n", encoding="utf-8")
+            subprocess.run([sys.executable, SCRIPT, "--root", str(root), "--migrate-log",
+                            "example-machine"], capture_output=True, text=True, check=True)
+            self.assertEqual(old.read_text(encoding="utf-8"), "# old\n")
+            self.assertEqual(below.read_text(encoding="utf-8"), "# new\n")
+
+    def test_check_names_a_flat_week_file(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = self.build(d)
+            self.flat(root)
+            r = subprocess.run([sys.executable, SCRIPT, "--root", str(root), "--check"],
+                               capture_output=True, text=True)
+            self.assertIn("--migrate-log", r.stdout)
+            self.assertEqual(r.returncode, 1)
 
 
 if __name__ == "__main__":

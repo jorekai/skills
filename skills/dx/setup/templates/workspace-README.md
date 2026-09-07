@@ -17,12 +17,12 @@ This repository is private. It names project paths, hostnames, and command histo
 - `standards.md`: what good looks like here. Every check measures the machine against this file, so a blank value turns its check off instead of guessing.
 - `machines/<hostname>/config.md`: where projects and history live on that machine, and the limits that override the standard.
 - `machines/<hostname>/audits/YYYY-MM-DD-<kind>.json`: one file per run of a measuring skill. Log rows point here instead of repeating paths.
-- `machines/<hostname>/log/YYYY-Www.md`: one file per ISO week. The only place actions and their outcomes are recorded.
+- `machines/<hostname>/log/<theme>/YYYY-Www.md`: one file per ISO week, one folder per theme. The only place actions and their outcomes are recorded.
 - `machines/<hostname>/proposals/<slug>.md`: something worth doing that has no measure yet, so it is not an action.
 
 ## Log format
 
-File `machines/<hostname>/log/YYYY-Www.md`; `scaffold.py --log` (in the `jorekai-dx:setup` skill) creates the current week's file and prints the next free id. Ids are `YYYY-Www-nn`.
+File `machines/<hostname>/log/dx/YYYY-Www.md`; `scaffold.py --log` (in the `jorekai-dx:setup` skill) creates the current week's file and prints the next free id. Ids are `YYYY-Www-nn`.
 
 ```markdown
 # 2026-W36 (2026-08-31 to 2026-09-06)

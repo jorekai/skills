@@ -26,11 +26,11 @@ OUTCOMES = ("| id | Check | Target | Applied | Then | Now | Verdict |\n"
 def workspace(root, rows, audits, machine="example-machine"):
     """A workspace holding one log file and the audits a verdict is measured from."""
     base = Path(root) / "machines" / machine
-    (base / "log").mkdir(parents=True)
+    (base / "log" / "dx").mkdir(parents=True)
     (base / "audits").mkdir(parents=True)
     (base / "config.md").write_text("- project_roots: ~/dev\n", encoding="utf-8")
     lines = "".join("| " + " | ".join(r) + " |\n" for r in rows)
-    (base / "log" / "2026-W36.md").write_text(
+    (base / "log" / "dx" / "2026-W36.md").write_text(
         "# 2026-W36\n\n## Outcomes of earlier actions\n\n" + OUTCOMES +
         "\n## Actions\n\n" + ACTIONS + lines, encoding="utf-8")
     for name, data in audits.items():
@@ -186,7 +186,7 @@ class EndToEndTest(unittest.TestCase):
             base = workspace(d, [row("2026-W36-01", "disk.cache", "", "40 GB")],
                              {"2026-09-15-machine.json": audit("machine", item("disk.cache", 0, "bytes"))})
             run(d, "--write")
-            text = (base / "log" / "2026-W36.md").read_text(encoding="utf-8")
+            text = (base / "log" / "dx" / "2026-W36.md").read_text(encoding="utf-8")
             outcomes, actions = text.split("## Actions")
             self.assertIn("| 2026-W36-01 | disk.cache |  | 2026-09-05 | 40 GB | 0 GB | won |", outcomes)
             self.assertIn("| won |", actions)
@@ -198,10 +198,10 @@ class EndToEndTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             base = workspace(d, [row("2026-W36-01", "disk.cache", "", "a lot")],
                              {"2026-09-15-machine.json": audit("machine", item("disk.cache", 0, "bytes"))})
-            before = (base / "log" / "2026-W36.md").read_text(encoding="utf-8")
+            before = (base / "log" / "dx" / "2026-W36.md").read_text(encoding="utf-8")
             got = run(d, "--write")
             self.assertIn("needs a person", got.stdout)
-            self.assertEqual(before, (base / "log" / "2026-W36.md").read_text(encoding="utf-8"))
+            self.assertEqual(before, (base / "log" / "dx" / "2026-W36.md").read_text(encoding="utf-8"))
 
     def test_a_pipe_in_a_target_stays_inside_its_cell(self):
         with tempfile.TemporaryDirectory() as d:
@@ -210,7 +210,7 @@ class EndToEndTest(unittest.TestCase):
                              {"2026-09-15-friction.json": audit(
                                  "friction", item("friction.slow-command", 60, "seconds", {"build | test": 60}))})
             run(d, "--write")
-            text = (base / "log" / "2026-W36.md").read_text(encoding="utf-8")
+            text = (base / "log" / "dx" / "2026-W36.md").read_text(encoding="utf-8")
             self.assertIn("| 2026-W36-01 | friction.slow-command | build \\| test | 2026-09-05 "
                           "| 600 seconds | 60 seconds | won |", text)
 

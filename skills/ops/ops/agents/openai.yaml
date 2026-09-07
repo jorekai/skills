@@ -1,0 +1,5 @@
+interface:
+  display_name: "Ops"
+  short_description: "Router for the server skill set"
+policy:
+  allow_implicit_invocation: false

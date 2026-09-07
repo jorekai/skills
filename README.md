@@ -6,19 +6,20 @@ Hand-maintained skills for recurring work, one Claude Code plugin per theme. Ins
 claude plugin marketplace add jorekai/skills
 claude plugin install jorekai-seo@jorekai      # search work on a site
 claude plugin install jorekai-dx@jorekai       # the machine you work on
+claude plugin install jorekai-ops@jorekai      # a host that serves
 ```
 
-Install one or both; they share nothing at run time. Then `/jorekai-seo:setup` in the repository of a site, or `/jorekai-dx:setup` for this machine. Codex users link the same folders with `scripts/link.sh` (see "Use in a project").
+Install one, two, or all three; they share nothing at run time. Then `/jorekai-seo:setup` in the repository of a site, `/jorekai-dx:setup` for this machine, or `/jorekai-ops:setup` for a host that serves. Codex users link the same folders with `scripts/link.sh` (see "Use in a project").
 
-Skills live under `skills/<theme>/<skill>/`. Each skill is a directory with `SKILL.md`, and optionally `references/` (knowledge loaded only when needed), `scripts/` (deterministic helpers, Python stdlib or bash only), `templates/` (files a skill writes into a project), and `agents/openai.yaml` (Codex metadata). Writing rules for every file: `STYLE.md`. Reasons behind the rules: `decisions/`. Versions: one changelog per plugin, `CHANGELOG.md` for `jorekai-seo` and `skills/dx/CHANGELOG.md` for `jorekai-dx`. Gate before every commit: `scripts/check.sh`. Contributions: `CONTRIBUTING.md`. License: MIT.
+Skills live under `skills/<theme>/<skill>/`. Each skill is a directory with `SKILL.md`, and optionally `references/` (knowledge loaded only when needed), `scripts/` (deterministic helpers, Python stdlib or bash only), `templates/` (files a skill writes into a project), and `agents/openai.yaml` (Codex metadata). Writing rules for every file: `STYLE.md`. Reasons behind the rules: `decisions/`. Versions: one changelog per plugin, `CHANGELOG.md` for `jorekai-seo`, `skills/dx/CHANGELOG.md` for `jorekai-dx`, and `skills/ops/CHANGELOG.md` for `jorekai-ops`. Gate before every commit: `scripts/check.sh`. Contributions: `CONTRIBUTING.md`. License: MIT.
 
 ## Structure
 
 - One user-invoked router per theme (for example `/jorekai-seo:seo`) names the sub-skills, the flows, and the priorities. No context cost until it is called.
 - User-invoked skills (`disable-model-invocation: true` plus `policy.allow_implicit_invocation: false` in `agents/openai.yaml`) orchestrate; model-invoked skills with a sharp `description` (one trigger per branch) hold the reusable discipline. Steps end on a completion criterion; reference material sits behind pointers.
 - No tool marketing in steps: tools appear only in `references/tools.md` and are interchangeable.
-- State lives with its subject, never in the skill. The SEO skills read and write `docs/seo/<domain>/` in the site's repository (config, strategy, glossary, weekly log, briefs, drafts, exports, reports). The DX skills read and write one private workspace repository, because their subject is the machine and not one project. Either way the collection itself holds templates and scripts only.
-- Every change leaves a row in a weekly log with a measure and a verify date, and the commit that carries it out ends with a trailer naming the row. Both themes learn from the log, not from memory.
+- State lives with its subject, never in the skill. The SEO skills read and write `docs/seo/<domain>/` in the site's repository (config, strategy, glossary, weekly log, briefs, drafts, exports, reports). The DX and ops skills read and write one private workspace repository, because their subject is a machine and not one project. They share it: one folder per machine, one log folder per theme. Either way the collection itself holds templates and scripts only.
+- Every change leaves a row in a weekly log with a measure and a verify date, and the commit that carries it out ends with a trailer naming the row. Every theme learns from the log, not from memory.
 
 ## Themes
 
@@ -26,6 +27,7 @@ Skills live under `skills/<theme>/<skill>/`. Each skill is a directory with `SKI
 |---|---|---|---|
 | `skills/seo/` | `jorekai-seo` | `/jorekai-seo:seo` | One site in search: indexing, what almost ranks, content, links, moves, monthly report |
 | `skills/dx/` | `jorekai-dx` | `/jorekai-dx:dx` | One machine to work on: the workspace, the weekly sweep, and what to do next |
+| `skills/ops/` | `jorekai-ops` | `/jorekai-ops:ops` | One host that serves: who can reach it, what runs on it, what may change, and whether the change held |
 
 ## The SEO loop, start to end
 
@@ -207,6 +209,71 @@ Every finding carries a dotted id: `git.dirty`, `disk.cache`, `ci.failing`, `age
 
 Every destructive action carries one of three classes, decided once in the reference and looked up at run time, never judged in the moment. `safe` runs immediately and reports what it removed. `confirm` prints a dry run with exact paths and totals, asks once, then runs. `ask` never runs and prints the command with its reason. Above all three sits one gate: nothing destructive runs against a repository holding uncommitted or unpushed work. Details: `skills/dx/dx/references/risk-classes.md`.
 
+## The ops loop, start to end
+
+Two phases, the same shape as the other two: setup once per host, then a short weekly pass. What is different is the order inside setup, and it is not a preference. The connection that would repair a mistake in ssh, the firewall or sudo is the connection the mistake closes, so the second way in exists before anything hardens the first.
+
+The workspace is the one the DX skills keep, because the subject is again a machine. One folder per host, one log folder per theme, so both themes measure the same box without writing into one file. Reasons: `decisions/0015`.
+
+```mermaid
+flowchart TD
+    subgraph E["Setup, once per host"]
+        S1["/jorekai-ops:setup<br/>detect the control plane, write role and access"]
+        S2["Two accounts<br/>ops-scan reads without privilege,<br/>ops-admin changes with named sudo"]
+        S3["Prove both from a fresh connection<br/>this is also what gate 2 requires"]
+        S4["Profile and services<br/>the bar in standards.md, the units in config.md"]
+        S1 --> S2 --> S3 --> S4
+    end
+
+    subgraph W["Weekly, ten minutes"]
+        W1["jorekai-ops:and-now<br/>stage, open items in ladder order, next verify date"]
+        W2["jorekai-ops:access<br/>root login, passwords, keys, sudo, ways in"]
+        W3["jorekai-ops:availability<br/>units, timers, hardening, the commit it runs"]
+        W4["Rank by the priority ladder<br/>1. a way in survives, nothing leaks<br/>2. the host is not standing open<br/>3. someone waits on a service"]
+        W5["Gate 2, then act by class<br/>two proved ways in, a backup copy,<br/>a rollback timer that is cancelled last"]
+        W6["scaffold.py --append-row<br/>check id, class, one measure, verify date"]
+        W7["jorekai-ops:grade<br/>recompute the measure of every due row,<br/>write won, no-change, or returned"]
+        W1 --> W2 --> W3 --> W4 --> W5 --> W6 --> W7
+        W7 -. "next week" .-> W1
+    end
+
+    S4 --> W2
+    W1 -- "no audit, or one that aged out" --> W2
+```
+
+### What each ops skill delivers
+
+| Step | Skill | Output | Why here |
+|---|---|---|---|
+| Set up | `jorekai-ops:setup` | The host in the shared workspace: `role`, `control_plane`, `access`, `access_paths`, `services`, and the chosen profile in `standards.md`; a reading account without privilege and a changing account with named sudo | The control plane decides which surface every later fix writes to, and a blank one means guessed fixes. The two accounts are what lets a measuring pass run often without exposing anything that can change the host. |
+| Orient | `jorekai-ops:and-now` | Stage, rows past their verify date, rows waiting for a tool that has not shipped, rows naming an id this theme does not own, failing ids in ladder order, the next verify date | The state of a host lives in files. One command answers "and now?" after a break, without touching the host and without the network. |
+| Reach | `jorekai-ops:access` | Root login, password authentication, weak algorithms, missing limits in front of sshd, keys without an owner or past rotation or under the bar, shared keys, passwordless sudo, unnamed accounts, and how many independent ways in exist; full JSON in `audits/` | A host with one way in cannot be hardened at all, so `access.single-path` is a precondition as much as a priority. |
+| Settle | `jorekai-ops:grade` | One verdict per log row past its verify date, recomputed from the newest audit of the tool that found it: `won`, `no-change`, or `returned`, written into the log beside the action | A row without a verdict is a claim nobody checked. `returned` under `ssh.*` or `key.*` means a way in came back, which is why it goes to the front of the ladder. |
+| Run | `jorekai-ops:availability` | Units down or failed, restarts over the bar, timers not enabled or past their elapse, required unit options, the distance to the commit the standards name, repositories with no identity file, services with no deploy path; full JSON in `audits/` | These are the findings whose cost falls on other people. A failed unit and a stopped one are counted apart, because they need different fixes. |
+
+### The ops log
+
+`machines/<hostname>/log/ops/2026-W36.md`, one file per week, one folder per theme. The row format is the DX one: an id, the check id that found it, the risk class it ran under, the measure it started from (`Then`), a status, and a verify date. The trailer on a commit that carries an action out is `Ops-Log: <row id>`.
+
+Two rules differ. `safe` is off until a host turns it on: while `allow_safe` is `no`, a row classed `safe` runs as `confirm` and the row records the class that actually ran. And a row whose check id belongs to this theme but whose tool has not shipped yet is parked, not broken: `jorekai-ops:and-now` names the release that will measure it and leaves its verify date empty, because a date nobody can measure at is a verdict nobody can give.
+
+### The two gates
+
+Above the three risk classes sit two gates. The first is inherited: nothing destructive runs against a repository holding uncommitted or unpushed work, and a deploy path is a repository. The second is this theme's own, in front of every change under `ssh.*`, `key.*`, `fw.*`, `sudo.*` and `user.*`: two independent ways in must answer from freshly opened connections, the change writes a backup copy, it arms a timer on the host that restores that copy after ten minutes, and the timer is cancelled only after a new connection succeeds. A change that cannot arm the timer does not run. Details: `skills/ops/ops/references/risk-classes.md`, reasons: `decisions/0016` and `decisions/0019`.
+
+## Ops skills
+
+Theme `skills/ops/`. You call user-invoked skills yourself (`/jorekai-ops:<name>` in Claude Code, `$ops-<name>` in Codex); the agent reaches for the measuring skills when the task fits.
+
+| Skill | Invoked by | Deterministic part |
+|---|---|---|
+| `jorekai-ops:ops` | user | Router: workspace, flows, priority ladder, `references/fixes.md` (check id, class, measure, and a fix per control plane), `references/risk-classes.md`, `references/tools.md`, `references/sources.md` |
+| `jorekai-ops:setup` | user | `scripts/scaffold.py`: create the host folder, `--check` (missing files and sections a shared file lacks), `--flags` (the arguments each measuring script takes), `--log`, `--append-row`, `--due`; `scripts/remote.sh`: send a script over ssh, run it as the reading account, remove it, return the JSON (`--fetch`, `--probe`, `--dry-run`) |
+| `jorekai-ops:and-now` | user | `scripts/status.py [host]`: stage and next steps from the workspace files, no host access and no network |
+| `jorekai-ops:access` | model | `scripts/access.py`: eleven checks over sshd, authorized keys, sudo and accounts; `--root` reads a captured tree instead of the running host, which is what makes the parsers testable offline |
+| `jorekai-ops:availability` | model | `scripts/availability.py`: nine checks over units, timers, required options and deploy paths; `--show-dir` reads captured `systemctl show` output instead of systemd |
+| `jorekai-ops:grade` | model | `scripts/grade.py [host]`: recompute the measure of every due log row from the newest audit of its tool, `--write` puts the verdict in the log, `--namespaces` prints which tool owns which check id namespace |
+
 ## Use in a project
 
 The collection is a Claude Code plugin (`.claude-plugin/plugin.json`, marketplace `jorekai` in `.claude-plugin/marketplace.json`). Installed once at user scope, every skill is available in every repo as `/jorekai-<theme>:<name>`, with autocomplete after `/jorekai-`:
@@ -215,9 +282,10 @@ The collection is a Claude Code plugin (`.claude-plugin/plugin.json`, marketplac
 claude plugin marketplace add jorekai/skills                  # once; a local checkout works too: marketplace add /path/to/skills
 claude plugin install jorekai-seo@jorekai
 claude plugin install jorekai-dx@jorekai
+claude plugin install jorekai-ops@jorekai
 ```
 
-Then `/jorekai-seo:setup` and the router `/jorekai-seo:seo`, or `/jorekai-dx:setup` and `/jorekai-dx:dx`. The install is a copy under `~/.claude/plugins/cache/jorekai/`, not a link: after editing a theme, bump `version` in that plugin's manifest, run `claude plugin marketplace update jorekai` and `claude plugin update <plugin>@jorekai`, then start a new session.
+Then `/jorekai-seo:setup` and the router `/jorekai-seo:seo`, `/jorekai-dx:setup` and `/jorekai-dx:dx`, or `/jorekai-ops:setup` and `/jorekai-ops:ops`. The install is a copy under `~/.claude/plugins/cache/jorekai/`, not a link: after editing a theme, bump `version` in that plugin's manifest, run `claude plugin marketplace update jorekai` and `claude plugin update <plugin>@jorekai`, then start a new session.
 
 Codex reads `<repo>/.agents/skills/<name>/`; the link script fills that folder:
 
@@ -229,7 +297,7 @@ scripts/link.sh <repo> setup      # named skills, globs allowed
 
 A link is named `<theme>-<skill>`, the same pair as the plugin invocation, so `$seo-setup` and `$dx-setup` in Codex do not collide. When a skill is stable: move it to `~/Developer/claude-skill-library/skills/` and distribute it with `link.sh` from `project-index`.
 
-The SEO workspace belongs in the site's repository. A site that lives in no repository (a hosted CMS) gets a small private repository of its own that holds only `docs/seo/`, the pointer block, and the Codex links. The DX workspace is always a private repository of its own, because its subject is the machine. This collection is public and carries no workspace, key, ID, or customer data; `scripts/check.sh` enforces that before every commit.
+The SEO workspace belongs in the site's repository. A site that lives in no repository (a hosted CMS) gets a small private repository of its own that holds only `docs/seo/`, the pointer block, and the Codex links. The DX and ops workspace is always a private repository of its own, because its subject is a machine and not one project. Both themes share it, one folder per machine and one log folder per theme. This collection is public and carries no workspace, key, ID, or customer data; `scripts/check.sh` enforces that before every commit.
 
 ## Maintenance
 

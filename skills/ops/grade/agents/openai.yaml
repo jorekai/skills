@@ -1,0 +1,3 @@
+interface:
+  display_name: "Ops grade"
+  short_description: "Verdicts for log rows past their verify date"

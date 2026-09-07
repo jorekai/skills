@@ -1,0 +1,5 @@
+interface:
+  display_name: "Ops setup"
+  short_description: "Take a host into the workspace and prove the second way in"
+policy:
+  allow_implicit_invocation: false

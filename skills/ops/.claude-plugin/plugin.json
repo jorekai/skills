@@ -1,0 +1,19 @@
+{
+  "name": "jorekai-ops",
+  "description": "Ops loop for a host that serves: setup, access, availability, grade, and-now.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Nils Jorek",
+    "url": "https://github.com/jorekai"
+  },
+  "homepage": "https://github.com/jorekai/skills",
+  "repository": "https://github.com/jorekai/skills",
+  "license": "MIT",
+  "keywords": [
+    "ops",
+    "server",
+    "hardening",
+    "skills"
+  ],
+  "skills": "./"
+}

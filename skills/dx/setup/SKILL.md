@@ -41,7 +41,7 @@ The workspace is a private repository of its own, outside every project, because
    ```markdown
    ## Developer experience
 
-   DX workspace: `<workspace path>/README.md` (layout, log format, standards). Read `standards.md` and `machines/<hostname>/config.md` before running any `jorekai-dx:*` skill; every change to a machine gets a row in that machine's `log/`, and a commit that carries one out in a project ends with the trailer `DX-Log: <row id>`.
+   DX workspace: `<workspace path>/README.md` (layout, log format, standards). Read `standards.md` and `machines/<hostname>/config.md` before running any `jorekai-dx:*` skill; every change to a machine gets a row in that machine's `log/dx/`, and a commit that carries one out in a project ends with the trailer `DX-Log: <row id>`.
    ```
 
    Done when `python3 scripts/scaffold.py --root <workspace path> --check` prints `ok`, no confirmed value is still a parenthesised placeholder, and the workspace has its first commit.

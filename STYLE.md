@@ -16,7 +16,7 @@ Rules for every file in this repository and for every agent or person who edits 
 - Hedging without content ("might possibly", "it could be argued"). Either the claim has a source, or it is labelled a heuristic, or it goes.
 - Emoji, decorative tables, headers as decoration. A table holds data with at least two columns of it.
 - Praise of the reader or the tool. No "great question", no "powerful".
-- Claims about how a platform, product, or Google feature behaves without a row in `skills/seo/seo/references/sources.md` (URL and check date, verified against the primary source). Unverified means labelled as a heuristic or left out.
+- Claims about how a platform, product, or Google feature behaves without a row in that theme's `references/sources.md`, beside its router (URL and check date, verified against the primary source). Unverified means labelled as a heuristic or left out.
 
 ## Structure
 
@@ -41,5 +41,5 @@ Rules for every file in this repository and for every agent or person who edits 
 - Conventional prefix: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`. Subject under 72 characters, imperative, no period.
 - Body says what changed and why, in the same style as this file.
 - Adding, renaming, or changing a sub-skill updates the theme's router `SKILL.md` and the tables in `README.md` in the same commit.
-- A release bumps `version` in `.claude-plugin/plugin.json` and adds the entry at the top of `CHANGELOG.md`: Added, Changed, Removed, one line each, no adjectives.
+- A release bumps `version` in that plugin's manifest and adds the entry at the top of the changelog beside it: Added, Changed, Removed, one line each, no adjectives. One version and one changelog per plugin (`decisions/0013`).
 - A rule change gets a file in `decisions/` that names the context, the decision, and the consequences.
