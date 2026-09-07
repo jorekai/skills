@@ -13,11 +13,14 @@ files=$(git ls-files | grep -v 'scripts/check.sh$')
 # Private data: analytics ids, IndexNow key files, server paths, tracked workspaces and links. Customer names
 # and domains come from .check_public.local (gitignored, one regex per line) so this script never names them.
 private='G-[A-Z0-9]{8,}|[a-f0-9]{32}\.txt|/opt/plesk|--allow-root|ssh_host: [^(]'
+patterns=0
 if [[ -f .check_public.local ]]; then
-  while IFS= read -r pat; do [[ -n "$pat" ]] && private="$private|$pat"; done < .check_public.local
-else
-  echo "warning: no .check_public.local (customer patterns), only generic private-data checks run" >&2
+  while IFS= read -r pat; do
+    [[ -n "$pat" ]] || continue
+    private="$private|$pat"; patterns=$((patterns + 1))
+  done < .check_public.local
 fi
+(( patterns )) || echo "warning: no customer patterns (.check_public.local is missing or empty), only generic private-data checks run" >&2
 while IFS= read -r line; do hit "private: $line"; done < <(echo "$files" | xargs grep -nE "$private" 2>/dev/null)
 while IFS= read -r line; do hit "home path: $line"; done < <(echo "$files" | xargs grep -nE "/(Users|home)/[a-z][a-z0-9_-]+/" 2>/dev/null)
 while IFS= read -r f; do hit "workspace tracked: $f"; done < <(echo "$files" | grep -E '^docs/')
@@ -29,7 +32,7 @@ while IFS= read -r line; do hit "dash: $line"; done < <(echo "$style" | xargs gr
 while IFS= read -r line; do hit "arrow: $line"; done < <(echo "$style" | grep -vE '\.(py|sh|json|yaml|yml)$' | xargs grep -nE "→|[[:space:]]->[[:space:]]|[[:space:]]=>[[:space:]]" 2>/dev/null | grep -vE '^[^:]+:[0-9]+:\s*[A-Za-z0-9_"\[\]]+ *(-->|-\.|==)' )
 filler='\b(delve|leverage|seamless(ly)?|robust|crucial|game-changer|unlock|in today.s|it.s worth noting|here.s the thing|let that sink in)\b'
 while IFS= read -r line; do hit "filler: $line"; done < <(echo "$style" | xargs grep -niE "$filler" 2>/dev/null)
-while IFS= read -r line; do hit "emoji: $line"; done < <(echo "$style" | xargs perl -ne 'print "$ARGV:$.:$_" if /[\x{1F300}-\x{1FAFF}\x{2600}-\x{27BF}]/; close ARGV if eof' 2>/dev/null)
+while IFS= read -r line; do hit "emoji: $line"; done < <(echo "$style" | xargs perl -CSD -ne 'print "$ARGV:$.:$_" if /[\x{1F300}-\x{1FAFF}\x{2600}-\x{27BF}]/; close ARGV if eof' 2>/dev/null)
 
 # Every plugin's version equals the top entry of the changelog beside its manifest; a version
 # bump without a changelog line is a hit. One version and one changelog per plugin (decisions/0013).
@@ -53,6 +56,18 @@ done
 while IFS= read -r ref; do
   [[ -d "skills/${ref%%:*}/${ref#*:}" ]] || hit "stale reference: jorekai-$ref names no skill directory"
 done < <(git ls-files '*.md' | grep -vE '^(CHANGELOG\.md|decisions/)' | xargs grep -ohE 'jorekai-[a-z]+:[a-z-]+' | sed 's/^jorekai-//' | sort -u)
+
+# A skill is user-invoked or the agent may reach it, and the two files that say so must agree.
+# One of them drifting is how a skill silently changes who can start it.
+for d in $(git ls-files 'skills/*/*/SKILL.md' | xargs -n1 dirname); do
+  yaml="$d/agents/openai.yaml"
+  if grep -q '^disable-model-invocation: true' "$d/SKILL.md"; then
+    grep -q 'allow_implicit_invocation: false' "$yaml" \
+      || hit "invocation: $d/SKILL.md is user-invoked, $yaml does not refuse implicit invocation"
+  elif grep -q 'allow_implicit_invocation: false' "$yaml"; then
+    hit "invocation: $yaml refuses implicit invocation, $d/SKILL.md does not say so"
+  fi
+done
 
 # Every check id a script emits has a row in its theme's fixes table. A finding whose id nobody
 # explains cannot be acted on, and an id that outlives its check is how the table starts lying.
