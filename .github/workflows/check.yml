@@ -9,7 +9,19 @@ jobs:
         with:
           python-version: "3.12"
       - name: Customer patterns from the repository secret
-        run: printf '%s\n' "${{ secrets.CHECK_PUBLIC_LOCAL }}" > .check_public.local
+        env:
+          CHECK_PUBLIC_LOCAL: ${{ secrets.CHECK_PUBLIC_LOCAL }}
+        run: printf '%s\n' "$CHECK_PUBLIC_LOCAL" > .check_public.local
+      # A fork's pull request receives no secret, so the customer-name check cannot run there and
+      # says so. Everywhere else an empty file means the secret is gone, and check.sh would print
+      # ok with that check silently skipped, which is worse than no check.
+      - name: The customer-name check has patterns to run on
+        if: github.event.pull_request.head.repo.fork != true
+        run: |
+          test -n "$(tr -d '[:space:]' < .check_public.local)" || {
+            echo "::error::CHECK_PUBLIC_LOCAL is empty, so the customer-name check would pass blind"
+            exit 1
+          }
       - run: bash scripts/check.sh
   secrets:
     runs-on: ubuntu-latest
