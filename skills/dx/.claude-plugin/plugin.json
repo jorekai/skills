@@ -1,7 +1,7 @@
 {
   "name": "jorekai-dx",
   "description": "Developer experience loop for one machine: setup, repos, machine, github, agent-config, friction, grade, and-now.",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "author": {
     "name": "Nils Jorek",
     "url": "https://github.com/jorekai"

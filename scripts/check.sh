@@ -80,6 +80,21 @@ for d in $(git ls-files 'skills/*/*/SKILL.md' | xargs -n1 dirname); do
   fi
 done
 
+# Every namespace a theme's fixes table names is graded by that theme's grade skill, and the other
+# way round. A row nothing recomputes reaches its verify date and cannot be settled.
+for g in $(git ls-files 'skills/*/grade/scripts/grade.py'); do
+  theme=$(echo "$g" | cut -d/ -f2); fixes="skills/$theme/$theme/references/fixes.md"
+  [[ -f "$fixes" ]] || continue
+  owned=$(grep -ohE '^\| `[a-z]+\.[a-z][a-z-]*`' "$fixes" | sed 's/.*`\([a-z]*\)\..*/\1/' | sort -u)
+  graded=$(python3 "$g" --namespaces | cut -d' ' -f1 | sort -u)
+  while IFS= read -r ns; do
+    [[ -n "$ns" ]] && ! grep -qxF "$ns" <<<"$graded" && hit "grade: $fixes names $ns.*, $g grades no such namespace"
+  done <<<"$owned"
+  while IFS= read -r ns; do
+    [[ -n "$ns" ]] && ! grep -qxF "$ns" <<<"$owned" && hit "grade: $g grades $ns.*, $fixes names no id in it"
+  done <<<"$graded"
+done
+
 # Every check id a script emits has a row in its theme's fixes table. A finding whose id nobody
 # explains cannot be acted on, and an id that outlives its check is how the table starts lying.
 for fixes in $(git ls-files 'skills/*/*/references/fixes.md'); do

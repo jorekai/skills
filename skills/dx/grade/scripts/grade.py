@@ -4,6 +4,7 @@
 Usage:
   grade.py [--root ~/dx] [MACHINE ...] [--today YYYY-MM-DD] [--only ID ...] [--json]
   grade.py [--root ~/dx] [MACHINE ...] --write     write the verdicts into the log
+  grade.py --namespaces                            the tool that owns every check id namespace
 
 A measure counts what a finding costs, so the verdict is arithmetic: the cost fell or reached
 zero (`won`), it stayed inside the tolerance (`no-change`), it rose past it (`returned`).
@@ -33,7 +34,9 @@ MEASURE_RE = re.compile(r"^\s*(-?\d+(?:\.\d+)?)\s*([A-Za-z]+)\s*$")
 # change inside this share of the starting measure is no change at all.
 TOLERANCE = {"bytes": 0.05, "percent": 0.05, "seconds": 0.05, "count": 0.0}
 # Which tool measures a check id, by namespace. An audit is chosen by its `tool` field, so the
-# verdict is measured by the same script that wrote the row's starting number.
+# verdict is measured by the same script that wrote the row's starting number. `--namespaces`
+# prints this table, and scripts/check.sh compares it to the ids the theme's fixes table names:
+# a namespace missing here is a row nothing can ever recompute.
 TOOL_OF = {"git": "repos", "repo": "repos", "disk": "machine", "mem": "machine",
            "container": "machine", "ci": "github", "pr": "github", "alert": "github",
            "branch": "github", "agent": "agent-config", "friction": "friction"}
@@ -324,7 +327,13 @@ def main(argv=None):
     ap.add_argument("--write", action="store_true", help="write the verdicts into the log")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--today", default=None, help="YYYY-MM-DD, for tests")
+    ap.add_argument("--namespaces", action="store_true",
+                    help="print the tool that owns every check id namespace")
     a = ap.parse_args(argv)
+    if a.namespaces:
+        for ns, tool in sorted(TOOL_OF.items()):
+            print(f"{ns} {tool}")
+        return 0
     root = Path(a.root).expanduser()
     for m in a.machines:      # a folder name, never a path: keep every write inside --root
         if "/" in m or m.startswith("."):

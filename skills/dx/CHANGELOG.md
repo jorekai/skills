@@ -2,6 +2,10 @@
 
 One entry per `jorekai-dx` version. The version at the top equals `version` in `skills/dx/.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 2.1.0 (2026-09-07)
+
+- Added: `grade.py --namespaces` prints which tool owns which check id namespace. `scripts/check.sh` compares it to the ids the theme's fixes table names, so a namespace that no tool grades cannot reach the log unnoticed.
+
 ## 2.0.0 (2026-09-07)
 
 - Changed: the week log moved from `machines/<host>/log/` to `machines/<host>/log/dx/`. A second theme measures the same host now, and a flat folder put two appenders into one week file and left every reader deciding whether an unknown check id was its own gap or another theme's business. `decisions/0015` records the rule and the id namespaces each theme owns.

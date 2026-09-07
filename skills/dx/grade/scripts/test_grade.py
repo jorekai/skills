@@ -96,6 +96,12 @@ class MeasureTest(unittest.TestCase):
     def test_a_measure_reads_back_in_the_unit_the_row_was_written_in(self):
         self.assertEqual(grade.show(4 * 1024 ** 3, "GB"), "4 GB")
 
+    def test_namespaces_prints_one_namespace_and_tool_per_line(self):
+        """scripts/check.sh reads this against the fixes table, so the two must not drift."""
+        r = subprocess.run([sys.executable, SCRIPT, "--namespaces"], capture_output=True, text=True)
+        self.assertEqual(dict(line.split() for line in r.stdout.splitlines() if line.strip()),
+                         grade.TOOL_OF)
+
     def test_a_target_matches_whether_or_not_the_home_folder_is_spelled_out(self):
         self.assertTrue(grade.same_target("~/dev/foo", str(Path.home() / "dev/foo")))
         self.assertFalse(grade.same_target("~/dev/foo", "~/dev/bar"))
