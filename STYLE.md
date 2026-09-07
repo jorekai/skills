@@ -10,7 +10,7 @@ Rules for every file in this repository and for every agent or person who edits 
 
 ## Forbidden
 
-- Em dashes. Use a comma, a colon, or a new sentence. An en dash appears only inside a product string quoted verbatim ("Crawled – currently not indexed"); a hyphen in a compound word is fine.
+- Em dashes. Use a comma, a colon, or a new sentence. An en dash appears in a numeric range (`8–20`, `120–160`) and inside a product string quoted verbatim ("Crawled – currently not indexed", "Discovered – currently not indexed"), nowhere else; a hyphen in a compound word is fine (`decisions/0020`).
 - Arrows in prose (`→`, `->`, `=>`). Sequences are sentences ("first X, then Y") or numbered lists. Menu paths use `>`: `Performance > Compare`. Diagram edges inside a mermaid block are not prose.
 - Filler and marketing: delve, leverage, seamless, robust, crucial, game-changer, unlock, "in today's", "it's worth noting", "here's the thing", "let that sink in", and their relatives. Say the fact.
 - Hedging without content ("might possibly", "it could be argued"). Either the claim has a source, or it is labelled a heuristic, or it goes.

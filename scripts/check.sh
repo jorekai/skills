@@ -30,6 +30,10 @@ while IFS= read -r f; do hit "link tracked: $f"; done < <(echo "$files" | grep -
 style=$(echo "$files" | grep -v "^STYLE.md$")
 while IFS= read -r line; do hit "dash: $line"; done < <(echo "$style" | xargs grep -n "—" 2>/dev/null)
 while IFS= read -r line; do hit "arrow: $line"; done < <(echo "$style" | grep -vE '\.(py|sh|json|yaml|yml)$' | xargs grep -nE "→|[[:space:]]->[[:space:]]|[[:space:]]=>[[:space:]]" 2>/dev/null | grep -vE '^[^:]+:[0-9]+:\s*[A-Za-z0-9_"\[\]]+ *(-->|-\.|==)' )
+while IFS= read -r line; do hit "en dash: $line"; done < <(echo "$style" | xargs perl -CSD -ne '
+  $c = $_; $c =~ s/[\d}]\s*\x{2013}\s*[\d{]//g;
+  $c =~ s/(?:Crawled|Discovered) \x{2013} currently not indexed//g;
+  print "$ARGV:$.:$_" if $c =~ /\x{2013}/; close ARGV if eof' 2>/dev/null)
 filler='\b(delve|leverage|seamless(ly)?|robust|crucial|game-changer|unlock|in today.s|it.s worth noting|here.s the thing|let that sink in)\b'
 while IFS= read -r line; do hit "filler: $line"; done < <(echo "$style" | xargs grep -niE "$filler" 2>/dev/null)
 while IFS= read -r line; do hit "emoji: $line"; done < <(echo "$style" | xargs perl -CSD -ne 'print "$ARGV:$.:$_" if /[\x{1F300}-\x{1FAFF}\x{2600}-\x{27BF}]/; close ARGV if eof' 2>/dev/null)
