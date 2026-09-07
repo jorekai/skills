@@ -49,17 +49,24 @@ while IFS= read -r manifest; do
 done < <(git ls-files '*.claude-plugin/plugin.json')
 
 # The router must not lie: every skill directory is named in its theme's router and in README.md,
-# and every jorekai-<theme>:<name> written anywhere resolves to a directory. CHANGELOG.md and
-# decisions/ are history and may name a skill that is gone.
+# and every jorekai-<theme>:<name> written in any tracked file resolves to a directory or to a
+# row under `## Planned` in that router (decisions/0021). CHANGELOG.md and decisions/ are history
+# and may name a skill that is gone.
 for d in $(git ls-files 'skills/*/*/SKILL.md' | xargs -n1 dirname); do
   theme=$(basename "$(dirname "$d")"); name=$(basename "$d")
   [[ "$name" == "$theme" ]] && continue      # the theme's router names the others, not itself
   grep -q "jorekai-$theme:$name\`" "skills/$theme/$theme/SKILL.md" || hit "router: jorekai-$theme:$name missing in skills/$theme/$theme/SKILL.md"
   grep -q "jorekai-$theme:$name\`" README.md || hit "readme: jorekai-$theme:$name missing in README.md"
 done
+planned=$(for router in $(git ls-files 'skills/*/*/SKILL.md'); do
+  [[ "$(basename "$(dirname "$router")")" == "$(echo "$router" | cut -d/ -f2)" ]] || continue
+  awk '/^## Planned/{p=1;next} /^## /{p=0} p' "$router" | grep -ohE 'jorekai-[a-z]+:[a-z-]+'
+done | sed 's/^jorekai-//' | sort -u)
 while IFS= read -r ref; do
-  [[ -d "skills/${ref%%:*}/${ref#*:}" ]] || hit "stale reference: jorekai-$ref names no skill directory"
-done < <(git ls-files '*.md' | grep -vE '^(CHANGELOG\.md|decisions/)' | xargs grep -ohE 'jorekai-[a-z]+:[a-z-]+' | sed 's/^jorekai-//' | sort -u)
+  [[ -d "skills/${ref%%:*}/${ref#*:}" ]] && continue
+  grep -qxF "$ref" <<<"$planned" && continue
+  hit "stale reference: jorekai-$ref names no skill directory and no row under ## Planned"
+done < <(git ls-files | grep -vE '(^|/)CHANGELOG\.md$|^decisions/' | xargs grep -ohE 'jorekai-[a-z]+:[a-z-]+' 2>/dev/null | sed 's/^jorekai-//' | sort -u)
 
 # A skill is user-invoked or the agent may reach it, and the two files that say so must agree.
 # One of them drifting is how a skill silently changes who can start it.

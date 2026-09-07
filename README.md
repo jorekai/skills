@@ -255,7 +255,7 @@ flowchart TD
 
 `machines/<hostname>/log/ops/2026-W36.md`, one file per week, one folder per theme. The row format is the DX one: an id, the check id that found it, the risk class it ran under, the measure it started from (`Then`), a status, and a verify date. The trailer on a commit that carries an action out is `Ops-Log: <row id>`.
 
-Two rules differ. `safe` is off until a host turns it on: while `allow_safe` is `no`, a row classed `safe` runs as `confirm` and the row records the class that actually ran. And a row whose check id belongs to this theme but whose tool has not shipped yet is parked, not broken: `jorekai-ops:and-now` names the release that will measure it and leaves its verify date empty, because a date nobody can measure at is a verdict nobody can give.
+Two rules differ. `safe` is off until a host turns it on: while `allow_safe` is `no`, a row classed `safe` runs as `confirm` and the row records the class that actually ran. And a row whose check id belongs to this theme but whose tool has not shipped yet is parked, not broken: `jorekai-ops:and-now` names the skill that will measure it and leaves its verify date empty, because a date nobody can measure at is a verdict nobody can give. The planned skills stand in a table in the router, and `scripts/check.sh` reads it, so no file may name a skill that neither exists nor is planned.
 
 ### The two gates
 

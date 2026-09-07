@@ -40,6 +40,16 @@ A host is this theme's business when its `config.md` says `role: server`. No wor
 | Do the services run, fire, and match the commit they should? | `jorekai-ops:availability` | agent or you |
 | Did the fix hold? Settle the rows past their verify date | `jorekai-ops:grade` | agent or you |
 
+## Planned
+
+These skills are designed and not shipped. A log row whose check id one of them owns is parked: it keeps `todo` and an empty verify date until that skill exists, because a date nobody can measure at is a verdict nobody can give. `jorekai-ops:and-now` names them, and `scripts/check.sh` reads this list, so nothing else in the collection may point at a skill that is neither here nor on disk.
+
+| Skill | Namespaces it will own |
+|---|---|
+| `jorekai-ops:exposure` | `port`, `fw`, `intrusion`, `tls`, `panel` |
+| `jorekai-ops:currency` | `pkg`, `boot`, `os`, `plane` |
+| `jorekai-ops:recovery` | `backup`, `secret`, `log` |
+
 ## Priority ladder
 
 Each rung depends on the one before it. A finding on a lower rung waits.
