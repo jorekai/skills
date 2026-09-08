@@ -6,6 +6,7 @@ Writes into a temp folder; no network, no host.
 """
 import datetime as dt
 import os
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -193,9 +194,19 @@ class WorkspaceTest(unittest.TestCase):
             root = build(d)
             self.line(root, "backups", "web=web root,source=/srv/web,copy=store:/web; db=database,source=/var/db")
             out = run(root, "--flags", "example-host").stdout
-            self.assertIn("--backup web=web root,source=/srv/web,copy=store:/web", out)
+            self.assertIn("--backup 'web=web root,source=/srv/web,copy=store:/web'", out)
             self.assertIn("--backup db=database,source=/var/db", out)
             self.assertEqual(out.count("--backup "), 2)
+
+    def test_a_spec_with_a_space_stays_one_argument_when_the_line_is_pasted(self):
+        """The printed line is meant to be pasted, and an unquoted label became two arguments."""
+        with tempfile.TemporaryDirectory() as d:
+            root = build(d)
+            self.line(root, "backups", "web=web root,source=/srv/web")
+            out = run(root, "--flags", "example-host").stdout
+            flags = [l for l in out.splitlines() if l.startswith("recovery: ")][0]
+            args = shlex.split(flags[len("recovery: "):])
+            self.assertEqual(args, ["--backup", "web=web root,source=/srv/web"])
 
     def test_flags_pass_every_recorded_secret_path(self):
         with tempfile.TemporaryDirectory() as d:

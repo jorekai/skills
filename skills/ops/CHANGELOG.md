@@ -2,6 +2,14 @@
 
 One entry per `jorekai-ops` version. The version at the top equals `version` in `skills/ops/.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 0.6.3 (2026-09-08)
+
+- Fixed: `jorekai-ops:report` told a reader with no host folder to run the DX setup. Copy-paste from the theme it was written from.
+- Fixed: `scaffold.py --flags` printed a backup spec whose label holds a space as two arguments, so the line it prints could not be pasted. Every value with a space is quoted now.
+- Fixed: the headline of a report called the first fall in ladder order the biggest one. Biggest is measured as a share of what the check cost before, so two units compare.
+- Fixed: a log table was read past the end of its section, so a second table under it would have become actions.
+- Changed: the first step of `jorekai-ops:exposure` no longer carries what an empty socket list means. That reading stands under `## Interpretation`, where a fact belongs (`STYLE.md`).
+
 ## 0.6.2 (2026-09-08)
 
 - Fixed: `jorekai-ops:report` read every audit in a host's folder, including the ones `jorekai-dx` wrote, so a host's month could be told with a machine's numbers. It reads the tools of its own theme and names the rest under what the report does not cover.

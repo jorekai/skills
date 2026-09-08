@@ -99,7 +99,12 @@ def table_rows(text, heading):
     """Rows of the first markdown table after `heading`, as dicts keyed by header."""
     if heading not in text:
         return []
-    lines = [l for l in text.split(heading, 1)[1].splitlines() if l.strip().startswith("|")]
+    section = []
+    for line in text.split(heading, 1)[1].splitlines():
+        if line.startswith("## "):
+            break              # a later table is another section's, and its rows are not actions
+        section.append(line)
+    lines = [l for l in section if l.strip().startswith("|")]
     if len(lines) < 2:
         return []
     head = [c.strip().lower() for c in split_cells(lines[0])]
@@ -295,19 +300,28 @@ def counted(actions, verdicts):
     return c
 
 
+def share(row):
+    """What a movement is worth against what the check cost before, so two units compare."""
+    then = parse_measure(row["then"])
+    size = abs(base(*then)[1]) if then else 0
+    return row["change"] / size if size else row["change"]
+
+
 def headline(actions, counts, moved):
     """One sentence with the number that carries the month."""
     if not actions and not moved:
         return "Nothing was logged this month and no audit pair covers it."
     parts = [f"{plural(len(actions), 'action')} logged, {counts['won']} held"]
-    falls = [r for r in moved if r["change"] < 0]
+    # Biggest means biggest, and two checks in different units only compare as a share of what
+    # they cost before. The table stays in ladder order; this one sentence does not.
+    falls = sorted((r for r in moved if r["change"] < 0), key=share)
     if falls:
         best = falls[0]
         parts.append(f"the biggest fall is {best['check']}, from {best['then']} to {best['now']}")
-    rises = [r for r in moved if r["change"] > 0]
+    rises = sorted((r for r in moved if r["change"] > 0), key=share)
     if rises:
         worst = rises[-1]
-        parts.append(f"{worst['check']} rose from {worst['then']} to {worst['now']}")
+        parts.append(f"the biggest rise is {worst['check']}, from {worst['then']} to {worst['now']}")
     return ", ".join(parts) + "."
 
 
@@ -437,7 +451,7 @@ def main(argv=None):
     results, texts = {}, []
     for m in names:
         if not (folder / m).is_dir():
-            print(f"no folder {folder / m}: run `jorekai-dx:setup {m}` first")
+            print(f"no folder {folder / m}: run `jorekai-ops:setup {m}` first")
             return 2
         data = collect(folder / m, first, last)
         written = ""

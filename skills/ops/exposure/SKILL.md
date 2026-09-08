@@ -23,7 +23,7 @@ A port the workspace does not name is a finding, not an exception. The expected 
    ```
 
    The script paths are relative to this skill's directory. A flag the workspace left blank is absent on purpose: that check does not run on this host. Run the script without `--json` first when you only need to look.
-   Done when the JSON holds a `counts` block and the socket list is not empty. An empty list means the pass did not reach the host, not that the host answers on nothing.
+   Done when the JSON holds a `counts` block and the socket list says what this host answers on.
 
 2. **Rank the findings, do not list them.** Order by the ladder in the router, not by how many rules a check touched. Look each id up in [../ops/references/fixes.md](../ops/references/fixes.md) for the fix on this host's control plane, the class, and the measure. The answer is one table, `check id | cost | targets | fix | class`, at most five rows, one row per check id; the rest of the shape is in the router's `## Writing the answer`.
    Done when every `FAIL` id has a named fix and an owner, and the rest is one sentence.
@@ -47,6 +47,7 @@ A port the workspace does not name is a finding, not an exception. The expected 
 
 ## Interpretation
 
+- A socket list that is missing and one that is empty are different answers. The pass says which it has: a list it could not read carries no number, an empty list it did read carries a zero.
 - A port open to anywhere and a port bound to one address are different findings, and they sit four rungs apart. The first is reachable by whatever can route to this host; the second costs tidiness and a little attack surface inside the network. Nothing is counted twice: a socket is one or the other.
 - The address a socket binds to is what decides this, never the firewall in front of it. A service bound to every interface behind a closed rule is one rule change away from being open, which is why the socket is the finding and the rule is only the fix.
 - A panel port is counted apart from every other port because the surface it opens changes the host itself, and it is counted only there: a port the workspace calls a panel is left out of the other two checks, so no port appears in two rows. It is also the one port where the fix is usually an address restriction rather than a closed port, since the owner still needs it.

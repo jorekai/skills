@@ -217,9 +217,13 @@ def flags(root, host):
     std = root / "standards.md"
     cfg = root / "machines" / host / "config.md"
 
+    def quote(v):
+        """A value with a space in it is one argument, so the printed line can be pasted."""
+        return f"'{v}'" if " " in str(v) and not str(v).startswith("'") else str(v)
+
     def add(out, flag, v):
         if v:
-            out.append(f"{flag} {v}")
+            out.append(f"{flag} {quote(v)}")
 
     access_target = value(cfg, "access")
     print(f"access as: {access_target or '(access is blank in ' + str(cfg) + ')'}")
@@ -245,7 +249,7 @@ def flags(root, host):
 
     av = []
     for spec in values(cfg, "services", sep=";"):
-        av.append(f"--service {spec}")
+        av.append(f"--service {quote(spec)}")
     for opt in values(std, "unit_required_options"):
         av.append(f"--require-option {opt}")
     for pair in values(cfg, "unit_exceptions"):
@@ -268,7 +272,7 @@ def flags(root, host):
 
     rec = []
     for spec in values(cfg, "backups", sep=";"):
-        rec.append(f"--backup {spec}")
+        rec.append(f"--backup {quote(spec)}")
     for path in values(cfg, "secret_paths"):
         rec.append(f"--secret {path}")
     add(rec, "--rpo-hours", value(std, "backup_rpo_hours"))

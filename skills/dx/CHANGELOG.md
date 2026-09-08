@@ -2,6 +2,11 @@
 
 One entry per `jorekai-dx` version. The version at the top equals `version` in `skills/dx/.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 2.4.2 (2026-09-08)
+
+- Fixed: the headline of a report called the first fall in ladder order the biggest one. Biggest is measured as a share of what the check cost before, so two units compare.
+- Fixed: a log table was read past the end of its section, so a second table under it would have become actions.
+
 ## 2.4.1 (2026-09-08)
 
 - Fixed: `jorekai-dx:report` read every audit in a machine's folder, including the ones `jorekai-ops` wrote, so a machine's month could be told with a host's numbers. It reads the tools of its own theme and names the rest under what the report does not cover.
