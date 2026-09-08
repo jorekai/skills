@@ -181,7 +181,10 @@ def read_backups(specs, a):
             if is_remote(c):
                 continue
             p = under(a.root, c)
-            t["local"].append({"path": c, "exists": p.exists(), "newest": newest(p)})
+            when = newest(p)
+            # A directory that exists and holds nothing is not a copy. Only a file inside it is,
+            # which is the same thing that dates the copy, so both answers come from one read.
+            t["local"].append({"path": c, "exists": when is not None, "newest": when})
         t["source_exists"] = bool(spec["source"]) and under(a.root, spec["source"]).exists()
         out.append(t)
     return out
@@ -245,7 +248,10 @@ def unit_files(a):
             continue
         for p in sorted(d.rglob("*")):
             if p.is_file() and p.suffix in (".service", ".socket", ".timer", ".conf"):
-                seen[p.name] = p
+                # The key is the path under the unit directory, never the file name: a unit in
+                # /etc replaces the one in /usr/lib, while every drop-in is called override.conf
+                # and keying by name would drop all but one of them.
+                seen[str(p.relative_to(d))] = p
     return [seen[name] for name in sorted(seen)]
 
 
@@ -314,14 +320,15 @@ def seconds(value):
 def journal_usage(a):
     """What the journal holds and what its filesystem holds, in bytes.
 
-    Only files ending in .journal count, which is what journalctl and systemd-journald do when
-    they add up their own usage, so this number is the one the size caps act on.
+    Only files ending in .journal or .journal~ count, which is what journalctl and
+    systemd-journald do when they add up their own usage, so this number is the one the size
+    caps act on. An archived file carries the second suffix and takes the same space.
     """
     directory = under(a.root, "var/log/journal")
     if not directory.is_dir():
         return None, None, directory
     used = 0
-    for p in directory.rglob("*.journal"):
+    for p in list(directory.rglob("*.journal")) + list(directory.rglob("*.journal~")):
         try:
             used += p.stat().st_size
         except OSError:
@@ -359,21 +366,26 @@ def collect(targets, secrets, rep, a, now):
             if age > window:
                 stale.append((t, max(times)))
                 by[t["name"]] = 1
+        datable = [t for t in targets if any(c["newest"] for c in t["local"])]
         if stale:
             rep.add("FAIL", "backup.stale",
                     f"{plural(len(stale), 'target')} {verb(len(stale), 'carry', 'carries')} a newest copy older than the "
                     f"window of {plural(a.rpo_hours, 'hour')}",
                     data=[{"target": t["name"], "value": when.date().isoformat()} for t, when in stale],
                     measure=len(stale), by=by)
-        else:
-            rep.add("PASS", "backup.stale", "every copy on this host is inside the window", measure=0)
+        elif datable:
+            # The zero is about the targets this pass could date. A target whose only copy is off
+            # this host has no date here, so it is named in the note below and not passed.
+            rep.add("PASS", "backup.stale", "every copy this pass can date is inside the window",
+                    measure=0, by={t["name"]: 0 for t in datable})
 
-        undated = [t for t in targets if t["remote"] and not any(c["newest"] for c in t["local"])]
+        undated = [t for t in targets if not any(c["newest"] for c in t["local"])]
         if undated:
             rep.add("INFO", "backup.stale",
-                    f"{plural(len(undated), 'target')} {verb(len(undated), 'keep')} every copy off this host, so this "
-                    "pass cannot date them",
-                    data=[{"target": t["name"], "value": ", ".join(t["remote"])} for t in undated])
+                    f"{plural(len(undated), 'target')} {verb(len(undated), 'carry', 'carries')} no copy this pass can "
+                    "date, so nothing here says how old it is",
+                    data=[{"target": t["name"], "value": ", ".join(t["remote"]) or "no copy on this host"}
+                          for t in undated])
 
         here = [t for t in targets if not t["remote"]]
         if here:

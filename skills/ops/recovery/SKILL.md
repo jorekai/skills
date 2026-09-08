@@ -39,21 +39,23 @@ A target the workspace does not name is not measured. The list in `config.md` is
    ```bash
    python3 ../setup/scripts/scaffold.py --root <workspace> --append-row --check-id <id> \
      --target <target or path> --action "<what happened>" --class <class> \
-     --then "<number> count" --status applied
+     --then "<number> <unit>" --status applied
    ```
 
-   The number comes from the finding's `measure` block: the target's own entry under `by` for a row about one target, `value` for a row about the host. A finding nobody acted on is not a row.
+   The number and the unit both come from the finding's `measure` block, and the unit is copied as it stands there. A row written in another unit than the check measures in can never be graded: the target's own entry under `by` for a row about one target, `value` for a row about the host. A finding nobody acted on is not a row.
    Done when each row names the check id, the class that actually ran, a measure the same script recomputes, and a verify date.
 
 ## Interpretation
 
 - A copy on this host is a copy of a file, not a copy of the host. It survives a deleted directory and a bad deployment, and it does not survive the disk, the provider, or the account. That is why `backup.offsite` counts every target whose copies all sit here, even when each of them is fresh.
-- A copy off this host cannot be dated by a pass that only reads this host. The report says so rather than calling it fresh: an undated copy is a belief, the same way an undated way in is.
+- A directory that exists and holds nothing is not a copy. The file inside it is what makes it one, and the newest of those files is what dates it, so both answers come from the same read.
+- A copy off this host cannot be dated by a pass that only reads this host. The report says so rather than calling it fresh: an undated copy is a belief, the same way an undated way in is. Nothing here passes either: a zero would settle an older row as won without a number behind it, so a target this pass cannot date is named and left open.
 - The age of a copy is the newest file inside it, never the directory's own write time. A directory keeps the time of its last change, which a copy written into it leaves behind.
 - `backup.untested` is the only check here that measures a habit. A restore test is what tells a copy from a file, and it is graded on the date it last finished, not on whether a job exists.
 - A secret readable by group or other is counted once per file. The mode is the finding; who the group holds is a question for the host's owner, and the fix narrows the file rather than the group.
 - A secret inside a work tree is a finding while nothing ignores it. A history keeps what it is given, so this is one of the few findings a later commit cannot take back, which is why it stands beside a missing copy on the first rung.
 - Environment variables set for a unit are exposed to unprivileged clients over D-Bus, and they travel down the process tree across security boundaries, so a credential passed that way is readable by more than the service. Credentials loaded by the service manager are the documented way to pass one. Source: `references/sources.md` beside the router.
+- Every drop-in in the system is called `override.conf`, so a unit file is known by its path under the unit directory and never by its name. A file in `/etc` replaces the one in `/usr/lib` with the same path, which is what the service manager does with it.
 - A unit that loads an environment file is a note and not a finding. The names inside it would say whether a credential is passed that way, and reading them means reading the values, which this pass does not do.
 - The journal keeps what two bounds allow: a time bound and a size cap. Both have defaults, so an unset bound is not an unbounded journal; it is a decision nobody made, and the finding says that rather than claiming a number.
 - A journal that is volatile keeps nothing across a reboot. That is a note here, because it is a choice a host may have made on purpose, and the log rows that would prove it live in the same journal.

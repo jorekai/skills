@@ -2,6 +2,17 @@
 
 One entry per `jorekai-ops` version. The version at the top equals `version` in `skills/ops/.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 0.6.1 (2026-09-08)
+
+- Fixed: a backup directory that exists and holds nothing counted as a copy, so `backup.missing` and `backup.stale` both passed on a job that created a folder and wrote nothing. A copy is a file now, and the file that dates it is the same read.
+- Fixed: a target whose only copy is off this host was passed as fresh with a measure of zero, which settled an older stale row as `won` without measuring anything. Nothing passes there now; the target is named and left open.
+- Fixed: unit files were keyed by file name, so two drop-ins called `override.conf` collapsed into one and a credential in the first of them disappeared. The key is the path under the unit directory, which is also what makes `/etc` replace `/usr/lib`.
+- Fixed: `log.growth` counted only `.journal` files. The service counts `.journal~` too, so a host whose archived files hold most of the journal read as a fifth of its real share. The source row said the wrong thing and now says what the manual says.
+- Fixed: an nftables rule that drops a port was read as a rule that opens it, so `fw.rule-orphan` asked for the wrong line to be removed, and the protocol was dropped, so a udp rule matched a tcp listener. A rule is read whole: protocol, ports, verdict.
+- Fixed: a ufw rule about what this host sends or forwards (`ALLOW OUT`, `ALLOW FWD`) counted as an open port, and a port range lost everything but its first port. Only inbound rules count, and a range is named as a range.
+- Fixed: a firewalld host was judged by `firewall-cmd --list-all` alone, which prints a zone's rules while nothing enforces them. The state is read with `--state`, which is what the source row documents.
+- Changed: the log step of `jorekai-ops:recovery` and `jorekai-ops:exposure` writes `--then "<number> <unit>"`. The old line hardcoded `count` and made every `percent` row ungradeable.
+
 ## 0.6.0 (2026-09-08)
 
 - Added: `jorekai-ops:report`, the month on this host, in the shape the DX report has, with the class each action ran under beside its verdict. `scripts/report.py` reads the audits that open and close the month and the log rows inside it, and writes `machines/<host>/reports/ops/YYYY-MM.md`.

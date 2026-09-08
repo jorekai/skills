@@ -5,12 +5,12 @@ Run: python3 skills/ops/recovery/scripts/test_recovery.py
 Uses a temporary filesystem root, a temporary git repository, and captured unit and journald
 files. No systemd, no network, and no secret is ever written into the output it checks.
 """
+import datetime as dt
 import json
 import os
 import subprocess
 import sys
 import tempfile
-import time
 import unittest
 from pathlib import Path
 
@@ -31,8 +31,12 @@ def write(path, text="x\n", mode=None):
 
 
 def age(path, days):
-    """A file written `days` ago, so a window has something to be past."""
-    when = time.time() - days * 86400
+    """A file written `days` before NOW, so a window has something to be past.
+
+    The base is the same fixed moment the run is given, never the wall clock: a fixture aged
+    against today would drift past NOW and the finding it sets up would disappear next week.
+    """
+    when = dt.datetime.fromisoformat(NOW).timestamp() - days * 86400
     os.utime(path, (when, when))
 
 
@@ -117,6 +121,31 @@ class BackupTest(unittest.TestCase):
             out = run(d, backups=["web=web root,source=/srv/web,copy=backup@store:/srv/web"])
             self.assertEqual(item(out, "backup.offsite", "PASS")["measure"]["value"], 0)
             self.assertEqual(item(out, "backup.stale", "INFO")["data"][0]["target"], "web")
+
+    def test_a_directory_that_holds_nothing_is_not_a_copy(self):
+        """A backup job that created the folder and wrote nothing passed both checks before."""
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / "backup/web").mkdir(parents=True)
+            out = run(d, backups=["web=web root,source=/srv/web,copy=/backup/web"])
+            self.assertEqual(item(out, "backup.missing", "FAIL")["measure"]["value"], 1)
+            self.assertEqual(item(out, "backup.stale", "INFO")["data"][0]["target"], "web")
+
+    def test_a_target_nothing_can_date_is_never_passed_as_fresh(self):
+        """A pass with a zero grades an older stale row as won without measuring anything."""
+        with tempfile.TemporaryDirectory() as d:
+            out = run(d, backups=["db=db,source=/srv/db,copy=store:/db"])
+            levels = [i["level"] for i in out["items"] if i["id"] == "backup.stale"]
+            self.assertNotIn("PASS", levels)
+            self.assertIn("INFO", levels)
+
+    def test_a_datable_target_still_passes_beside_one_nothing_can_date(self):
+        with tempfile.TemporaryDirectory() as d:
+            write(Path(d) / "backup/web/dump.sql")
+            out = run(d, backups=["web=web,source=/srv/web,copy=/backup/web",
+                                  "db=db,source=/srv/db,copy=store:/db"])
+            got = item(out, "backup.stale", "PASS")
+            self.assertEqual(got["measure"]["value"], 0)
+            self.assertEqual(sorted(got["measure"]["by"]), ["web"])
 
     def test_a_target_never_restored_is_untested(self):
         with tempfile.TemporaryDirectory() as d:
@@ -215,6 +244,23 @@ class UnitTest(unittest.TestCase):
                   "[Service]\nEnvironment=API_TOKEN=a\nEnvironment=DB_PASSWORD=b\n")
             self.assertIn("2 credentials reach", item(run(d), "secret.plaintext", "FAIL")["message"])
 
+    def test_two_drop_ins_with_the_same_file_name_are_two_files(self):
+        """Every drop-in is called override.conf, so keying by name dropped all but one."""
+        with tempfile.TemporaryDirectory() as d:
+            write(Path(d) / "etc/systemd/system/a.service.d/override.conf",
+                  "[Service]\nEnvironment=API_TOKEN=a\n")
+            write(Path(d) / "etc/systemd/system/z.service.d/override.conf",
+                  "[Service]\nEnvironment=LANG=C\n")
+            self.assertEqual(item(run(d), "secret.plaintext", "FAIL")["measure"]["value"], 1)
+
+    def test_a_unit_in_etc_replaces_the_one_in_usr_lib_instead_of_doubling_it(self):
+        with tempfile.TemporaryDirectory() as d:
+            write(Path(d) / "usr/lib/systemd/system/app.service",
+                  "[Service]\nEnvironment=API_TOKEN=a\n")
+            write(Path(d) / "etc/systemd/system/app.service",
+                  "[Service]\nEnvironment=API_TOKEN=a\n")
+            self.assertEqual(item(run(d), "secret.plaintext", "FAIL")["measure"]["value"], 1)
+
     def test_a_unit_that_loads_an_environment_file_is_a_note(self):
         with tempfile.TemporaryDirectory() as d:
             write(Path(d) / "etc/systemd/system/app.service",
@@ -276,6 +322,14 @@ class JournalTest(unittest.TestCase):
             write(Path(d) / "var/log/journal/abc/system.journal", "x" * 300)
             out = run(d, extra=["--filesystem-bytes", "1000", "--log-share-percent", "10"])
             self.assertEqual(item(out, "log.growth", "WARN")["measure"]["value"], 20.0)
+
+    def test_an_archived_journal_file_counts_towards_the_share(self):
+        """The service counts .journal and .journal~; counting one of them halves the answer."""
+        with tempfile.TemporaryDirectory() as d:
+            write(Path(d) / "var/log/journal/abc/system.journal", "x" * 50)
+            write(Path(d) / "var/log/journal/abc/system@0001.journal~", "x" * 900)
+            out = run(d, extra=["--filesystem-bytes", "1000", "--log-share-percent", "10"])
+            self.assertEqual(item(out, "log.growth", "WARN")["measure"]["value"], 85.0)
 
     def test_a_file_that_is_not_a_journal_does_not_count(self):
         with tempfile.TemporaryDirectory() as d:

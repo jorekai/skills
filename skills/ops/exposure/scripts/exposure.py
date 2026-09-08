@@ -80,11 +80,19 @@ LOOPBACK = ("127.", "::1", "[::1]", "localhost")
 SOCKET = re.compile(r"^(?P<addr>\[[^\]]*\]|[^\s]*?):(?P<port>\d+|\*)$")
 PORT_SPEC = re.compile(r"^(?P<port>\d+)(?:/(?P<proto>tcp|udp))?$", re.I)
 UFW_ACTIVE = re.compile(r"^Status:\s*active", re.I | re.M)
-UFW_RULE = re.compile(r"^\s*(?P<port>\d+)(?:/(?P<proto>tcp|udp))?\b[^\n]*\bALLOW\b", re.I | re.M)
+# The To column carries a port or a range, the Action column says what happens to it. Only what
+# comes in counts: `ALLOW OUT` and `ALLOW FWD` are about traffic this host sends or forwards, and
+# reading them as open ports invents rules nobody wrote.
+UFW_RULE = re.compile(r"^\s*(?P<port>\d+(?::\d+)?)(?:/(?P<proto>tcp|udp))?\s+"
+                      r"(?P<action>ALLOW|LIMIT)(?:\s+(?P<direction>IN|OUT|FWD))?\b", re.I | re.M)
 FIREWALLD_PORT = re.compile(r"^\s*ports:\s*(?P<ports>.*)$", re.I | re.M)
 FIREWALLD_SERVICE = re.compile(r"^\s*services:\s*(?P<services>.*)$", re.I | re.M)
 NFT_INPUT = re.compile(r"type\s+filter\s+hook\s+input\b[^\n]*policy\s+(?P<policy>\w+)")
-NFT_PORT = re.compile(r"dport\s+(?:\{\s*(?P<set>[^}]*)\}|(?P<one>\d+))")
+# One rule, read whole: the protocol in front of `dport`, the ports behind it as a number, a set,
+# or a range, and the verdict at the end. A rule that drops a port is not a rule that opens it.
+NFT_RULE = re.compile(r"\b(?P<proto>tcp|udp)\s+dport\s+(?:\{\s*(?P<set>[^}]*)\}|"
+                      r"(?P<one>\d+(?:-\d+)?))(?P<rest>[^\n]*)")
+RANGE = re.compile(r"^\d+[-:]\d+$")
 ISO_DATE = re.compile(r"(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})")
 
 
@@ -168,6 +176,26 @@ def reach(address):
     return "an interface"
 
 
+def status_text(kind):
+    """What a firewall says about itself, as one text.
+
+    A firewalld host answers in two halves: `--state` says whether the daemon is doing anything
+    at all, `--list-all` says what it lets in. Reading only the second one would call a stopped
+    daemon a firewall, because a zone still prints its rules when nothing enforces them.
+    """
+    if kind == "nft":
+        return run_command(["nft", "list", "ruleset"])
+    if kind == "ufw":
+        return run_command(["ufw", "status", "verbose"])
+    if kind == "firewalld":
+        state = run_command(["firewall-cmd", "--state"])
+        if state is None:
+            state = "not running"
+        rules = run_command(["firewall-cmd", "--list-all"]) or ""
+        return state + "\n" + rules
+    return None
+
+
 def firewall(a):
     """What filters this host: the kind, whether it is filtering, and the ports it lets in.
 
@@ -180,46 +208,56 @@ def firewall(a):
             sys.exit("--fw-file needs --fw-kind: a status text does not say which firewall wrote it")
         text = read(a.fw_file)
     elif kind == "auto":
-        for candidate, argv in (("nft", ["nft", "list", "ruleset"]),
-                                ("ufw", ["ufw", "status", "verbose"]),
-                                ("firewalld", ["firewall-cmd", "--list-all"])):
-            text = run_command(argv)
+        for candidate in ("nft", "ufw", "firewalld"):
+            text = status_text(candidate)
             if text is not None:
                 kind = candidate
                 break
         else:
             kind = "none"
     elif kind != "none":
-        argv = {"nft": ["nft", "list", "ruleset"], "ufw": ["ufw", "status", "verbose"],
-                "firewalld": ["firewall-cmd", "--list-all"]}[kind]
-        text = run_command(argv)
+        text = status_text(kind)
     if kind == "none" or text is None:
         return {"kind": kind, "filtering": False, "ports": [], "read": text is not None,
-                "services": []}
-    ports, services, filtering = [], [], False
+                "ranges": [], "services": []}
+    ports, ranges, services, filtering = [], [], [], False
     if kind == "ufw":
         filtering = bool(UFW_ACTIVE.search(text))
         for m in UFW_RULE.finditer(text):
-            ports.append((int(m.group("port")), (m.group("proto") or "").lower()))
+            if (m.group("direction") or "IN").upper() != "IN":
+                continue
+            proto = (m.group("proto") or "").lower()
+            if RANGE.match(m.group("port")):
+                ranges.append(m.group("port") + (f"/{proto}" if proto else ""))
+                continue
+            ports.append((int(m.group("port")), proto))
     elif kind == "firewalld":
         filtering = "not running" not in text.lower()
         for m in FIREWALLD_PORT.finditer(text):
             for token in m.group("ports").split():
                 port, _, proto = token.partition("/")
-                if port.isdigit():
+                if RANGE.match(port):
+                    ranges.append(token)
+                elif port.isdigit():
                     ports.append((int(port), proto.lower()))
         for m in FIREWALLD_SERVICE.finditer(text):
             services += m.group("services").split()
     elif kind == "nft":
         m = NFT_INPUT.search(text)
         filtering = bool(m) and m.group("policy").lower() != "accept"
-        for hit in NFT_PORT.finditer(text):
+        for hit in NFT_RULE.finditer(text):
+            if "accept" not in hit.group("rest").lower():
+                continue
+            proto = hit.group("proto").lower()
             raw = hit.group("set") or hit.group("one") or ""
             for token in raw.replace(",", " ").split():
-                if token.strip().isdigit():
-                    ports.append((int(token.strip()), ""))
+                token = token.strip()
+                if RANGE.match(token):
+                    ranges.append(f"{token}/{proto}")
+                elif token.isdigit():
+                    ports.append((int(token), proto))
     return {"kind": kind, "filtering": filtering, "ports": sorted(set(ports)), "read": True,
-            "services": services}
+            "ranges": sorted(set(ranges)), "services": services}
 
 
 def enddate(path, a):
@@ -354,11 +392,13 @@ def collect(open_ports, fw, certs, watchers, rep, a, now):
                     measure=len(by), by=by)
         else:
             rep.add("PASS", "fw.rule-orphan", "every rule lets in a port something serves", measure=0)
-    if fw["services"]:
+    named = [(name, "service") for name in fw["services"]] + \
+            [(r, "range") for r in fw.get("ranges", [])]
+    if named:
         rep.add("INFO", "fw.rule-orphan",
-                f"{plural(len(fw['services']), 'rule')} {verb(len(fw['services']), 'name')} a service instead of a port, "
-                "and this pass does not resolve a service to the ports behind it",
-                data=[{"target": name, "value": "service"} for name in fw["services"]])
+                f"{plural(len(named), 'rule')} {verb(len(named), 'name')} a service or a range instead of one port, "
+                "and this pass resolves neither to the ports behind it",
+                data=[{"target": name, "value": what} for name, what in named])
 
     known = [c for c in certs if c["until"]]
     unreadable = [c for c in certs if not c["until"]]

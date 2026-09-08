@@ -139,6 +139,38 @@ class FirewallTest(unittest.TestCase):
             self.assertEqual(got["measure"]["value"], 1)
             self.assertEqual(got["data"][0]["target"], "8080/tcp")
 
+    def test_a_ufw_rule_that_is_not_inbound_is_not_an_open_port(self):
+        """`ALLOW OUT` is about what this host sends, and reading it in invents an open port."""
+        with tempfile.TemporaryDirectory() as d:
+            out = self.fw(d, "ufw", "Status: active\n\n8080/tcp ALLOW OUT Anywhere\n"
+                                    "22/tcp ALLOW IN Anywhere\n")
+            self.assertEqual(item(out, "fw.rule-orphan", "PASS")["measure"]["value"], 0)
+
+    def test_a_ufw_range_is_named_as_a_range_and_not_as_its_first_port(self):
+        with tempfile.TemporaryDirectory() as d:
+            out = self.fw(d, "ufw", "Status: active\n\n6000:6010/tcp ALLOW IN Anywhere\n"
+                                    "22/tcp ALLOW IN Anywhere\n")
+            self.assertEqual(item(out, "fw.rule-orphan", "PASS")["measure"]["value"], 0)
+            self.assertEqual(item(out, "fw.rule-orphan", "INFO")["data"][0]["value"], "range")
+
+    def test_an_nftables_rule_that_drops_a_port_does_not_open_it(self):
+        """A drop rule read as an allow rule sends the reader to remove the wrong line."""
+        with tempfile.TemporaryDirectory() as d:
+            out = self.fw(d, "nft", "table inet filter {\n  chain input {\n"
+                                    "    type filter hook input priority 0; policy drop;\n"
+                                    "    tcp dport 22 accept\n"
+                                    "    tcp dport 8080 drop\n  }\n}\n")
+            self.assertEqual(item(out, "fw.rule-orphan", "PASS")["measure"]["value"], 0)
+
+    def test_an_nftables_rule_carries_the_protocol_it_names(self):
+        with tempfile.TemporaryDirectory() as d:
+            out = self.fw(d, "nft", "table inet filter {\n  chain input {\n"
+                                    "    type filter hook input priority 0; policy drop;\n"
+                                    "    udp dport 22 accept\n  }\n}\n",
+                          extra=["--expected-port", "22/tcp"])
+            got = item(out, "fw.rule-orphan", "WARN")
+            self.assertEqual(got["data"][0]["target"], "22/udp")
+
     def test_firewalld_ports_are_read_and_its_services_are_a_note(self):
         with tempfile.TemporaryDirectory() as d:
             out = self.fw(d, "firewalld", "public (active)\n  services: ssh http\n  ports: 8080/tcp\n")

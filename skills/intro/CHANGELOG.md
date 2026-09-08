@@ -2,6 +2,10 @@
 
 One entry per `jorekai-intro` version. The version at the top equals `version` in `skills/intro/.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 0.1.4 (2026-09-08)
+
+- Changed: the snapshot carries the `jorekai-ops` 0.6.1 version.
+
 ## 0.1.3 (2026-09-08)
 
 - Changed: the snapshot knows `jorekai-dx:report` and `jorekai-ops:report`, which shipped in `jorekai-dx` 2.4.0 and `jorekai-ops` 0.6.0.
