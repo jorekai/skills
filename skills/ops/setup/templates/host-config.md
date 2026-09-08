@@ -16,6 +16,11 @@ One `key: value` per line. Written during `jorekai-ops:setup`, edited by hand wh
 - services: (semicolon separated name=unit[,timer=unit][,path=DIR][,repo=URL][,commit=SHA])
 - unit_exceptions: (comma separated UNIT:OPTION a unit may miss, with the reason below)
 
+## Ops recovery
+
+- backups: (semicolon separated name=label,source=PATH[,copy=PATH][,copy=host:/PATH][,tested=YYYY-MM-DD])
+- secret_paths: (comma separated files or directories holding a credential this host needs)
+
 ## Ops notes
 
 - (why an exception exists, what the control plane regenerates, what a rebuild has to redo)

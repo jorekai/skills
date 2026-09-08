@@ -4,7 +4,7 @@ One row per check id a shipped tool emits: what the finding means, the risk clas
 
 Where the fix differs between control planes, a section under [Fixes per control plane](#fixes-per-control-plane) holds one block per plane. A check that is fixed the same way everywhere has no section.
 
-The namespaces `port`, `fw`, `intrusion`, `tls`, `panel`, `pkg`, `boot`, `os`, `plane`, `backup`, `secret` and `log` belong to this theme and arrive with their tools; the `## Planned` table in the router says which skill brings which. A log row carrying one of them is parked until then, and `jorekai-ops:and-now` and `jorekai-ops:grade` both say so rather than calling it an unknown id.
+The namespaces `port`, `fw`, `intrusion`, `tls`, `panel`, `pkg`, `boot`, `os` and `plane` belong to this theme and arrive with their tools; the `## Planned` table in the router says which skill brings which. A log row carrying one of them is parked until then, and `jorekai-ops:and-now` and `jorekai-ops:grade` both say so rather than calling it an unknown id.
 
 ## Access
 
@@ -35,6 +35,21 @@ The namespaces `port`, `fw`, `intrusion`, `tls`, `panel`, `pkg`, `boot`, `os`, `
 | `code.behind` | A deploy path runs code behind the commit the standards name | `ask` | Commits behind (`count`) |
 | `deploy.no-key` | A repository's host carries no identity file, so nothing here can pull it | `ask` | Repositories without a key (`count`) |
 | `deploy.absent` | A service the standards name has no deploy path on this host | `ask` | Services without a path (`count`) |
+
+## Recovery
+
+| Check | What it means | Class | Measure (unit) |
+|---|---|---|---|
+| `backup.missing` | A target the standards name has no copy on this host and none recorded anywhere else | `confirm` | Targets without a copy (`count`) |
+| `backup.stale` | The newest copy of a target is older than the window the standards allow | `confirm` | Targets past their window (`count`) |
+| `backup.offsite` | Every copy of a target sits on this host, so what takes the host takes the copy | `confirm` | Targets with every copy here (`count`) |
+| `backup.untested` | No restore of this target finished inside the window, so the copy is a file nobody has read back | `confirm` | Targets without a restore test (`count`) |
+| `secret.missing` | A secret the standards name is not on this host, so something that needs it fails later | `ask` | Secrets that are not there (`count`) |
+| `secret.mode` | A secret is readable or writable by more than the account that owns it | `ask` | Secrets readable beyond their owner (`count`) |
+| `secret.in-repo` | A secret sits inside a work tree without being ignored, so a commit can take it into a history that keeps it | `ask` | Secrets inside a work tree (`count`) |
+| `secret.plaintext` | A credential reaches a service as an environment variable, which unprivileged clients read back over the bus | `ask` | Credentials passed in units (`count`) |
+| `log.no-retention` | Neither bound on the journal is set, so how far back it reaches is whatever the build chose | `confirm` | Bounds nobody set, out of two (`count`) |
+| `log.growth` | The journal holds more of its filesystem than the standards allow | `ask` | Percentage points over the share (`percent`) |
 
 ## Fixes per control plane
 
@@ -134,3 +149,61 @@ git -C <path> checkout <commit>
 ### deploy.no-key, deploy.absent
 
 Both are a missing piece, not a broken one. The fix is an entry in the ssh configuration with its own identity file, and a clone at the recorded commit. Both run under gate 2 because they touch ssh configuration.
+
+### backup.missing, backup.stale, backup.offsite
+
+The copy itself is the host's own job, and this collection does not bring one. What the fix does is name the target, point the job at a place that is not this host, and run it once:
+
+```bash
+# none: prove the target is readable before anything is scheduled against it
+install -d -m 700 <copy directory>
+<the host's copy command> <source> <copy directory>
+```
+
+A copy that lands on the same disk answers `backup.missing` and leaves `backup.offsite` where it was. Only a copy the host cannot delete by itself settles that one, which is why the entry in `config.md` carries the remote copy as `host:/path` and not as a mount that is always there.
+
+### backup.untested
+
+```bash
+# none: restore into a scratch path, compare, then remove the scratch path
+install -d -m 700 /var/tmp/restore-check
+<the host's restore command> <copy> /var/tmp/restore-check
+diff -rq <source> /var/tmp/restore-check | head
+```
+
+The date the restore finished goes into that target's `tested=` field in `config.md`. Without the date the check has nothing to measure, and a job that runs nightly still counts as untested.
+
+### secret.mode, secret.in-repo
+
+```bash
+# none: narrow the file, never the group behind it
+chmod 600 <path>
+chown <the account the service runs as> <path>
+```
+
+A secret inside a work tree moves out of it, and the path it moves to goes into the unit that reads it. Adding the file to `.gitignore` stops the next commit and does nothing about a history that already holds it: a secret that was committed is rotated, not deleted.
+
+### secret.plaintext
+
+Gate 1 applies: the unit is a file a deployment may own, so the change is made where that deployment reads it.
+
+```bash
+# none: the value moves into a file the service manager hands over, and out of the unit
+install -m 600 -o root -g root /dev/null /etc/credstore/<name>
+systemctl edit <unit>          # LoadCredential=<name>:/etc/credstore/<name>, and the Environment= line goes
+systemctl daemon-reload && systemctl restart <unit>
+```
+
+The service then reads the value from the directory the manager exports to it. A credential that was in a unit file is treated as known: it is replaced, not moved.
+
+### log.no-retention, log.growth
+
+```bash
+# none: both bounds in one drop-in, so a package update does not take them back
+install -d /etc/systemd/journald.conf.d
+printf '[Journal]\nMaxRetentionSec=<days>d\nSystemMaxUse=<size>\n' \
+  > /etc/systemd/journald.conf.d/10-ops.conf
+systemctl restart systemd-journald
+```
+
+The restart is of the journal service alone and no stored entry is lost by it. Bringing a journal that is already over its share back under it removes files, which is why `log.growth` is `ask` while the bound that prevents it is `confirm`.

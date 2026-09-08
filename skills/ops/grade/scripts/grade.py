@@ -67,12 +67,12 @@ TOLERANCE = {"bytes": 0.05, "percent": 0.05, "seconds": 0.05, "count": 0.0}
 # fixes table names: a namespace missing here is a row nothing can ever recompute.
 TOOL_OF = {"ssh": "access", "key": "access", "sudo": "access", "user": "access",
            "access": "access", "service": "availability", "timer": "availability",
-           "unit": "availability", "code": "availability", "deploy": "availability"}
+           "unit": "availability", "code": "availability", "deploy": "availability",
+           "backup": "recovery", "secret": "recovery", "log": "recovery"}
 # A namespace this theme owns whose tool has not shipped. A row carrying one is parked, not
 # broken: it waits for that release instead of being told nobody owns it. The same list stands
 # in references/fixes.md beside the router.
-PLANNED = ("port", "fw", "intrusion", "tls", "panel", "pkg", "boot", "os", "plane", "backup",
-           "secret", "log")
+PLANNED = ("port", "fw", "intrusion", "tls", "panel", "pkg", "boot", "os", "plane")
 
 
 def tool_for(check_id):

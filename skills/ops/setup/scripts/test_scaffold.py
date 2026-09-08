@@ -156,6 +156,41 @@ class WorkspaceTest(unittest.TestCase):
             self.assertEqual(out.count("--service "), 2)
 
 
+    def line(self, root, key, value):
+        cfg = root / "machines/example-host/config.md"
+        text = cfg.read_text(encoding="utf-8")
+        old = [l for l in text.splitlines() if l.startswith(f"- {key}:")][0]
+        cfg.write_text(text.replace(old, f"- {key}: {value}"), encoding="utf-8")
+
+    def test_flags_turn_the_backup_list_into_backup_arguments(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = build(d)
+            self.line(root, "backups", "web=web root,source=/srv/web,copy=store:/web; db=database,source=/var/db")
+            out = run(root, "--flags", "example-host").stdout
+            self.assertIn("--backup web=web root,source=/srv/web,copy=store:/web", out)
+            self.assertIn("--backup db=database,source=/var/db", out)
+            self.assertEqual(out.count("--backup "), 2)
+
+    def test_flags_pass_every_recorded_secret_path(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = build(d)
+            self.line(root, "secret_paths", "/etc/app/token, /etc/ssl/private")
+            out = run(root, "--flags", "example-host").stdout
+            self.assertIn("--secret /etc/app/token", out)
+            self.assertIn("--secret /etc/ssl/private", out)
+
+    def test_a_blank_recovery_standard_leaves_the_script_its_own_default(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = build(d)
+            self.assertNotIn("--rpo-hours", run(root, "--flags", "example-host").stdout)
+            (root / "standards.md").write_text(
+                "# S\n\n## Ops recovery\n\n- backup_rpo_hours: 12\n- restore_test_days: 30\n",
+                encoding="utf-8")
+            out = run(root, "--flags", "example-host").stdout
+            self.assertIn("--rpo-hours 12", out)
+            self.assertIn("--restore-test-days 30", out)
+
+
 class RowTest(unittest.TestCase):
     def prepare(self, d):
         root = build(d)

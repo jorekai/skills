@@ -207,11 +207,13 @@ t python3 skills/ops/setup/scripts/test_scaffold.py
 t python3 skills/ops/and-now/scripts/test_status.py
 t python3 skills/ops/access/scripts/test_access.py
 t python3 skills/ops/availability/scripts/test_availability.py
+t python3 skills/ops/recovery/scripts/test_recovery.py
 t python3 skills/ops/setup/scripts/scaffold.py --root "$(mktemp -d)/dx" example-host
 t python3 skills/ops/setup/scripts/scaffold.py --help
 t python3 skills/ops/and-now/scripts/status.py --help
 t python3 skills/ops/access/scripts/access.py --help
 t python3 skills/ops/availability/scripts/availability.py --help
+t python3 skills/ops/recovery/scripts/recovery.py --help
 t python3 skills/ops/grade/scripts/test_grade.py
 t python3 skills/ops/grade/scripts/grade.py --help
 t python3 skills/ops/grade/scripts/grade.py --namespaces

@@ -23,3 +23,9 @@ Shared with `jorekai-dx`: each theme reads its own sections.
 
 - unit_required_options: (comma separated NAME=VALUE options every unit must carry)
 - service_restart_bar: (restarts a service may have before it counts as falling over)
+
+## Ops recovery
+
+- backup_rpo_hours: (how old the newest copy of a target may be, in hours)
+- restore_test_days: (how long a finished restore test counts for)
+- log_share_max_percent: (share of its filesystem the journal may hold)

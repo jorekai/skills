@@ -2,6 +2,10 @@
 
 One entry per `jorekai-intro` version. The version at the top equals `version` in `skills/intro/.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 0.1.1 (2026-09-08)
+
+- Changed: the snapshot knows `jorekai-ops:recovery`, which shipped in `jorekai-ops` 0.4.0 and left the planned table.
+
 ## 0.1.0 (2026-09-08)
 
 - Added: the theme itself. Three themes, three loops and 29 skills had no entry point that says what is here and which part a person needs. `jorekai-intro:intro` answers that one question and nothing else: it measures nothing, keeps no workspace, and writes no log row.

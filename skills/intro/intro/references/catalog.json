@@ -106,7 +106,7 @@
     {
       "theme": "intro",
       "plugin": "jorekai-intro",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "covers": "The map of this collection: the themes, their loops, and which one you need.",
       "install": "claude plugin install jorekai-intro@jorekai",
       "listed": true,
@@ -130,8 +130,8 @@
     {
       "theme": "ops",
       "plugin": "jorekai-ops",
-      "version": "0.3.0",
-      "covers": "Ops loop for a host that serves: setup, access, availability, grade, and-now.",
+      "version": "0.4.0",
+      "covers": "Ops loop for a host that serves: setup, access, availability, recovery, grade, and-now.",
       "install": "claude plugin install jorekai-ops@jorekai",
       "listed": true,
       "thesis": "One loop drives everything: measure the host, fix what costs the most for the least risk, prove it held, repeat. Nothing changes access unless a second way in already works.",
@@ -188,6 +188,16 @@
           ]
         },
         {
+          "skill": "jorekai-ops:recovery",
+          "invoked_by": "agent or you",
+          "description": "What survives this host, in one pass via scripts/recovery.py: backup targets with no copy, copies past their window, copies that all sit on this host, targets nobody restored, secrets that are missing, readable beyond their owner, or sitting in a work tree, credentials passed to a unit as environment variables, and what the journal is allowed to keep. Use when asked whether a host is backed up, before a risky change, after a restore, when a secret may be exposed, or when logs are eating the disk.",
+          "reach_for_it_when": "Is this host backed up, are its secrets narrow, what does the journal keep?",
+          "hands_back": "`check id | cost | targets | fix | class`",
+          "scripts": [
+            "recovery.py"
+          ]
+        },
+        {
           "skill": "jorekai-ops:grade",
           "invoked_by": "agent or you",
           "description": "Give a verdict to log rows in this theme whose verify date has passed via scripts/grade.py: recompute each row's measure from the newest audit of the tool that found it, then write won, no-change, or returned into the log. Use when a row is due for a verdict, when the weekly pass reports rows past their verify date, or when asked whether a hardening step held.",
@@ -206,10 +216,6 @@
         {
           "skill": "jorekai-ops:currency",
           "note": "pkg, boot, os, plane"
-        },
-        {
-          "skill": "jorekai-ops:recovery",
-          "note": "backup, secret, log"
         }
       ]
     },

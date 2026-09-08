@@ -1,0 +1,3 @@
+interface:
+  display_name: "Ops recovery"
+  short_description: "What survives this host: its copies, its secrets, and what the journal keeps"

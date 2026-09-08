@@ -245,11 +245,12 @@ flowchart TD
         W1["jorekai-ops:and-now<br/>stage, open items in ladder order, next verify date"]
         W2["jorekai-ops:access<br/>root login, passwords, keys, sudo, ways in"]
         W3["jorekai-ops:availability<br/>units, timers, hardening, the commit it runs"]
+        W3b["jorekai-ops:recovery<br/>copies, secrets, what the journal keeps"]
         W4["Rank by the priority ladder<br/>1. a way in survives, nothing leaks<br/>2. the host is not standing open<br/>3. someone waits on a service"]
         W5["Gate 2, then act by class<br/>two proved ways in, a backup copy,<br/>a rollback timer that is cancelled last"]
         W6["scaffold.py --append-row<br/>check id, class, one measure, verify date"]
         W7["jorekai-ops:grade<br/>recompute the measure of every due row,<br/>write won, no-change, or returned"]
-        W1 --> W2 --> W3 --> W4 --> W5 --> W6 --> W7
+        W1 --> W2 --> W3 --> W3b --> W4 --> W5 --> W6 --> W7
         W7 -. "next week" .-> W1
     end
 
@@ -267,6 +268,7 @@ What a skill hands back has a shape too: one line of context, one table in ladde
 | Orient | `jorekai-ops:and-now` | Stage, rows past their verify date, rows waiting for a tool that has not shipped, rows naming an id this theme does not own, failing ids in ladder order, the next verify date | The state of a host lives in files. One command answers "and now?" after a break, without touching the host and without the network. |
 | Reach | `jorekai-ops:access` | Root login, password authentication, weak algorithms, missing limits in front of sshd, keys without an owner or past rotation or under the bar, shared keys, passwordless sudo, unnamed accounts, and how many independent ways in exist; full JSON in `audits/` | A host with one way in cannot be hardened at all, so `access.single-path` is a precondition as much as a priority. |
 | Settle | `jorekai-ops:grade` | One verdict per log row past its verify date, recomputed from the newest audit of the tool that found it: `won`, `no-change`, or `returned`, written into the log beside the action | A row without a verdict is a claim nobody checked. `returned` under `ssh.*` or `key.*` means a way in came back, which is why it goes to the front of the ladder. |
+| Survive | `jorekai-ops:recovery` | Targets with no copy, copies past their window, copies that all sit on this host, targets nobody restored, secrets missing or readable beyond their owner or sitting in a work tree, credentials passed to a unit as environment variables, and the two bounds on the journal; full JSON in `audits/` | A copy is the only finding here that a later day cannot repair, and a secret in a history is the other. Both stand on the first rung beside the ways in. |
 | Run | `jorekai-ops:availability` | Units down or failed, restarts over the bar, timers not enabled or past their elapse, required unit options, the distance to the commit the standards name, repositories with no identity file, services with no deploy path; full JSON in `audits/` | These are the findings whose cost falls on other people. A failed unit and a stopped one are counted apart, because they need different fixes. |
 
 ### The ops log
@@ -290,6 +292,7 @@ Theme `skills/ops/`. You call user-invoked skills yourself (`/jorekai-ops:<name>
 | `jorekai-ops:and-now` | user | `scripts/status.py [host]`: stage and next steps from the workspace files, no host access and no network |
 | `jorekai-ops:access` | model | `scripts/access.py`: eleven checks over sshd, authorized keys, sudo and accounts; `--root` reads a captured tree instead of the running host, which is what makes the parsers testable offline |
 | `jorekai-ops:availability` | model | `scripts/availability.py`: nine checks over units, timers, required options and deploy paths; `--show-dir` reads captured `systemctl show` output instead of systemd |
+| `jorekai-ops:recovery` | model | `scripts/recovery.py`: ten checks over backup targets, secret files, unit credentials and the journal; `--root` reads a captured tree, `--filesystem-bytes` fixes the size the share is measured against, and no check ever reads the contents of a secret |
 | `jorekai-ops:grade` | model | `scripts/grade.py [host]`: recompute the measure of every due log row from the newest audit of its tool, `--write` puts the verdict in the log, `--namespaces` prints which tool owns which check id namespace |
 
 ## Use in a project

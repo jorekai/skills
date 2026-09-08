@@ -102,9 +102,9 @@ class RowTest(unittest.TestCase):
         """A row waiting for a release is not the same as a row nobody can ever measure."""
         with tempfile.TemporaryDirectory() as d:
             root, base = workspace(d)
-            rows(base, row("2026-W36-01", "secret.missing"))
+            rows(base, row("2026-W36-01", "pkg.security"))
             s = status.read_host(root, "example-host", TODAY)
-            self.assertEqual([r["check"] for r in s["parked"]], ["secret.missing"])
+            self.assertEqual([r["check"] for r in s["parked"]], ["pkg.security"])
             self.assertEqual(s["unknown"], [])
             _, now, _ = status.decide(s, TODAY)
             self.assertTrue(any("has not shipped" in step for step in now))

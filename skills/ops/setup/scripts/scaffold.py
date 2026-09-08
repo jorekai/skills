@@ -253,6 +253,16 @@ def flags(root, host):
     add(av, "--restart-bar", value(std, "service_restart_bar"))
     print("availability: " + (" ".join(av) or "(no service is recorded for this host)"))
 
+    rec = []
+    for spec in values(cfg, "backups", sep=";"):
+        rec.append(f"--backup {spec}")
+    for path in values(cfg, "secret_paths"):
+        rec.append(f"--secret {path}")
+    add(rec, "--rpo-hours", value(std, "backup_rpo_hours"))
+    add(rec, "--restore-test-days", value(std, "restore_test_days"))
+    add(rec, "--log-share-percent", value(std, "log_share_max_percent"))
+    print("recovery: " + (" ".join(rec) or "(nothing to back up and no secret is recorded)"))
+
     verify = value(std, "verify_window_days")
     print(f"verify after: {verify} days" if verify else
           "verify after: (verify_window_days is blank, so no row can be graded)")

@@ -66,6 +66,7 @@ LADDER = {
     # 5. What costs later.
     "service.restarts": 5, "code.behind": 5, "unit.unhardened": 5, "pkg.pending": 5,
     "pkg.unattended-off": 5, "ssh.no-limit": 5, "backup.untested": 5, "secret.missing": 5,
+    "backup.offsite": 5,
     # 6. Tidiness.
     "port.unexpected": 6, "fw.rule-orphan": 6, "user.unlisted": 6, "log.no-retention": 6,
     "log.growth": 6, "plane.outdated": 6,
@@ -91,7 +92,10 @@ MEASURED = {"ssh.root-login", "ssh.password-auth", "ssh.weak-crypto", "ssh.no-li
             "key.orphan", "key.past-rotation", "key.weak", "key.duplicate", "access.single-path",
             "sudo.nopasswd", "user.unlisted",
             "service.down", "service.failed", "service.restarts", "timer.disabled",
-            "timer.missed", "unit.unhardened", "code.behind", "deploy.no-key", "deploy.absent"}
+            "timer.missed", "unit.unhardened", "code.behind", "deploy.no-key", "deploy.absent",
+            "backup.missing", "backup.stale", "backup.offsite", "backup.untested",
+            "secret.missing", "secret.mode", "secret.in-repo", "secret.plaintext",
+            "log.no-retention", "log.growth"}
 
 
 def value(text, key):

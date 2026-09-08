@@ -21,6 +21,7 @@ A host is this theme's business when its `config.md` says `role: server`. No wor
 1. `jorekai-ops:setup`: detect the control plane, create the reading account and the changing account, prove both from a fresh connection, choose the profile, list the services.
 2. `jorekai-ops:access`: who can reach the host today. Nothing under `ssh.*`, `key.*`, `fw.*`, `sudo.*` or `user.*` may change before this has run and `access.single-path` reads zero.
 3. `jorekai-ops:availability`: whether what should run is running, current, and hardened.
+4. `jorekai-ops:recovery`: what is left when the host is gone, and what on it is readable by more than its owner.
 
 **Weekly**, ten minutes: `jorekai-ops:and-now` names the stage, the open items, and the next dated event. Each item that gets done leaves a log row with a measure and a verify date. A row whose verify date has passed goes to `jorekai-ops:grade`, which recomputes the measure and writes the verdict, so the loop closes instead of collecting dates.
 
@@ -38,6 +39,7 @@ A host is this theme's business when its `config.md` says `role: server`. No wor
 | Take a host into the workspace, with two accounts and a profile | `jorekai-ops:setup` | you |
 | Who can reach this host, with which keys and sudo rules? | `jorekai-ops:access` | agent or you |
 | Do the services run, fire, and match the commit they should? | `jorekai-ops:availability` | agent or you |
+| Is this host backed up, are its secrets narrow, what does the journal keep? | `jorekai-ops:recovery` | agent or you |
 | Did the fix hold? Settle the rows past their verify date | `jorekai-ops:grade` | agent or you |
 
 ## Planned
@@ -48,17 +50,16 @@ These skills are designed and not shipped. A log row whose check id one of them 
 |---|---|
 | `jorekai-ops:exposure` | `port`, `fw`, `intrusion`, `tls`, `panel` |
 | `jorekai-ops:currency` | `pkg`, `boot`, `os`, `plane` |
-| `jorekai-ops:recovery` | `backup`, `secret`, `log` |
 
 ## Priority ladder
 
 Each rung depends on the one before it. A finding on a lower rung waits.
 
-1. **A way in survives, and no credential leaks.** `access.single-path`, `secret.*`, `key.orphan`, `key.duplicate`, `backup.missing`. A host with one way in cannot be hardened at all, so this rung is also a precondition and not only a priority.
+1. **A way in survives, and no credential leaks.** `access.single-path`, `secret.*`, `key.orphan`, `key.duplicate`, `backup.missing`, `backup.stale`. A host with one way in cannot be hardened at all, so this rung is also a precondition and not only a priority.
 2. **The host is not standing open.** `ssh.root-login`, `ssh.password-auth`, `port.world-open`, `panel.exposed`, `fw.disabled`, `tls.expired`.
 3. **Someone is waiting on a service.** `service.down`, `service.failed`, `timer.disabled`, `timer.missed`, `deploy.absent`. The cost of these falls on other people.
 4. **What is known-bad but not yet used against you.** `pkg.security`, `boot.pending`, `tls.expiring`, `os.eol`, `intrusion.off`, `key.weak`, `sudo.nopasswd`.
-5. **What costs later.** `service.restarts`, `code.behind`, `unit.unhardened`, `pkg.pending`, `backup.untested`.
+5. **What costs later.** `service.restarts`, `code.behind`, `unit.unhardened`, `pkg.pending`, `backup.untested`, `backup.offsite`.
 6. **Tidiness.** `port.unexpected`, `fw.rule-orphan`, `user.unlisted`, `log.*`, `plane.outdated`.
 
 ## Reading a report
@@ -87,7 +88,7 @@ The report is for the terminal; the answer is for the person, and it has one sha
 
 The columns, per skill:
 
-- `jorekai-ops:access`, `jorekai-ops:availability`: `check id | cost | targets | fix | class`
+- `jorekai-ops:access`, `jorekai-ops:availability`, `jorekai-ops:recovery`: `check id | cost | targets | fix | class`
 - `jorekai-ops:grade`: `row | then | now | verdict | next`
 - `jorekai-ops:and-now`: no table. The script's stage, the open items in ladder order, the next verify date.
 - `jorekai-ops:setup`: no table. The two accounts with the date each was proved from a fresh connection, and the profile that was chosen.

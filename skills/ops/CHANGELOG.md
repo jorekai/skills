@@ -2,6 +2,14 @@
 
 One entry per `jorekai-ops` version. The version at the top equals `version` in `skills/ops/.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 0.4.0 (2026-09-08)
+
+- Added: `jorekai-ops:recovery`, the pass over what is left when the host is gone. Ten checks over backup targets, secret files, unit credentials and the journal: `backup.missing`, `backup.stale`, `backup.offsite`, `backup.untested`, `secret.missing`, `secret.mode`, `secret.in-repo`, `secret.plaintext`, `log.no-retention`, `log.growth`. The first rung of the ladder named `secret.*` and `backup.missing` since the theme shipped and nothing could measure them, so every log row carrying one stayed parked.
+- Added: the pass reads names, modes, write times and unit settings, never the contents of a secret, and a finding names the file and the unit rather than the value. A test proves a value in a unit file does not reach the output.
+- Added: `standards.md` gains `## Ops recovery` (`backup_rpo_hours`, `restore_test_days`, `log_share_max_percent`) and a host's `config.md` gains `backups` and `secret_paths`; `scaffold.py --flags` turns both into the arguments the pass takes.
+- Changed: `grade.py` owns `backup`, `secret` and `log` instead of parking them, and `status.py` measures their ids, so rows that waited for a tool now reach a verify date.
+- Changed: the router's ladder names `backup.stale` on the first rung and `backup.offsite` on the fifth, beside the ids the shipped tool emits.
+
 ## 0.3.0 (2026-09-08)
 
 - Added: what a skill hands back has a shape, beside the shape of the report it read. `jorekai-ops:ops` carries `## Writing the answer`: one line of context, one table in ladder order of at most five rows, one line with the next action, and the columns for every sub-skill. `jorekai-ops:access` and `jorekai-ops:availability` share `check id | cost | targets | fix | class`, whose class cell is the class that will actually run, and `jorekai-ops:grade` carries `row | then | now | verdict | next`. `decisions/0023`.
