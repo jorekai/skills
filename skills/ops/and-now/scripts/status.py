@@ -95,7 +95,9 @@ MEASURED = {"ssh.root-login", "ssh.password-auth", "ssh.weak-crypto", "ssh.no-li
             "timer.missed", "unit.unhardened", "code.behind", "deploy.no-key", "deploy.absent",
             "backup.missing", "backup.stale", "backup.offsite", "backup.untested",
             "secret.missing", "secret.mode", "secret.in-repo", "secret.plaintext",
-            "log.no-retention", "log.growth"}
+            "log.no-retention", "log.growth",
+            "port.world-open", "port.unexpected", "panel.exposed", "fw.disabled",
+            "fw.rule-orphan", "tls.expired", "tls.expiring", "intrusion.off"}
 
 
 def value(text, key):

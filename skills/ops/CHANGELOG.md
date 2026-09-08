@@ -2,6 +2,14 @@
 
 One entry per `jorekai-ops` version. The version at the top equals `version` in `skills/ops/.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 0.5.0 (2026-09-08)
+
+- Added: `jorekai-ops:exposure`, the pass over what this host offers the network. Eight checks: `port.world-open`, `panel.exposed`, `fw.disabled`, `tls.expired`, `tls.expiring`, `intrusion.off`, `port.unexpected`, `fw.rule-orphan`. The second rung of the ladder is the one a host on the open network is judged by, and until now nothing measured it.
+- Added: a port open to anywhere and a port bound to one address are separate findings four rungs apart, and no socket is counted twice. The address a socket binds to decides, not the rule in front of it.
+- Added: firewalls are read per kind, `nft`, `ufw` or `firewalld`, from the host or from a captured status; a kind this pass does not read says so instead of reporting a clean firewall.
+- Added: `standards.md` gains `## Ops exposure` (`tls_expiring_days`) and a host's `config.md` gains `firewall`, `expected_ports`, `panel_ports`, `cert_paths` and `intrusion_units`; `scaffold.py --flags` turns them into the arguments the pass takes.
+- Changed: `grade.py` owns `port`, `fw`, `intrusion`, `tls` and `panel`, and `status.py` measures their ids, so the last parked rows outside `pkg`, `boot`, `os` and `plane` reach a verdict.
+
 ## 0.4.0 (2026-09-08)
 
 - Added: `jorekai-ops:recovery`, the pass over what is left when the host is gone. Ten checks over backup targets, secret files, unit credentials and the journal: `backup.missing`, `backup.stale`, `backup.offsite`, `backup.untested`, `secret.missing`, `secret.mode`, `secret.in-repo`, `secret.plaintext`, `log.no-retention`, `log.growth`. The first rung of the ladder named `secret.*` and `backup.missing` since the theme shipped and nothing could measure them, so every log row carrying one stayed parked.

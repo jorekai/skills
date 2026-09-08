@@ -113,7 +113,7 @@ class RowTest(unittest.TestCase):
         """Nothing recomputes it, so naming it as gradeable sends the reader to a refusal."""
         with tempfile.TemporaryDirectory() as d:
             root, base = workspace(d)
-            rows(base, row("2026-W36-01", "tls.expired", "applied", "2026-09-01", "2026-08-25"),
+            rows(base, row("2026-W36-01", "pkg.security", "applied", "2026-09-01", "2026-08-25"),
                  row("2026-W36-02", "key.orphan", "applied", "2026-09-01", "2026-08-25"))
             s = status.read_host(root, "example-host", TODAY)
             self.assertEqual([r["id"] for r in s["due"]], ["2026-W36-02"])
@@ -125,7 +125,7 @@ class RowTest(unittest.TestCase):
     def test_a_parked_row_does_not_set_the_next_dated_event(self):
         with tempfile.TemporaryDirectory() as d:
             root, base = workspace(d)
-            rows(base, row("2026-W36-01", "tls.expired", "applied", "2099-01-01", "2026-09-01"))
+            rows(base, row("2026-W36-01", "pkg.security", "applied", "2099-01-01", "2026-09-01"))
             self.assertIsNone(status.read_host(root, "example-host", TODAY)["next_verify"])
 
     def test_a_measured_id_is_neither_parked_nor_unknown(self):

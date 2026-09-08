@@ -162,6 +162,32 @@ class WorkspaceTest(unittest.TestCase):
         old = [l for l in text.splitlines() if l.startswith(f"- {key}:")][0]
         cfg.write_text(text.replace(old, f"- {key}: {value}"), encoding="utf-8")
 
+    def test_flags_turn_the_port_list_into_port_arguments(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = build(d)
+            self.line(root, "expected_ports", "22/tcp, 443/tcp")
+            self.line(root, "panel_ports", "8443/tcp")
+            out = run(root, "--flags", "example-host").stdout
+            self.assertIn("--expected-port 22/tcp", out)
+            self.assertIn("--expected-port 443/tcp", out)
+            self.assertIn("--panel-port 8443/tcp", out)
+
+    def test_a_certificate_directory_is_told_from_a_certificate_file(self):
+        """A directory passed as a file would be opened and read as one certificate."""
+        with tempfile.TemporaryDirectory() as d:
+            root = build(d)
+            self.line(root, "cert_paths", "/etc/ssl/site.pem, /etc/letsencrypt/live/")
+            out = run(root, "--flags", "example-host").stdout
+            self.assertIn("--cert /etc/ssl/site.pem", out)
+            self.assertIn("--cert-dir /etc/letsencrypt/live/", out)
+
+    def test_the_firewall_kind_comes_from_the_host_and_not_from_a_guess(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = build(d)
+            self.assertNotIn("--fw-kind", run(root, "--flags", "example-host").stdout)
+            self.line(root, "firewall", "ufw")
+            self.assertIn("--fw-kind ufw", run(root, "--flags", "example-host").stdout)
+
     def test_flags_turn_the_backup_list_into_backup_arguments(self):
         with tempfile.TemporaryDirectory() as d:
             root = build(d)

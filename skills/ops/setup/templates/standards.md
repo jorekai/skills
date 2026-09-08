@@ -24,6 +24,10 @@ Shared with `jorekai-dx`: each theme reads its own sections.
 - unit_required_options: (comma separated NAME=VALUE options every unit must carry)
 - service_restart_bar: (restarts a service may have before it counts as falling over)
 
+## Ops exposure
+
+- tls_expiring_days: (how close a certificate may come to its date before it counts)
+
 ## Ops recovery
 
 - backup_rpo_hours: (how old the newest copy of a target may be, in hours)

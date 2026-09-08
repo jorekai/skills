@@ -16,6 +16,14 @@ One `key: value` per line. Written during `jorekai-ops:setup`, edited by hand wh
 - services: (semicolon separated name=unit[,timer=unit][,path=DIR][,repo=URL][,commit=SHA])
 - unit_exceptions: (comma separated UNIT:OPTION a unit may miss, with the reason below)
 
+## Ops exposure
+
+- firewall: (nft, ufw, firewalld, or none: what filters this host)
+- expected_ports: (comma separated PORT[/tcp|/udp] this host is supposed to answer on)
+- panel_ports: (comma separated PORT[/tcp|/udp] the control plane answers on)
+- cert_paths: (comma separated certificate files; a path ending in / is read as a directory)
+- intrusion_units: (comma separated units that watch failed attempts)
+
 ## Ops recovery
 
 - backups: (semicolon separated name=label,source=PATH[,copy=PATH][,copy=host:/PATH][,tested=YYYY-MM-DD])

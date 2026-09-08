@@ -22,6 +22,7 @@ A host is this theme's business when its `config.md` says `role: server`. No wor
 2. `jorekai-ops:access`: who can reach the host today. Nothing under `ssh.*`, `key.*`, `fw.*`, `sudo.*` or `user.*` may change before this has run and `access.single-path` reads zero.
 3. `jorekai-ops:availability`: whether what should run is running, current, and hardened.
 4. `jorekai-ops:recovery`: what is left when the host is gone, and what on it is readable by more than its owner.
+5. `jorekai-ops:exposure`: what the host answers on, and what filters it.
 
 **Weekly**, ten minutes: `jorekai-ops:and-now` names the stage, the open items, and the next dated event. Each item that gets done leaves a log row with a measure and a verify date. A row whose verify date has passed goes to `jorekai-ops:grade`, which recomputes the measure and writes the verdict, so the loop closes instead of collecting dates.
 
@@ -39,6 +40,7 @@ A host is this theme's business when its `config.md` says `role: server`. No wor
 | Take a host into the workspace, with two accounts and a profile | `jorekai-ops:setup` | you |
 | Who can reach this host, with which keys and sudo rules? | `jorekai-ops:access` | agent or you |
 | Do the services run, fire, and match the commit they should? | `jorekai-ops:availability` | agent or you |
+| What does this host offer the network, and what filters it? | `jorekai-ops:exposure` | agent or you |
 | Is this host backed up, are its secrets narrow, what does the journal keep? | `jorekai-ops:recovery` | agent or you |
 | Did the fix hold? Settle the rows past their verify date | `jorekai-ops:grade` | agent or you |
 
@@ -48,7 +50,6 @@ These skills are designed and not shipped. A log row whose check id one of them 
 
 | Skill | Namespaces it will own |
 |---|---|
-| `jorekai-ops:exposure` | `port`, `fw`, `intrusion`, `tls`, `panel` |
 | `jorekai-ops:currency` | `pkg`, `boot`, `os`, `plane` |
 
 ## Priority ladder
@@ -88,7 +89,7 @@ The report is for the terminal; the answer is for the person, and it has one sha
 
 The columns, per skill:
 
-- `jorekai-ops:access`, `jorekai-ops:availability`, `jorekai-ops:recovery`: `check id | cost | targets | fix | class`
+- `jorekai-ops:access`, `jorekai-ops:availability`, `jorekai-ops:recovery`, `jorekai-ops:exposure`: `check id | cost | targets | fix | class`
 - `jorekai-ops:grade`: `row | then | now | verdict | next`
 - `jorekai-ops:and-now`: no table. The script's stage, the open items in ladder order, the next verify date.
 - `jorekai-ops:setup`: no table. The two accounts with the date each was proved from a fresh connection, and the profile that was chosen.

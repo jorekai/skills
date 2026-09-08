@@ -1,0 +1,3 @@
+interface:
+  display_name: "Ops exposure"
+  short_description: "What this host offers the network, and what filters it"

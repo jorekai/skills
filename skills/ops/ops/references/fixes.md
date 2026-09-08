@@ -4,7 +4,7 @@ One row per check id a shipped tool emits: what the finding means, the risk clas
 
 Where the fix differs between control planes, a section under [Fixes per control plane](#fixes-per-control-plane) holds one block per plane. A check that is fixed the same way everywhere has no section.
 
-The namespaces `port`, `fw`, `intrusion`, `tls`, `panel`, `pkg`, `boot`, `os` and `plane` belong to this theme and arrive with their tools; the `## Planned` table in the router says which skill brings which. A log row carrying one of them is parked until then, and `jorekai-ops:and-now` and `jorekai-ops:grade` both say so rather than calling it an unknown id.
+The namespaces `pkg`, `boot`, `os` and `plane` belong to this theme and arrive with their tools; the `## Planned` table in the router says which skill brings which. A log row carrying one of them is parked until then, and `jorekai-ops:and-now` and `jorekai-ops:grade` both say so rather than calling it an unknown id.
 
 ## Access
 
@@ -50,6 +50,19 @@ The namespaces `port`, `fw`, `intrusion`, `tls`, `panel`, `pkg`, `boot`, `os` an
 | `secret.plaintext` | A credential reaches a service as an environment variable, which unprivileged clients read back over the bus | `ask` | Credentials passed in units (`count`) |
 | `log.no-retention` | Neither bound on the journal is set, so how far back it reaches is whatever the build chose | `confirm` | Bounds nobody set, out of two (`count`) |
 | `log.growth` | The journal holds more of its filesystem than the standards allow | `ask` | Percentage points over the share (`percent`) |
+
+## Exposure
+
+| Check | What it means | Class | Measure (unit) |
+|---|---|---|---|
+| `port.world-open` | A port takes connections from anywhere and the standards name none of them | `ask` | Ports open to anywhere (`count`) |
+| `panel.exposed` | The surface that changes this host answers on the open network | `ask` | Panel ports open to anywhere (`count`) |
+| `fw.disabled` | Nothing filters this host, or the firewall holds rules and is not filtering | `confirm` | Hosts with nothing filtering (`count`) |
+| `tls.expired` | A certificate is past its date, so a client is told the connection cannot be trusted | `confirm` | Certificates past their date (`count`) |
+| `tls.expiring` | A certificate runs out inside the window the standards allow | `confirm` | Certificates inside the window (`count`) |
+| `intrusion.off` | A unit that should watch failed attempts is not running | `confirm` | Units that are not watching (`count`) |
+| `port.unexpected` | A port nobody named listens on one address of this host | `ask` | Ports nobody named (`count`) |
+| `fw.rule-orphan` | A rule lets a port in that nothing on this host serves | `ask` | Rules for ports nothing serves (`count`) |
 
 ## Fixes per control plane
 
@@ -207,3 +220,64 @@ systemctl restart systemd-journald
 ```
 
 The restart is of the journal service alone and no stored entry is lost by it. Bringing a journal that is already over its share back under it removes files, which is why `log.growth` is `ask` while the bound that prevents it is `confirm`.
+
+### port.world-open, port.unexpected, panel.exposed
+
+Gate 2 applies to every one of these, because a port that is closed by hand is closed for the connection reading this report as well.
+
+```bash
+# none: bind the service to one address instead of every interface, then prove it moved
+ss -H -ltnp | grep -w <port>
+systemctl edit <unit>          # the address the service listens on, in the unit's own option
+systemctl restart <unit> && ss -H -ltnp | grep -w <port>
+```
+
+A panel is the exception that stays reachable: the fix restricts the addresses that may reach it rather than closing it, and the address that is allowed is the one the owner connects from. A rule that closes a panel port without that address takes the control plane away from its owner.
+
+### fw.disabled
+
+Gate 2 applies. The first rule on a host that had none is the change most likely to end the session that made it.
+
+```bash
+# none: allow the way in first, then turn filtering on, then prove a fresh connection still lands
+<the host's firewall> allow <ssh port>/tcp
+<the host's firewall> enable
+```
+
+```bash
+# plesk: the panel owns its own rule set, so the rule is added there and not beside it
+plesk bin extension --exec firewall --set-rules-and-apply
+```
+
+The order in the first block is the fix: a firewall enabled before the way in is allowed is the classic lockout, and it is the reason this id sits behind gate 2 even though it only adds a limit.
+
+### fw.rule-orphan
+
+```bash
+# none: name the rule, then remove it, then prove nothing else used it
+<the host's firewall> status numbered
+<the host's firewall> delete <number>
+```
+
+A rule that let in a port nothing serves is removed only after the service that used it is known to be gone. An orphan is a sign of an undocumented change as often as it is leftover.
+
+### tls.expired, tls.expiring
+
+```bash
+# none: renew, then reload the service that serves the certificate, then read the new date
+<the host's certificate client> renew
+systemctl reload <unit>
+openssl x509 -noout -enddate -dateopt iso_8601 -in <path>
+```
+
+The last line is the check itself, so the fix is verified with the same reading that found it. A certificate that renews and is not reloaded keeps serving the old one, which is the failure this check reports again a day later.
+
+### intrusion.off
+
+```bash
+# none: enabling arms it, starting it makes it watch now
+systemctl enable --now <unit>
+systemctl show <unit> --property=ActiveState
+```
+
+A unit that starts and stops again inside the verify window is the `returned` verdict: what it watches is failing, not the watching.

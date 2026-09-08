@@ -253,6 +253,19 @@ def flags(root, host):
     add(av, "--restart-bar", value(std, "service_restart_bar"))
     print("availability: " + (" ".join(av) or "(no service is recorded for this host)"))
 
+    exp = []
+    for port in values(cfg, "expected_ports"):
+        exp.append(f"--expected-port {port}")
+    for port in values(cfg, "panel_ports"):
+        exp.append(f"--panel-port {port}")
+    for path in values(cfg, "cert_paths"):
+        exp.append(f"--cert-dir {path}" if path.endswith("/") else f"--cert {path}")
+    for unit in values(cfg, "intrusion_units"):
+        exp.append(f"--intrusion-unit {unit}")
+    add(exp, "--fw-kind", value(cfg, "firewall"))
+    add(exp, "--tls-expiring-days", value(std, "tls_expiring_days"))
+    print("exposure: " + (" ".join(exp) or "(no port, certificate or watcher is recorded)"))
+
     rec = []
     for spec in values(cfg, "backups", sep=";"):
         rec.append(f"--backup {spec}")

@@ -104,9 +104,11 @@ class OwnershipTest(unittest.TestCase):
     def test_a_shipped_namespace_names_the_tool_that_measures_it(self):
         self.assertEqual(grade.tool_for("ssh.password-auth"), "access")
         self.assertEqual(grade.tool_for("timer.missed"), "availability")
+        self.assertEqual(grade.tool_for("tls.expiring"), "exposure")
+        self.assertEqual(grade.tool_for("backup.stale"), "recovery")
 
     def test_a_planned_namespace_waits_for_its_tool_instead_of_being_disowned(self):
-        got = grade.grade_row({"id": "x", "check": "tls.expired", "target": "",
+        got = grade.grade_row({"id": "x", "check": "pkg.security", "target": "",
                                "then": "1 count", "applied": "2026-09-05"}, {})
         self.assertEqual(got["verdict"], "")
         self.assertIn("waits for its tool", got["note"])
