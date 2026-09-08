@@ -29,5 +29,5 @@ These are judgements this collection makes, not documented behaviour. They are n
 - A copy no older than 24 hours and a restore test inside 90 days are the defaults this collection chose. `standards.md` sets both, and a host with a reason writes another number.
 - The column order of a socket list is not a documented interface, so `exposure.py` reads the address tokens on a line instead of counting columns.
 - The `Status: active` line of a ufw status and the shape of an nftables ruleset dump are output this collection reads by pattern. Neither is documented as an interface.
-- An nftables input chain whose policy is accept and which drops nothing counts as not filtering. That is a judgement about what a firewall is for, not a documented state.
+- An nftables input chain whose policy is accept and which drops nothing counts as not filtering; one that accepts by default and drops named traffic counts as filtering, with a note saying so. Both are judgements about what a firewall is for, not documented states.
 - Twenty-one days before a certificate's date is the window this collection chose. `standards.md` sets it, and a host with a shorter renewal cycle writes another number.

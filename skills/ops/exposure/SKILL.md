@@ -9,7 +9,7 @@ One pass over what this host answers on and what filters it. Reads only: no port
 
 A change to a rule or a port is a change to a way in, so gate 2 runs first: two independent ways in that answered from fresh connections, a backup copy, and a rollback timer cancelled only after a new connection succeeds. The gate stands in [../ops/references/risk-classes.md](../ops/references/risk-classes.md).
 
-A port the workspace does not name is a finding, not an exception. The expected list in `config.md` is the question this pass answers, so a host with no list produces one finding per socket, which is the honest answer for a host nobody has described.
+A port the workspace does not name is a finding, not an exception. The expected list in `config.md` is the question this pass answers, so a host with no list produces one finding per socket, which is the honest answer for a host nobody has described. A socket list that was read and holds nothing is an answer too: it writes the zero that settles a row about a port somebody closed.
 
 ## Steps
 
@@ -50,7 +50,8 @@ A port the workspace does not name is a finding, not an exception. The expected 
 - A port open to anywhere and a port bound to one address are different findings, and they sit four rungs apart. The first is reachable by whatever can route to this host; the second costs tidiness and a little attack surface inside the network. Nothing is counted twice: a socket is one or the other.
 - The address a socket binds to is what decides this, never the firewall in front of it. A service bound to every interface behind a closed rule is one rule change away from being open, which is why the socket is the finding and the rule is only the fix.
 - A panel port is counted apart from every other port because the surface it opens changes the host itself, and it is counted only there: a port the workspace calls a panel is left out of the other two checks, so no port appears in two rows. It is also the one port where the fix is usually an address restriction rather than a closed port, since the owner still needs it.
-- A firewall that holds rules and is not filtering is worse than no firewall, because the rules read as protection to whoever looks. The check counts the state, not the rules.
+- Not reading a firewall and reading one that filters nothing are different answers. The first carries no number, because a measure there would settle a log row with a figure nobody took.
+- A firewall that holds rules and is not filtering is worse than no firewall, because the rules read as protection to whoever looks. A firewall that takes everything it has no rule for still filters, and the note beside the finding says which of the two it is.
 - A rule counts only when it lets something in. A rule that drops a port, one about what this host sends, and one about what it forwards are all rules, and none of them opens a port. A rule that names a range or a service is named as that and never resolved into ports, because the answer would be a guess.
 - A rule for a port nothing serves is not dangerous today. It is counted because it says the host once served something there, and nobody wrote down that it stopped.
 - A certificate is read by its end date alone. Whether the chain is complete, whether the name matches, and whether a client trusts the issuer are different questions with different fixes, and this pass makes none of those claims.

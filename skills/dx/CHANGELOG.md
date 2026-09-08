@@ -2,6 +2,11 @@
 
 One entry per `jorekai-dx` version. The version at the top equals `version` in `skills/dx/.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 2.4.1 (2026-09-08)
+
+- Fixed: `jorekai-dx:report` read every audit in a machine's folder, including the ones `jorekai-ops` wrote, so a machine's month could be told with a host's numbers. It reads the tools of its own theme and names the rest under what the report does not cover.
+- Fixed: a log row that carries a verdict in the outcomes table stayed in the open table and in the three next steps when nobody had rewritten its status cell.
+
 ## 2.4.0 (2026-09-08)
 
 - Added: `jorekai-dx:report`, the month on this machine. `scripts/report.py` reads the audit that opened the month and the one that closed it, every log row inside it with its verdict, and everything still open in ladder order, then writes `machines/<machine>/reports/dx/YYYY-MM.md` from a template. The loop answered "what next" every week and never "what did the month give back".

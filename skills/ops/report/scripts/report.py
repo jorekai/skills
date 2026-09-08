@@ -59,6 +59,10 @@ UNITS = {"B": ("bytes", 1), "KB": ("bytes", 1024), "MB": ("bytes", 1024 ** 2),
          "GB": ("bytes", 1024 ** 3), "TB": ("bytes", 1024 ** 4), "bytes": ("bytes", 1),
          "count": ("count", 1), "percent": ("percent", 1), "seconds": ("seconds", 1)}
 MEASURE_RE = re.compile(r"^\s*(-?\d+(?:\.\d+)?)\s*([A-Za-z]+)\s*$")
+# The tools of this theme, whose audits this report reads. The audits folder holds both themes
+# of a host, so a report that took every file in it would tell a host's story with a machine's
+# numbers. Duplicated from the grade skill's table on purpose: each skill stays standalone.
+TOOLS = ("access", "availability", "recovery", "exposure")
 # The priority ladder of the router, as data. Duplicated in the and-now skill on purpose: this
 # one orders what a month leaves open, so the three next steps are the three that cost most.
 RUNG = {"access.single-path": 1, "secret.plaintext": 1, "secret.in-repo": 1, "secret.mode": 1,
@@ -154,7 +158,7 @@ def file_date(p):
 
 def audits(base_dir):
     """Every audit, by tool, oldest first, read from the `tool` field inside the file."""
-    found = {}
+    found, other = {}, set()
     folder = base_dir / "audits"
     for f in sorted(folder.glob("*.json")) if folder.is_dir() else []:
         try:
@@ -162,11 +166,14 @@ def audits(base_dir):
         except (ValueError, OSError):
             continue
         tool = str(data.get("tool") or f.stem)
+        if tool not in TOOLS:
+            other.add(tool)
+            continue
         found.setdefault(tool, []).append({"file": f.name, "date": file_date(f),
                                            "items": data.get("items", [])})
     for tool in found:
         found[tool].sort(key=lambda e: e["date"])
-    return found
+    return found, sorted(other)
 
 
 def pick(entries, first, last):
@@ -254,6 +261,9 @@ def log_rows(base_dir, first, last):
                     weeks.append(f.name)
             if r.get("status") in OPEN_STATUS:
                 still_open.append(r)
+    # A row graded in the outcomes table is settled even when nobody rewrote its status cell.
+    # Listing it as open puts a finished action in the next month's three next steps.
+    still_open = [r for r in still_open if not verdict_of(r, verdicts)]
     still_open.sort(key=lambda r: (rung(r.get("check", "")), r.get("id", "")))
     return actions, still_open, verdicts, weeks
 
@@ -350,8 +360,13 @@ def render(host, month, data):
 
 
 def collect(base_dir, first, last):
-    found = audits(base_dir)
+    found, other = audits(base_dir)
     moved, notes = movement(found, first, last)
+    for tool in other:
+        notes.append(f"the {tool} audits in this folder belong to another theme and are not read here")
+    for tool in TOOLS:
+        if tool not in found:
+            notes.append(f"no {tool} audit at all, so nothing it measures has ever been in a report")
     actions, still_open, verdicts, weeks = log_rows(base_dir, first, last)
     counts = counted(actions, verdicts)
     return {"movement": moved, "notes": notes, "actions": actions, "open": still_open,

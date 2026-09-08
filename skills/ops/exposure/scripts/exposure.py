@@ -93,7 +93,7 @@ NFT_INPUT = re.compile(r"type\s+filter\s+hook\s+input\b[^\n]*policy\s+(?P<policy
 NFT_RULE = re.compile(r"\b(?P<proto>tcp|udp)\s+dport\s+(?:\{\s*(?P<set>[^}]*)\}|"
                       r"(?P<one>\d+(?:-\d+)?))(?P<rest>[^\n]*)")
 RANGE = re.compile(r"^\d+[-:]\d+$")
-ISO_DATE = re.compile(r"(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})")
+ISO_DATE = re.compile(r"(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})\s*(?P<zone>Z|[+-]\d{2}:?\d{2})?")
 
 
 class Report:
@@ -219,8 +219,9 @@ def firewall(a):
         text = status_text(kind)
     if kind == "none" or text is None:
         return {"kind": kind, "filtering": False, "ports": [], "read": text is not None,
-                "ranges": [], "services": []}
-    ports, ranges, services, filtering = [], [], [], False
+                "ranges": [], "services": [], "default_open": ""}
+    ports, ranges, services, filtering, default_open = [], [], [], False, ""
+
     if kind == "ufw":
         filtering = bool(UFW_ACTIVE.search(text))
         for m in UFW_RULE.finditer(text):
@@ -233,6 +234,8 @@ def firewall(a):
             ports.append((int(m.group("port")), proto))
     elif kind == "firewalld":
         filtering = "not running" not in text.lower()
+        if re.search(r"^\s*target:\s*ACCEPT", text, re.I | re.M):
+            default_open = "target ACCEPT"
         for m in FIREWALLD_PORT.finditer(text):
             for token in m.group("ports").split():
                 port, _, proto = token.partition("/")
@@ -244,7 +247,12 @@ def firewall(a):
             services += m.group("services").split()
     elif kind == "nft":
         m = NFT_INPUT.search(text)
-        filtering = bool(m) and m.group("policy").lower() != "accept"
+        drops = bool(re.search(r"\b(drop|reject)\b", text))
+        # A chain that accepts by default and drops named traffic still filters. It filters less
+        # than a chain that drops by default, and the note beside the finding says which it is.
+        filtering = bool(m) and (m.group("policy").lower() != "accept" or drops)
+        if m and m.group("policy").lower() == "accept" and drops:
+            default_open = "policy accept"
         for hit in NFT_RULE.finditer(text):
             if "accept" not in hit.group("rest").lower():
                 continue
@@ -257,7 +265,7 @@ def firewall(a):
                 elif token.isdigit():
                     ports.append((int(token), proto))
     return {"kind": kind, "filtering": filtering, "ports": sorted(set(ports)), "read": True,
-            "ranges": sorted(set(ranges)), "services": services}
+            "ranges": sorted(set(ranges)), "services": services, "default_open": default_open}
 
 
 def enddate(path, a):
@@ -271,9 +279,17 @@ def enddate(path, a):
     if not m:
         return None
     try:
-        return dt.datetime.fromisoformat(f"{m.group(1)}T{m.group(2)}")
+        stamp = dt.datetime.fromisoformat(f"{m.group(1)}T{m.group(2)}")
     except ValueError:
         return None
+    # A certificate date is in UTC and the host is usually not, so both sides of the comparison
+    # carry a zone. Reading the date as local time moves it by the offset, which decides the
+    # answer for every certificate inside one day of its end.
+    zone = (m.group("zone") or "Z").replace(":", "")
+    if zone == "Z":
+        return stamp.replace(tzinfo=dt.timezone.utc)
+    offset = dt.timedelta(hours=int(zone[1:3]), minutes=int(zone[3:5]))
+    return stamp.replace(tzinfo=dt.timezone(-offset if zone[0] == "-" else offset))
 
 
 def certificates(a):
@@ -307,17 +323,20 @@ def collect(open_ports, fw, certs, watchers, rep, a, now):
     """Every check, in ladder order. A finding is a fact; the fixes table decides what happens."""
     expected = [parse_port(p) for p in a.expected_port or []]
     panel = [parse_port(p) for p in a.panel_port or []]
-    if open_ports is None:
+    read_sockets = open_ports is not None
+    if not read_sockets:
         rep.add("INFO", "port.world-open",
                 "no socket list, so nothing here says what this host offers the network")
         open_ports = []
     elif not expected:
         rep.add("INFO", "port.world-open",
                 f"{plural(len(open_ports), 'socket')} {verb(len(open_ports), 'listen')} here and the workspace names no "
-                "expected port, so every one of them would be a finding")
+                "expected port, so every one of them is a finding")
     listening = {(s["port"], s["proto"]) for s in open_ports}
 
-    if expected and open_ports:
+    # An empty list that was actually read is an answer: it says nothing listens, and the zero it
+    # writes is what settles a row about a port that was closed.
+    if read_sockets:
         # A panel port has its own finding one line down, and no port is counted twice.
         outside = [s for s in open_ports
                    if reach(s["address"]) == "anywhere" and not wanted(s["port"], s["proto"], expected)
@@ -352,7 +371,7 @@ def collect(open_ports, fw, certs, watchers, rep, a, now):
             rep.add("PASS", "port.unexpected", "every port that listens is one the standards name",
                     measure=0)
 
-    if panel and open_ports:
+    if panel and read_sockets:
         exposed = [s for s in open_ports
                    if reach(s["address"]) == "anywhere" and wanted(s["port"], s["proto"], panel)]
         if exposed:
@@ -365,11 +384,17 @@ def collect(open_ports, fw, certs, watchers, rep, a, now):
         else:
             rep.add("PASS", "panel.exposed", "no panel port takes connections from anywhere", measure=0)
 
-    if not fw["read"] and fw["kind"] == "none":
+    if fw["kind"] == "none":
         rep.add("FAIL", "fw.disabled",
                 "nothing on this host answers as a firewall, so every port that listens is reachable "
                 "by whatever can route to it",
                 data=[{"target": "firewall", "value": "none"}], measure=1, by={"firewall": 1})
+    elif not fw["read"]:
+        # Not reading a firewall is not the same as reading one that filters nothing. A measure
+        # here would settle a row with a number nobody took.
+        rep.add("INFO", "fw.disabled",
+                f"the {fw['kind']} firewall did not answer, so this pass cannot say whether it filters",
+                data=[{"target": fw["kind"], "value": "no answer"}])
     elif not fw["filtering"]:
         rep.add("FAIL", "fw.disabled",
                 f"the {fw['kind']} firewall on this host is not filtering, so the rules it holds "
@@ -378,6 +403,11 @@ def collect(open_ports, fw, certs, watchers, rep, a, now):
                 by={fw["kind"]: 1})
     else:
         rep.add("PASS", "fw.disabled", f"the firewall is filtering ({fw['kind']})", measure=0)
+    if fw.get("default_open"):
+        rep.add("INFO", "fw.disabled",
+                f"the {fw['kind']} firewall takes everything it has no rule for, so what it filters "
+                "is the list of rules and not the default",
+                data=[{"target": fw["kind"], "value": fw["default_open"]}])
 
     if fw["filtering"] and fw["ports"]:
         orphans = [(port, proto) for port, proto in fw["ports"]
@@ -540,7 +570,10 @@ def main(argv=None):
         for cid, unit in sorted(MEASURES.items()):
             print(f"{cid} {unit}")
         return 0
-    now = dt.datetime.fromisoformat(a.now) if a.now else dt.datetime.now()
+    # `--now` is read as a time on this host, the way a person reads a clock, and carries the
+    # host's zone from there. Without it the pass takes the moment it runs.
+    now = (dt.datetime.fromisoformat(a.now).astimezone() if a.now
+           else dt.datetime.now(dt.timezone.utc))
     open_ports = sockets(a)
     fw = firewall(a)
     certs = certificates(a)

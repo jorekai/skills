@@ -2,6 +2,14 @@
 
 One entry per `jorekai-ops` version. The version at the top equals `version` in `skills/ops/.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 0.6.2 (2026-09-08)
+
+- Fixed: `jorekai-ops:report` read every audit in a host's folder, including the ones `jorekai-dx` wrote, so a host's month could be told with a machine's numbers. It reads the tools of its own theme and names the rest under what the report does not cover.
+- Fixed: a log row that carries a verdict stayed in the open table and in the three next steps when nobody had rewritten its status cell. A settled row is settled.
+- Fixed: a host with no expected port list reported nothing, while `jorekai-ops:exposure` says every unnamed port is a finding. It now reports them, and a socket list that was read and holds nothing writes the zero that settles a row about a closed port.
+- Fixed: a firewall that did not answer was reported as one that filters nothing. That answer carries no measure now, because a number there settles a log row with a figure nobody took. An nftables chain that accepts by default and drops named traffic counts as filtering, with a note saying which it is, and so does a firewalld zone whose target is ACCEPT.
+- Fixed: a certificate date was read as local time and compared against a local clock, so every certificate inside one day of its end could be judged by the zone offset instead of by its date. Both sides carry a zone now.
+
 ## 0.6.1 (2026-09-08)
 
 - Fixed: a backup directory that exists and holds nothing counted as a copy, so `backup.missing` and `backup.stale` both passed on a job that created a folder and wrote nothing. A copy is a file now, and the file that dates it is the same read.

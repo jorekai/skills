@@ -211,6 +211,27 @@ class MovementTest(unittest.TestCase):
             self.assertIn("backup.stale", run(root)["headline"])
 
 
+    def test_an_audit_of_another_theme_is_not_read_into_this_report(self):
+        """One folder holds both themes, so a report that takes every file tells the wrong story."""
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            audit(base, "2026-08-30", "machine", [measured("disk.cache", 4)])
+            audit(base, "2026-09-20", "machine", [measured("disk.cache", 1)])
+            out = run(root)
+            self.assertEqual(out["movement"], [])
+            self.assertTrue(any("another theme" in n for n in out["notes"]))
+
+    def test_a_row_with_a_verdict_is_not_still_open(self):
+        """A settled action in the open table becomes a next step nobody has to take again."""
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            log(base, actions=[action("2026-W37-01", "backup.stale", status="verify")],
+                outcomes=["| 2026-W37-01 | backup.stale | ~/x | 2026-09-08 | 10 GB | 2 GB | won |"])
+            out = run(root)
+            self.assertEqual(out["counts"]["won"], 1)
+            self.assertEqual(out["open"], [])
+
+
 class WriteTest(unittest.TestCase):
     def test_the_written_report_holds_no_placeholder(self):
         with tempfile.TemporaryDirectory() as d:

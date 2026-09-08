@@ -109,6 +109,19 @@ class SocketTest(unittest.TestCase):
             self.assertEqual(item(out, "port.world-open", "PASS")["measure"]["value"], 0)
             self.assertEqual(item(out, "port.unexpected", "PASS")["measure"]["value"], 0)
 
+    def test_a_host_with_no_expected_port_reports_every_socket(self):
+        """The skill says a port nobody named is a finding, and an empty list names nothing."""
+        with tempfile.TemporaryDirectory() as d:
+            out = run(d, ports=())
+            self.assertEqual(item(out, "port.world-open", "FAIL")["measure"]["value"], 3)
+            self.assertEqual(item(out, "port.unexpected", "WARN")["measure"]["value"], 1)
+
+    def test_a_capture_that_holds_no_socket_writes_the_zero_that_settles_a_row(self):
+        with tempfile.TemporaryDirectory() as d:
+            out = run(d, ss="")
+            self.assertEqual(item(out, "port.world-open", "PASS")["measure"]["value"], 0)
+            self.assertEqual(item(out, "port.unexpected", "PASS")["measure"]["value"], 0)
+
     def test_no_socket_list_is_a_note_and_not_a_clean_host(self):
         with tempfile.TemporaryDirectory() as d:
             out = run(d, ss=None, extra=["--ss-file", str(Path(d) / "missing.txt")])
@@ -207,6 +220,28 @@ class FirewallTest(unittest.TestCase):
             self.assertIn("--fw-kind", r.stderr)
 
 
+    def test_a_firewall_that_did_not_answer_is_not_a_firewall_that_filters_nothing(self):
+        with tempfile.TemporaryDirectory() as d:
+            out = run(d, extra=["--fw-kind", "ufw", "--fw-file", str(Path(d) / "missing.txt")])
+            got = item(out, "fw.disabled", "INFO")
+            self.assertIsNone(got["measure"])
+            self.assertEqual(got["data"][0]["value"], "no answer")
+
+    def test_an_nftables_chain_that_accepts_by_default_and_drops_named_traffic_filters(self):
+        with tempfile.TemporaryDirectory() as d:
+            out = self.fw(d, "nft", "table inet filter {\n  chain input {\n"
+                                    "    type filter hook input priority 0; policy accept;\n"
+                                    "    tcp dport 8080 drop\n  }\n}\n")
+            self.assertEqual(item(out, "fw.disabled", "PASS")["measure"]["value"], 0)
+            self.assertEqual(item(out, "fw.disabled", "INFO")["data"][0]["value"], "policy accept")
+
+    def test_a_firewalld_zone_that_accepts_by_default_is_named(self):
+        with tempfile.TemporaryDirectory() as d:
+            out = self.fw(d, "firewalld", "running\ntrusted (active)\n  target: ACCEPT\n")
+            self.assertEqual(item(out, "fw.disabled", "PASS")["measure"]["value"], 0)
+            self.assertEqual(item(out, "fw.disabled", "INFO")["data"][0]["value"], "target ACCEPT")
+
+
 class CertificateTest(unittest.TestCase):
     def prepare(self, d, until):
         write(Path(d) / "etc/ssl/site.pem", "certificate\n")
@@ -245,6 +280,36 @@ class CertificateTest(unittest.TestCase):
             write(Path(d) / "dates/b.enddate", "notAfter=2026-09-02 00:00:00Z\n")
             out = run(d, extra=["--cert-dir", "/etc/ssl", "--enddate-dir", str(Path(d) / "dates")])
             self.assertEqual(item(out, "tls.expired", "FAIL")["measure"]["value"], 2)
+
+
+class TimeZoneTest(unittest.TestCase):
+    """A certificate date is in UTC and the host is usually not."""
+
+    def run_in(self, d, zone, until, now):
+        write(Path(d) / "etc/ssl/site.pem", "certificate\n")
+        write(Path(d) / "dates/site.enddate", f"notAfter={until}\n")
+        env = dict(os.environ, TZ=zone)
+        r = subprocess.run([sys.executable, SCRIPT, "--json", "--root", str(d), "--now", now,
+                            "--fw-kind", "none", "--cert", "/etc/ssl/site.pem",
+                            "--enddate-dir", str(Path(d) / "dates")],
+                           capture_output=True, text=True, env=env)
+        assert r.returncode == 0, r.stdout + r.stderr
+        return json.loads(r.stdout)
+
+    def test_a_certificate_an_hour_ahead_of_a_local_clock_is_not_expired(self):
+        with tempfile.TemporaryDirectory() as d:
+            out = self.run_in(d, "Europe/Berlin", "2026-09-08 11:00:00Z", "2026-09-08T12:00:00")
+            self.assertEqual(item(out, "tls.expired", "PASS")["measure"]["value"], 0)
+
+    def test_the_same_certificate_west_of_the_meridian_is_still_not_expired(self):
+        with tempfile.TemporaryDirectory() as d:
+            out = self.run_in(d, "America/New_York", "2026-09-08 11:00:00Z", "2026-09-08T06:00:00")
+            self.assertEqual(item(out, "tls.expired", "PASS")["measure"]["value"], 0)
+
+    def test_a_certificate_an_hour_behind_the_same_clock_is_expired(self):
+        with tempfile.TemporaryDirectory() as d:
+            out = self.run_in(d, "Europe/Berlin", "2026-09-08 09:00:00Z", "2026-09-08T12:00:00")
+            self.assertEqual(item(out, "tls.expired", "FAIL")["measure"]["value"], 1)
 
 
 class WatcherTest(unittest.TestCase):

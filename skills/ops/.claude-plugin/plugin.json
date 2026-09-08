@@ -1,7 +1,7 @@
 {
   "name": "jorekai-ops",
   "description": "Ops loop for a host that serves: setup, access, availability, exposure, recovery, grade, report, and-now.",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "author": {
     "name": "Nils Jorek",
     "url": "https://github.com/jorekai"
