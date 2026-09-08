@@ -26,6 +26,8 @@ A host is this theme's business when its `config.md` says `role: server`. No wor
 
 **Weekly**, ten minutes: `jorekai-ops:and-now` names the stage, the open items, and the next dated event. Each item that gets done leaves a log row with a measure and a verify date. A row whose verify date has passed goes to `jorekai-ops:grade`, which recomputes the measure and writes the verdict, so the loop closes instead of collecting dates.
 
+**Monthly**: `jorekai-ops:report` writes what the month cost and what it gave back into `reports/ops/YYYY-MM.md`, from the audits and the log alone, and names the three rows the next month starts with.
+
 **Something is down, or a timer did not fire**: `jorekai-ops:availability` for the numbers, then the fixes table for the fix on this control plane.
 
 **Locked out, or about to be**: read [references/risk-classes.md](references/risk-classes.md) before touching anything. The gate is there because the connection that would repair the mistake is the one the mistake closes.
@@ -43,6 +45,7 @@ A host is this theme's business when its `config.md` says `role: server`. No wor
 | What does this host offer the network, and what filters it? | `jorekai-ops:exposure` | agent or you |
 | Is this host backed up, are its secrets narrow, what does the journal keep? | `jorekai-ops:recovery` | agent or you |
 | Did the fix hold? Settle the rows past their verify date | `jorekai-ops:grade` | agent or you |
+| What did the month do to this host? | `jorekai-ops:report` | you |
 
 ## Planned
 
@@ -93,6 +96,7 @@ The columns, per skill:
 - `jorekai-ops:grade`: `row | then | now | verdict | next`
 - `jorekai-ops:and-now`: no table. The script's stage, the open items in ladder order, the next verify date.
 - `jorekai-ops:setup`: no table. The two accounts with the date each was proved from a fresh connection, and the profile that was chosen.
+- `jorekai-ops:report`: no table. The path of the report, its headline, and the four counts.
 
 A skill whose answer is a file names the file and writes no table. Reason: `decisions/0023`.
 

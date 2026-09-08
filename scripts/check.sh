@@ -203,6 +203,8 @@ t python3 skills/dx/grade/scripts/test_grade.py
 t python3 skills/dx/grade/scripts/grade.py --help
 t python3 skills/dx/friction/scripts/test_friction.py
 t python3 skills/dx/friction/scripts/friction.py --help
+t python3 skills/dx/report/scripts/test_report.py
+t python3 skills/dx/report/scripts/report.py --help
 t python3 skills/ops/setup/scripts/test_scaffold.py
 t python3 skills/ops/and-now/scripts/test_status.py
 t python3 skills/ops/access/scripts/test_access.py
@@ -219,6 +221,8 @@ t python3 skills/ops/exposure/scripts/exposure.py --help
 t python3 skills/ops/grade/scripts/test_grade.py
 t python3 skills/ops/grade/scripts/grade.py --help
 t python3 skills/ops/grade/scripts/grade.py --namespaces
+t python3 skills/ops/report/scripts/test_report.py
+t python3 skills/ops/report/scripts/report.py --help
 t python3 skills/intro/intro/scripts/test_catalog.py
 t python3 skills/intro/intro/scripts/catalog.py --help
 # The map is generated, never typed: a skill added, renamed or removed anywhere fails here

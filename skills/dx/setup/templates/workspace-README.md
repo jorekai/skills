@@ -18,6 +18,7 @@ This repository is private. It names project paths, hostnames, and command histo
 - `machines/<hostname>/config.md`: where projects and history live on that machine, and the limits that override the standard.
 - `machines/<hostname>/audits/YYYY-MM-DD-<kind>.json`: one file per run of a measuring skill. Log rows point here instead of repeating paths.
 - `machines/<hostname>/log/<theme>/YYYY-Www.md`: one file per ISO week, one folder per theme. The only place actions and their outcomes are recorded.
+- `machines/<hostname>/reports/<theme>/YYYY-MM.md`: one file per month, written by `jorekai-dx:report` from the audits and the log. Nothing is measured for it.
 - `machines/<hostname>/proposals/<slug>.md`: something worth doing that has no measure yet, so it is not an action.
 
 ## Log format

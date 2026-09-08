@@ -2,6 +2,12 @@
 
 One entry per `jorekai-dx` version. The version at the top equals `version` in `skills/dx/.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 2.4.0 (2026-09-08)
+
+- Added: `jorekai-dx:report`, the month on this machine. `scripts/report.py` reads the audit that opened the month and the one that closed it, every log row inside it with its verdict, and everything still open in ladder order, then writes `machines/<machine>/reports/dx/YYYY-MM.md` from a template. The loop answered "what next" every week and never "what did the month give back".
+- Added: a report costs no new measurement. Two measures in different families are left out instead of converted, a month with no audit inside it says so, and an action belongs to the month it was applied in, so a week that straddles two months is counted once.
+- Added: `scaffold.py` creates `reports/<theme>/` beside the log folder, one per theme, the same way the log folders are split (`decisions/0015`).
+
 ## 2.3.0 (2026-09-08)
 
 - Added: what a skill hands back has a shape, beside the shape of the report it read. `jorekai-dx:dx` carries `## Writing the answer`: one line of context, one table in ladder order of at most five rows, one line with the next action, and the columns for every sub-skill. Five skills said "Rank the findings, do not list them" and then said nothing about the form, so it was invented once per session. `jorekai-dx:repos`, `jorekai-dx:machine`, `jorekai-dx:github` and `jorekai-dx:agent-config` now share `check id | cost | targets | fix | class`, `jorekai-dx:friction` and `jorekai-dx:grade` carry their own. `decisions/0023`.

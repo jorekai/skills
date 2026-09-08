@@ -52,7 +52,7 @@ THEME = "ops"
 ROOT_FILES = {"README.md": "workspace-README.md", "config.md": "config.md",
               "standards.md": "standards.md"}
 HOST_FILES = {"config.md": "host-config.md"}
-DIRS = ["audits", f"log/{THEME}", "proposals"]
+DIRS = ["audits", f"log/{THEME}", f"reports/{THEME}", "proposals"]
 ID_RE = re.compile(r"\b(\d{4}-W\d{2})-(\d{2})\b")
 CHECK_RE = re.compile(r"[a-z]+\.[a-z][a-z-]*")
 CLASSES = ("safe", "confirm", "ask")

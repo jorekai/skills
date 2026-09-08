@@ -2,6 +2,11 @@
 
 One entry per `jorekai-ops` version. The version at the top equals `version` in `skills/ops/.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 0.6.0 (2026-09-08)
+
+- Added: `jorekai-ops:report`, the month on this host, in the shape the DX report has, with the class each action ran under beside its verdict. `scripts/report.py` reads the audits that open and close the month and the log rows inside it, and writes `machines/<host>/reports/ops/YYYY-MM.md`.
+- Added: `scaffold.py` creates `reports/<theme>/` beside the log folder, so both themes report on the same host without writing into one file.
+
 ## 0.5.0 (2026-09-08)
 
 - Added: `jorekai-ops:exposure`, the pass over what this host offers the network. Eight checks: `port.world-open`, `panel.exposed`, `fw.disabled`, `tls.expired`, `tls.expiring`, `intrusion.off`, `port.unexpected`, `fw.rule-orphan`. The second rung of the ladder is the one a host on the open network is judged by, and until now nothing measured it.

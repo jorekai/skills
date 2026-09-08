@@ -8,7 +8,7 @@
     {
       "theme": "dx",
       "plugin": "jorekai-dx",
-      "version": "2.3.0",
+      "version": "2.4.0",
       "covers": "Developer experience loop for one machine: setup, repos, machine, github, agent-config, friction, grade, and-now.",
       "install": "claude plugin install jorekai-dx@jorekai",
       "listed": true,
@@ -99,6 +99,16 @@
           "scripts": [
             "grade.py"
           ]
+        },
+        {
+          "skill": "jorekai-dx:report",
+          "invoked_by": "you",
+          "description": "Monthly report for this machine, written from the workspace files: what every check cost when the month opened and what it costs now, every action of the month with its verdict, what is still open in ladder order, and the three things next month starts with.",
+          "reach_for_it_when": "What did the month do to this machine?",
+          "hands_back": "no table. The path of the report, its headline, and the four counts.",
+          "scripts": [
+            "report.py"
+          ]
         }
       ],
       "planned": []
@@ -106,7 +116,7 @@
     {
       "theme": "intro",
       "plugin": "jorekai-intro",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "covers": "The map of this collection: the themes, their loops, and which one you need.",
       "install": "claude plugin install jorekai-intro@jorekai",
       "listed": true,
@@ -130,8 +140,8 @@
     {
       "theme": "ops",
       "plugin": "jorekai-ops",
-      "version": "0.5.0",
-      "covers": "Ops loop for a host that serves: setup, access, availability, exposure, recovery, grade, and-now.",
+      "version": "0.6.0",
+      "covers": "Ops loop for a host that serves: setup, access, availability, exposure, recovery, grade, report, and-now.",
       "install": "claude plugin install jorekai-ops@jorekai",
       "listed": true,
       "thesis": "One loop drives everything: measure the host, fix what costs the most for the least risk, prove it held, repeat. Nothing changes access unless a second way in already works.",
@@ -215,6 +225,16 @@
           "hands_back": "`row | then | now | verdict | next`",
           "scripts": [
             "grade.py"
+          ]
+        },
+        {
+          "skill": "jorekai-ops:report",
+          "invoked_by": "you",
+          "description": "Monthly report for this host, written from the workspace files: what every check cost when the month opened and what it costs now, every action of the month with its verdict and the class it ran under, what is still open in ladder order, and the three things next month starts with.",
+          "reach_for_it_when": "What did the month do to this host?",
+          "hands_back": "no table. The path of the report, its headline, and the four counts.",
+          "scripts": [
+            "report.py"
           ]
         }
       ],

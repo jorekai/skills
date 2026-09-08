@@ -25,7 +25,7 @@ The workspace sits outside every project because its subject is the machine, not
 
 **Weekly**, ten minutes: `jorekai-dx:and-now` reads the workspace and names the stage, at most three open items, and the next dated event. Each item that gets done leaves a log row with a verify date, and `jorekai-dx:grade` settles the rows whose date has come.
 
-**Monthly**: `jorekai-dx:friction` over the last quarter of command history, then at most three proposals. `jorekai-dx:github` for what is waiting on other people.
+**Monthly**: `jorekai-dx:friction` over the last quarter of command history, then at most three proposals. `jorekai-dx:github` for what is waiting on other people. Then `jorekai-dx:report`, which writes what the month cost and what it gave back into `reports/dx/YYYY-MM.md` and names the three rows the next month starts with.
 
 **The disk is full, or the machine crawls**: `jorekai-dx:machine` first for the numbers, then `jorekai-dx:repos` before removing anything inside a repository.
 
@@ -47,6 +47,7 @@ The workspace sits outside every project because its subject is the machine, not
 | Does a session find its way in every project? | `jorekai-dx:agent-config` | agent or you |
 | What does my command history say costs the most time? | `jorekai-dx:friction` | you |
 | Did the fix hold, and what do the due rows say? | `jorekai-dx:grade` | agent or you |
+| What did the month do to this machine? | `jorekai-dx:report` | you |
 
 ## Priority ladder
 
@@ -88,6 +89,7 @@ The columns, per skill:
 - `jorekai-dx:grade`: `row | then | now | verdict | next`
 - `jorekai-dx:and-now`: no table. The script's `stage`, at most three `now`, one `then`.
 - `jorekai-dx:setup`: no table. The files it wrote and the values still unconfirmed.
+- `jorekai-dx:report`: no table. The path of the report, its headline, and the four counts.
 
 A skill whose answer is a file names the file and writes no table. Reason: `decisions/0023`.
 

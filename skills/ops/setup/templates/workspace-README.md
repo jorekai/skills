@@ -16,6 +16,7 @@ This repository is private. It names project paths, hostnames, ssh targets, and 
 - `machines/<hostname>/config.md`: what that machine is, where its things live, and the limits that override the standard. `role: server` makes it the ops theme's business.
 - `machines/<hostname>/audits/YYYY-MM-DD-<tool>.json`: one file per run of a measuring skill. Log rows point here instead of repeating paths.
 - `machines/<hostname>/log/<theme>/YYYY-Www.md`: one file per ISO week, one folder per theme. The only place actions and their outcomes are recorded.
+- `machines/<hostname>/reports/<theme>/YYYY-MM.md`: one file per month, written by `jorekai-ops:report` from the audits and the log. Nothing is measured for it.
 - `machines/<hostname>/proposals/<slug>.md`: something worth doing that has no measure yet, so it is not an action.
 
 One log folder per theme, not one file per machine: two themes append rows to the same machine, and a flat folder would put two writers into one file and leave each reader deciding whether an unknown check id is its own gap or the other theme's business.

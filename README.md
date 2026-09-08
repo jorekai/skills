@@ -162,6 +162,8 @@ flowchart TD
     subgraph M["Monthly"]
         M1["jorekai-dx:friction<br/>shapes, pairs, failures, retries, slow totals;<br/>proposals, never a change to the machine"]
         M2["jorekai-dx:github<br/>red default branches, pull requests past the retention,<br/>reviews requested from the account, open alerts"]
+        M3["jorekai-dx:report<br/>what the month cost and what it gave back,<br/>reports/dx/YYYY-MM.md"]
+        M1 --> M3
     end
 
     subgraph H["Something hurts"]
@@ -191,6 +193,7 @@ What a skill hands back has a shape too: one line of context, one table in ladde
 | Grade | `jorekai-dx:grade` | The verdict for every log row past its verify date: the starting measure, the recomputed one, and `won`, `no-change`, or `returned` written back into the log | A loop that never settles its rows is a list of good intentions. The verdict is arithmetic on two numbers from the same script, so it costs nothing to be honest. |
 | Automate | `jorekai-dx:friction` | Command shapes that repeat, pairs run in order, shapes that fail, retry loops, slowest totals; `proposals/<slug>.md`, never a change to the machine | Two commands that always follow each other are one command that does not exist yet. Every line is redacted before it is counted. |
 
+| Report | `jorekai-dx:report` | `reports/dx/YYYY-MM.md`: what every check cost when the month opened and what it costs now, every action of the month with its verdict, what is still open in ladder order, and the three rows the next month starts with | The loop answers "what next" every week and never "what did the month give back". Every number is already in the workspace, so the report costs no new measurement. |
 ### The DX log
 
 `machines/<hostname>/log/2026-W36.md`, one file per week. Every action has an id, the check id that found it, the risk class it ran under, the measure it started from (`Then`), a status (`todo`, `applied`, `verify`, `won`, `no-change`, `returned`, `dropped`), and a verify date. `scaffold.py --append-row` writes the row from named fields, and `scaffold.py --due` lists what is due.
@@ -215,6 +218,7 @@ Theme `skills/dx/`. You call user-invoked skills yourself (`/jorekai-dx:<name>` 
 | `jorekai-dx:github` | model | no script of its own: one subagent per class, each returning one table with a fixed word limit |
 | `jorekai-dx:agent-config` | model | no script of its own: subagents read at most ten projects each and return one table |
 | `jorekai-dx:grade` | model | `scripts/grade.py [machine] [--write]`: the verdict for every row past its verify date, measured against the newest audit of the tool that found the check |
+| `jorekai-dx:report` | user | `scripts/report.py [machine] --month YYYY-MM [--write]`: the audits that open and close the month, the log rows inside it with their verdicts, what is still open in ladder order, `templates/report.md` |
 | `jorekai-dx:friction` | user | `scripts/friction.py --db F --history F --sessions D`: shapes, sequences, failures, retries, slow totals; redacts every line before counting and prints no command line at all |
 
 ### The check id
@@ -251,8 +255,10 @@ flowchart TD
         W5["Gate 2, then act by class<br/>two proved ways in, a backup copy,<br/>a rollback timer that is cancelled last"]
         W6["scaffold.py --append-row<br/>check id, class, one measure, verify date"]
         W7["jorekai-ops:grade<br/>recompute the measure of every due row,<br/>write won, no-change, or returned"]
+        W8["jorekai-ops:report<br/>the month from the audits and the log,<br/>reports/ops/YYYY-MM.md"]
         W1 --> W2 --> W3 --> W3b --> W3c --> W4 --> W5 --> W6 --> W7
         W7 -. "next week" .-> W1
+        W7 -. "once a month" .-> W8
     end
 
     S4 --> W2
@@ -273,6 +279,7 @@ What a skill hands back has a shape too: one line of context, one table in ladde
 | Survive | `jorekai-ops:recovery` | Targets with no copy, copies past their window, copies that all sit on this host, targets nobody restored, secrets missing or readable beyond their owner or sitting in a work tree, credentials passed to a unit as environment variables, and the two bounds on the journal; full JSON in `audits/` | A copy is the only finding here that a later day cannot repair, and a secret in a history is the other. Both stand on the first rung beside the ways in. |
 | Run | `jorekai-ops:availability` | Units down or failed, restarts over the bar, timers not enabled or past their elapse, required unit options, the distance to the commit the standards name, repositories with no identity file, services with no deploy path; full JSON in `audits/` | These are the findings whose cost falls on other people. A failed unit and a stopped one are counted apart, because they need different fixes. |
 
+| Report | `jorekai-ops:report` | `reports/ops/YYYY-MM.md`: the same shape as the DX report, with the class each action ran under beside its verdict | The owner of a host asks what the month changed. The audits and the log already hold it, so nothing is measured again for the answer. |
 ### The ops log
 
 `machines/<hostname>/log/ops/2026-W36.md`, one file per week, one folder per theme. The row format is the DX one: an id, the check id that found it, the risk class it ran under, the measure it started from (`Then`), a status, and a verify date. The trailer on a commit that carries an action out is `Ops-Log: <row id>`.
@@ -296,6 +303,7 @@ Theme `skills/ops/`. You call user-invoked skills yourself (`/jorekai-ops:<name>
 | `jorekai-ops:availability` | model | `scripts/availability.py`: nine checks over units, timers, required options and deploy paths; `--show-dir` reads captured `systemctl show` output instead of systemd |
 | `jorekai-ops:exposure` | model | `scripts/exposure.py`: eight checks over listening sockets, the firewall, certificates and the units that watch failed attempts; `--ss-file`, `--fw-file`, `--enddate-dir` and `--show-dir` read captured output instead of the running host |
 | `jorekai-ops:recovery` | model | `scripts/recovery.py`: ten checks over backup targets, secret files, unit credentials and the journal; `--root` reads a captured tree, `--filesystem-bytes` fixes the size the share is measured against, and no check ever reads the contents of a secret |
+| `jorekai-ops:report` | user | `scripts/report.py [host] --month YYYY-MM [--write]`: the month from the audits and the log alone, `templates/report.md` |
 | `jorekai-ops:grade` | model | `scripts/grade.py [host]`: recompute the measure of every due log row from the newest audit of its tool, `--write` puts the verdict in the log, `--namespaces` prints which tool owns which check id namespace |
 
 ## Use in a project

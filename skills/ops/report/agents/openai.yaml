@@ -1,0 +1,5 @@
+interface:
+  display_name: "Ops monthly report"
+  short_description: "What the month changed on this host, and what is still open"
+policy:
+  allow_implicit_invocation: false
