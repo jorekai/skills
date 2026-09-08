@@ -6,9 +6,16 @@
   },
   "metadata": {
     "description": "Skills by Nils Jorek: one plugin per theme, jorekai-<theme>.",
-    "version": "1.8.0"
+    "version": "1.9.0"
   },
   "plugins": [
+    {
+      "name": "jorekai-intro",
+      "description": "The map of this collection: the themes, their loops, every skill, and which one you need.",
+      "source": "./skills/intro",
+      "category": "productivity",
+      "license": "MIT"
+    },
     {
       "name": "jorekai-seo",
       "description": "SEO loop: setup, connect, grill, tech-audit, gsc-review, content, review, links, distribution, diagnose, migrate, report, and-now.",

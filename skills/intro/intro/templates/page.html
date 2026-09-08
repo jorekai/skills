@@ -1,0 +1,448 @@
+<!-- The page jorekai-intro:intro publishes. Values in {{BRACES}} come from catalog.py --json.
+     Blocks marked "one per theme" and "one per skill" are repeated; everything between
+     BODY and /BODY is generated. No doctype, html, head or body tag: publishing wraps the file. -->
+<title>{{PAGE_NAME}}</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Geist:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --background: #ffffff;
+    --foreground: #09090b;
+    --card: #ffffff;
+    --muted: #f4f4f5;
+    --muted-foreground: #71717a;
+    --border: #e4e4e7;
+    --ring: #a1a1aa;
+    --inverse-bg: #18181b;
+    --inverse-fg: #fafafa;
+    --shadow-sm: 0 1px 2px 0 rgb(9 9 11 / .05);
+    --shadow-md: 0 4px 12px -2px rgb(9 9 11 / .08), 0 2px 4px -2px rgb(9 9 11 / .04);
+    --radius: 10px;
+    --sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --background: #09090b;
+      --foreground: #fafafa;
+      --card: #101012;
+      --muted: #18181b;
+      --muted-foreground: #a1a1aa;
+      --border: #27272a;
+      --ring: #52525b;
+      --inverse-bg: #fafafa;
+      --inverse-fg: #09090b;
+      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / .4);
+      --shadow-md: 0 4px 12px -2px rgb(0 0 0 / .5);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --background: #09090b;
+    --foreground: #fafafa;
+    --card: #101012;
+    --muted: #18181b;
+    --muted-foreground: #a1a1aa;
+    --border: #27272a;
+    --ring: #52525b;
+    --inverse-bg: #fafafa;
+    --inverse-fg: #09090b;
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / .4);
+    --shadow-md: 0 4px 12px -2px rgb(0 0 0 / .5);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--background);
+    color: var(--foreground);
+    font: 400 15px/1.6 var(--sans);
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+  h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -.018em; text-wrap: balance; }
+  h1 { font-size: clamp(1.75rem, 1.1rem + 2.2vw, 2.5rem); line-height: 1.15; }
+  h2 { font-size: 1.25rem; }
+  h3 { font-size: .9375rem; }
+  p { margin: 0; }
+  code, .mono { font-family: var(--mono); font-size: .8125rem; }
+  a { color: inherit; }
+
+  .app { max-width: 72rem; margin: 0 auto; padding: 0 1.5rem 4rem; }
+
+  .topbar {
+    position: sticky; top: 0; z-index: 20;
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    height: 3.5rem; margin: 0 -1.5rem; padding: 0 1.5rem;
+    background: color-mix(in srgb, var(--background) 82%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+  }
+  .brand { display: flex; align-items: center; gap: .6rem; font-weight: 600; font-size: .9375rem; }
+  .brand .mark {
+    width: 1.375rem; height: 1.375rem; border-radius: 6px; background: var(--inverse-bg); color: var(--inverse-fg);
+    display: grid; place-items: center; font: 500 .6875rem/1 var(--mono);
+  }
+  .topbar-right { display: flex; align-items: center; gap: .75rem; }
+  .meta { color: var(--muted-foreground); font-size: .8125rem; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: .4rem; height: 2rem; padding: 0 .65rem;
+    border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--foreground);
+    font: 500 .8125rem/1 var(--sans); cursor: pointer;
+  }
+  .btn:hover { background: var(--muted); }
+  .btn.icon { width: 2rem; padding: 0; justify-content: center; }
+  .btn svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+  :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; border-radius: 6px; }
+
+  .badge {
+    display: inline-flex; align-items: center; height: 1.375rem; padding: 0 .5rem; border-radius: 999px;
+    font: 500 .75rem/1 var(--sans); border: 1px solid transparent; white-space: nowrap;
+  }
+  .badge.solid { background: var(--inverse-bg); color: var(--inverse-fg); }
+  .badge.secondary { background: var(--muted); color: var(--muted-foreground); }
+  .badge.outline { border-color: var(--border); color: var(--muted-foreground); }
+  .badge.dashed { border: 1px dashed var(--border); color: var(--muted-foreground); }
+  .badge.mono { font-family: var(--mono); font-size: .6875rem; }
+
+  section { padding-top: 3rem; }
+  .section-head { display: flex; flex-direction: column; gap: .35rem; margin-bottom: 1.25rem; }
+  .section-head p { color: var(--muted-foreground); font-size: .9375rem; }
+
+  .hero { padding-top: 3.5rem; display: flex; flex-direction: column; gap: 1rem; max-width: 46rem; }
+  .hero p { color: var(--muted-foreground); font-size: 1.0625rem; }
+  .stats { display: flex; flex-wrap: wrap; gap: .5rem; padding-top: .25rem; }
+
+  .grid-3 { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); }
+  .card {
+    border: 1px solid var(--border); border-radius: var(--radius); background: var(--card);
+    box-shadow: var(--shadow-sm); padding: 1.25rem; display: flex; flex-direction: column; gap: .55rem;
+    text-align: left; font: inherit; color: inherit;
+  }
+  button.card { cursor: pointer; }
+  button.card:hover { box-shadow: var(--shadow-md); border-color: var(--ring); }
+  .card-top { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+  .card p { color: var(--muted-foreground); font-size: .875rem; }
+  .card .cmd { margin-top: auto; padding-top: .35rem; color: var(--foreground); }
+
+  .tabs {
+    display: flex; gap: .25rem; padding: .25rem; border-radius: var(--radius);
+    background: var(--muted); overflow-x: auto; scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab {
+    display: flex; flex-direction: column; gap: .1rem; align-items: flex-start; flex: 1 0 auto;
+    padding: .45rem .8rem; border: 0; border-radius: 7px; background: transparent; color: var(--muted-foreground);
+    font: 500 .875rem/1.3 var(--sans); cursor: pointer; white-space: nowrap;
+  }
+  .tab .tab-sub { font: 400 .75rem/1.2 var(--sans); opacity: .8; }
+  .tab[aria-selected="true"] { background: var(--card); color: var(--foreground); box-shadow: var(--shadow-sm); }
+
+  .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin: 1.25rem 0; }
+  .search { position: relative; flex: 1 1 18rem; max-width: 24rem; }
+  .search svg { position: absolute; left: .65rem; top: 50%; transform: translateY(-50%); width: 15px; height: 15px;
+                stroke: var(--muted-foreground); fill: none; stroke-width: 1.75; }
+  .search input {
+    width: 100%; height: 2.25rem; padding: 0 .75rem 0 2.1rem; border: 1px solid var(--border);
+    border-radius: 8px; background: var(--card); color: var(--foreground); font: 400 .875rem/1 var(--sans);
+  }
+  .search input::placeholder { color: var(--muted-foreground); }
+
+  .panel { display: flex; flex-direction: column; gap: 1.5rem; }
+  .panel[hidden] { display: none; }
+  .panel-head { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; }
+  .panel-head p { flex-basis: 100%; color: var(--muted-foreground); max-width: 62ch; }
+
+  .commands { display: flex; flex-direction: column; gap: .5rem; }
+  .cmd-row {
+    display: flex; align-items: center; gap: .75rem; padding: .55rem .65rem .55rem .85rem;
+    border: 1px solid var(--border); border-radius: 8px; background: var(--muted);
+  }
+  .cmd-row code { flex: 1; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+  .cmd-row code::-webkit-scrollbar { display: none; }
+  .cmd-row .step { color: var(--muted-foreground); font: 500 .6875rem/1 var(--mono); }
+
+  .phases { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); }
+  .phase { border: 1px solid var(--border); border-radius: var(--radius); padding: 1.1rem 1.25rem;
+           display: flex; flex-direction: column; gap: .6rem; background: var(--card); }
+  .phase ol { margin: 0; padding-left: 1.15rem; display: flex; flex-direction: column; gap: .4rem;
+              font-size: .875rem; color: var(--muted-foreground); }
+  .phase li::marker { font-family: var(--mono); font-size: .75rem; }
+  .phase code { color: var(--foreground); }
+
+  .table-wrap { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--card); }
+  .table-scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+  th { text-align: left; font-weight: 500; color: var(--muted-foreground); font-size: .8125rem;
+       padding: .7rem 1rem; border-bottom: 1px solid var(--border); background: var(--muted); white-space: nowrap; }
+  td { padding: .8rem 1rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr:hover { background: var(--muted); }
+  tr[hidden] { display: none; }
+  td.skill { font-family: var(--mono); font-size: .8125rem; white-space: nowrap; }
+  td.hands { color: var(--muted-foreground); font-family: var(--mono); font-size: .75rem; }
+  .empty { padding: 2rem 1rem; text-align: center; color: var(--muted-foreground); font-size: .875rem; }
+
+  footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--border);
+           display: flex; flex-direction: column; gap: .5rem; color: var(--muted-foreground); font-size: .8125rem; }
+  @media (prefers-reduced-motion: no-preference) {
+    .btn, button.card, .tab { transition: background-color .15s ease, box-shadow .15s ease, border-color .15s ease; }
+  }
+</style>
+
+<!-- BODY -->
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <span class="mark">j</span>
+      <span>{{COLLECTION_NAME}}</span>
+      <span class="badge outline">{{THEME_COUNT}} themes</span>
+    </div>
+    <div class="topbar-right">
+      <span class="meta">map of {{GENERATED}}</span>
+      <button class="btn icon" id="theme-toggle" type="button" aria-label="Switch colour theme">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <h1>{{HEADLINE}}</h1>
+      <p>{{ONE_LINE}}</p>
+      <div class="stats">
+        <span class="badge secondary">{{THEME_COUNT}} themes</span>
+        <span class="badge secondary">{{SKILL_COUNT}} skills</span>
+        <span class="badge outline mono">{{MARKETPLACE_ADD}}</span>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>Start here</h2>
+        <p>One question comes before every other one: what do you have in front of you.</p>
+      </div>
+      <div class="grid-3">
+        <!-- one per theme with a subject -->
+        <button class="card" type="button" data-goto="{{THEME}}">
+          <div class="card-top"><h3>{{SUBJECT}}</h3><span class="badge secondary mono">{{PLUGIN}}</span></div>
+          <p>{{THESIS_SHORT}}</p>
+          <code class="cmd">{{ENTRY}}</code>
+        </button>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>Every skill</h2>
+        <p>Who may start it, what it hands back, and when to reach for it.</p>
+      </div>
+      <div class="tabs" role="tablist" aria-label="Themes">
+        <!-- one per theme -->
+        <button class="tab" role="tab" id="tab-{{THEME}}" aria-controls="panel-{{THEME}}" aria-selected="true" data-tab="{{THEME}}">
+          <span>{{THEME}}</span><span class="tab-sub">{{SUBJECT_SHORT}}</span>
+        </button>
+      </div>
+
+      <div class="toolbar">
+        <label class="search">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.2-3.2"></path></svg>
+          <input id="filter" type="search" placeholder="Filter skills" aria-label="Filter skills">
+        </label>
+        <span class="meta" id="count"></span>
+      </div>
+
+      <!-- one per theme -->
+      <div class="panel" role="tabpanel" id="panel-{{THEME}}" aria-labelledby="tab-{{THEME}}" data-panel="{{THEME}}">
+        <div class="panel-head">
+          <h2>{{THEME_TITLE}}</h2>
+          <span class="badge outline mono">{{PLUGIN}} {{VERSION}}</span>
+          <span class="badge secondary">{{THEME_SKILL_COUNT}} skills</span>
+          <p>{{THESIS}}</p>
+        </div>
+
+        <div class="commands">
+          <div class="cmd-row"><span class="step">01</span><code>{{MARKETPLACE_ADD}}</code>{{COPY_BUTTON}}</div>
+          <div class="cmd-row"><span class="step">02</span><code>{{INSTALL}}</code>{{COPY_BUTTON}}</div>
+          <div class="cmd-row"><span class="step">03</span><code>{{ENTRY}}</code>{{COPY_BUTTON}}</div>
+        </div>
+
+        <div class="phases">
+          <!-- three phases: setup, the loop, what breaks -->
+          <div class="phase"><h3>{{PHASE_NAME}}</h3><ol>{{PHASE_STEPS}}</ol></div>
+        </div>
+
+        <div class="table-wrap">
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr><th>Skill</th><th>Invoked by</th><th>Hands back</th><th>Reach for it when</th></tr>
+              </thead>
+              <tbody>
+                <!-- one per skill, in the order the map returns them -->
+                <tr data-search="{{SEARCH_TEXT}}">
+                  <td class="skill">{{SKILL}}</td>
+                  <td><span class="badge solid">{{INVOKED_BY}}</span></td>
+                  <td class="hands">{{HANDS_BACK}}</td>
+                  <td>{{REACH_FOR_IT_WHEN}}</td>
+                </tr>
+                <!-- one per planned skill, always last -->
+                <tr data-search="{{SEARCH_TEXT}}">
+                  <td class="skill">{{PLANNED_SKILL}}</td>
+                  <td><span class="badge dashed">planned</span></td>
+                  <td class="hands">{{PLANNED_NOTE}}</td>
+                  <td>Designed, not built.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="empty" hidden>No skill matches that filter.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>What every theme shares</h2>
+        <p>Three subjects, one loop. This is the part that carries over.</p>
+      </div>
+      <div class="grid-3">
+        <div class="card">
+          <div class="card-top"><h3>A finding</h3><span class="badge secondary">check id</span></div>
+          <p>One dotted id per finding, never one row per affected path. The id joins the script, the log row, and the table that carries its fix.</p>
+          <code class="cmd">{{EXAMPLE_CHECK_ID}}</code>
+        </div>
+        <div class="card">
+          <div class="card-top"><h3>A log row</h3><span class="badge secondary">measure</span></div>
+          <p>An action is written down only with a measure the same script can recompute: one number, one unit, lower is better.</p>
+          <code class="cmd">{{EXAMPLE_MEASURE}}</code>
+        </div>
+        <div class="card">
+          <div class="card-top"><h3>A verdict</h3><span class="badge secondary">verify date</span></div>
+          <p>The date arrives, the measure is recomputed against the newest audit, and the row is settled instead of collecting dates.</p>
+          <code class="cmd">won, no-change, returned</code>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>{{VERSIONS}}</p>
+    <p>{{FOOTER_NOTE}}</p>
+  </footer>
+</div>
+<!-- /BODY -->
+
+<script>
+  (function () {
+    var root = document.documentElement;
+
+    // The viewer's theme wins until they press the toggle; the choice is theirs and stays local.
+    var stored = null;
+    try { stored = localStorage.getItem("theme"); } catch (e) { stored = null; }
+    if (stored === "dark" || stored === "light") { root.dataset.theme = stored; }
+    var toggle = document.getElementById("theme-toggle");
+    if (toggle) {
+      toggle.addEventListener("click", function () {
+        var dark = root.dataset.theme
+          ? root.dataset.theme === "dark"
+          : window.matchMedia("(prefers-color-scheme: dark)").matches;
+        root.dataset.theme = dark ? "light" : "dark";
+        try { localStorage.setItem("theme", root.dataset.theme); } catch (e) { /* private window */ }
+      });
+    }
+
+    var tabs = Array.prototype.slice.call(document.querySelectorAll(".tab"));
+    var panels = Array.prototype.slice.call(document.querySelectorAll(".panel"));
+    var filter = document.getElementById("filter");
+    var count = document.getElementById("count");
+
+    function active() {
+      var tab = document.querySelector('.tab[aria-selected="true"]');
+      return tab ? tab.dataset.tab : null;
+    }
+
+    function apply() {
+      var name = active();
+      var term = filter ? filter.value.trim().toLowerCase() : "";
+      var shown = 0;
+      var total = 0;
+      panels.forEach(function (panel) {
+        var on = panel.dataset.panel === name;
+        panel.hidden = !on;
+        if (!on) { return; }
+        var rows = Array.prototype.slice.call(panel.querySelectorAll("tbody tr"));
+        rows.forEach(function (row) {
+          var hit = !term || (row.dataset.search || row.textContent).toLowerCase().indexOf(term) > -1;
+          row.hidden = !hit;
+          total = total + 1;
+          if (hit) { shown = shown + 1; }
+        });
+        var empty = panel.querySelector(".empty");
+        if (empty) { empty.hidden = shown > 0; }
+      });
+      if (count) { count.textContent = shown === total ? total + " skills" : shown + " of " + total + " skills"; }
+    }
+
+    function select(name) {
+      tabs.forEach(function (tab) {
+        tab.setAttribute("aria-selected", String(tab.dataset.tab === name));
+      });
+      apply();
+    }
+
+    tabs.forEach(function (tab, i) {
+      tab.addEventListener("click", function () { select(tab.dataset.tab); });
+      tab.addEventListener("keydown", function (event) {
+        var step = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
+        if (!step) { return; }
+        event.preventDefault();
+        var next = tabs[(i + step + tabs.length) % tabs.length];
+        next.focus();
+        select(next.dataset.tab);
+      });
+    });
+
+    document.querySelectorAll("[data-goto]").forEach(function (card) {
+      card.addEventListener("click", function () {
+        select(card.dataset.goto);
+        var tab = document.getElementById("tab-" + card.dataset.goto);
+        if (tab) { tab.scrollIntoView({ block: "center", behavior: "smooth" }); tab.focus(); }
+      });
+    });
+
+    if (filter) { filter.addEventListener("input", apply); }
+
+    document.querySelectorAll("[data-copy]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        var row = button.closest(".cmd-row");
+        var text = row ? row.querySelector("code").textContent : "";
+        var label = button.querySelector(".copy-label");
+        function done() {
+          if (!label) { return; }
+          label.textContent = "Copied";
+          setTimeout(function () { label.textContent = "Copy"; }, 1500);
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(done, function () { select_text(row); });
+        } else {
+          select_text(row);
+        }
+      });
+    });
+
+    // Clipboard access can be refused; then the text is selected so the reader copies it themselves.
+    function select_text(row) {
+      if (!row) { return; }
+      var range = document.createRange();
+      range.selectNodeContents(row.querySelector("code"));
+      var selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+
+    if (tabs.length) { select(tabs[0].dataset.tab); }
+  })();
+</script>

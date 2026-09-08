@@ -1,0 +1,354 @@
+{
+  "generated": "2026-09-08",
+  "marketplace": {
+    "name": "jorekai",
+    "add": "claude plugin marketplace add jorekai/skills"
+  },
+  "themes": [
+    {
+      "theme": "dx",
+      "plugin": "jorekai-dx",
+      "version": "2.3.0",
+      "covers": "Developer experience loop for one machine: setup, repos, machine, github, agent-config, friction, grade, and-now.",
+      "install": "claude plugin install jorekai-dx@jorekai",
+      "listed": true,
+      "thesis": "One loop drives everything: measure the friction, fix the thing that costs the most time for the least work, prove it held, repeat. Nothing is removed that a person would have to rebuild by hand.",
+      "router": "jorekai-dx:dx",
+      "entry": "/jorekai-dx:setup",
+      "skills": [
+        {
+          "skill": "jorekai-dx:dx",
+          "invoked_by": "you",
+          "description": "Entry point for the developer experience skill set: which sub-skill to reach for, the flows (new machine, weekly sweep, something hurts), the priority ladder, and the risk classes that sit in front of every destructive action.",
+          "reach_for_it_when": "",
+          "hands_back": "",
+          "scripts": []
+        },
+        {
+          "skill": "jorekai-dx:and-now",
+          "invoked_by": "you",
+          "description": "Where a machine stands in the developer experience loop and what comes next, read from the workspace files alone via scripts/status.py: rows past their verify date, open findings from the newest audit, open log rows, rows naming a check id no tool measures, proposals without a decision, and unfinished setup.",
+          "reach_for_it_when": "Where do I stand, what comes next?",
+          "hands_back": "no table. The script's `stage`, at most three `now`, one `then`.",
+          "scripts": [
+            "status.py"
+          ]
+        },
+        {
+          "skill": "jorekai-dx:setup",
+          "invoked_by": "you",
+          "description": "Set up the developer experience workspace: one private repository holding config, standards, and a folder per machine (audits, log, proposals), plus the pointer that tells later sessions where it is. Run once per machine, again when a machine is added.",
+          "reach_for_it_when": "Set up the workspace for this machine",
+          "hands_back": "no table. The files it wrote and the values still unconfirmed.",
+          "scripts": [
+            "scaffold.py"
+          ]
+        },
+        {
+          "skill": "jorekai-dx:repos",
+          "invoked_by": "agent or you",
+          "description": "State of every local repository on this machine in one pass via scripts/repos.py: untracked credential files no ignore rule covers, uncommitted changes, commits that exist on no remote, branches with no upstream, a detached HEAD, old stashes, merged branches past the retention, lock files older than their manifest, and missing README, ignore file, or checks. Use when asked which repositories hold unsaved work, whether a secret is one commit away from a history, before removing anything on the machine, when a repository will not push, or for a sweep across all projects.",
+          "reach_for_it_when": "Which repositories hold work that exists nowhere else?",
+          "hands_back": "`check id | cost | targets | fix | class`",
+          "scripts": [
+            "repos.py"
+          ]
+        },
+        {
+          "skill": "jorekai-dx:machine",
+          "invoked_by": "agent or you",
+          "description": "Local resources of this machine via scripts/machine.py: free space against the floor, cache directories, rebuildable dependency and build trees, available memory, and the storage a container runtime reports as reclaimable. Use when the disk is full, when the machine is slow, when containers eat space, or as the resource half of a sweep.",
+          "reach_for_it_when": "What is eating the disk, the memory, the container storage?",
+          "hands_back": "`check id | cost | targets | fix | class`",
+          "scripts": [
+            "machine.py"
+          ]
+        },
+        {
+          "skill": "jorekai-dx:github",
+          "invoked_by": "agent or you",
+          "description": "Work waiting on the forge across every repository with a remote: workflow runs that failed on the default branch, pull requests that have sat too long, reviews requested from you, open security alerts, and default branches with no protection. Use when asked what is red, which pull requests are stuck, whether anything waits on a review, or before a release.",
+          "reach_for_it_when": "What is red, stuck, or waiting on a review across the repositories?",
+          "hands_back": "`check id | cost | targets | fix | class`",
+          "scripts": []
+        },
+        {
+          "skill": "jorekai-dx:agent-config",
+          "invoked_by": "agent or you",
+          "description": "The agent surface of every project, compared against standards.md: the pointer file a session reads first, permission settings, hooks that run on a tool call, and the servers a session depends on. Use when an agent does not find its way in a project, when settings drifted between projects, when a hook fails, or after adding a project.",
+          "reach_for_it_when": "Does a session find its way in every project?",
+          "hands_back": "`check id | cost | targets | fix | class`",
+          "scripts": []
+        },
+        {
+          "skill": "jorekai-dx:friction",
+          "invoked_by": "you",
+          "description": "What the command history says costs time, via scripts/friction.py: command shapes that repeat, pairs run one after the other, shapes that fail, retry loops, and the slowest totals. Every line is redacted before it is counted. Writes proposals, not actions.",
+          "reach_for_it_when": "What does my command history say costs the most time?",
+          "hands_back": "`shape | cost | what would replace it | what must be true`",
+          "scripts": [
+            "friction.py"
+          ]
+        },
+        {
+          "skill": "jorekai-dx:grade",
+          "invoked_by": "agent or you",
+          "description": "Give a verdict to log rows whose verify date has passed via scripts/grade.py: recompute each row's measure from the newest audit of the tool that found it, then write won, no-change, or returned into the log. Use when a row is due for a verdict, when the weekly pass reports rows past their verify date, or when asked whether a fix held.",
+          "reach_for_it_when": "Did the fix hold, and what do the due rows say?",
+          "hands_back": "`row | then | now | verdict | next`",
+          "scripts": [
+            "grade.py"
+          ]
+        }
+      ],
+      "planned": []
+    },
+    {
+      "theme": "intro",
+      "plugin": "jorekai-intro",
+      "version": "0.1.0",
+      "covers": "The map of this collection: the themes, their loops, and which one you need.",
+      "install": "claude plugin install jorekai-intro@jorekai",
+      "listed": true,
+      "thesis": "One question comes before every other one here: what do you have in front of you, a site, the machine you work on, or a host that serves. The answer names one theme, and the theme names the command that starts its loop.",
+      "router": "jorekai-intro:intro",
+      "entry": "/jorekai-intro:intro",
+      "skills": [
+        {
+          "skill": "jorekai-intro:intro",
+          "invoked_by": "you",
+          "description": "What this collection holds and which part of it a person needs: every theme with its loop, every skill with who starts it and what it hands back, read from a generated map. Renders as a page when the session can publish one, as tables when it cannot.",
+          "reach_for_it_when": "",
+          "hands_back": "`Theme | Skill | Invoked by | Hands back | Reach for it when`, one table per theme, no row cap: this is a map, not a finding list.",
+          "scripts": [
+            "catalog.py"
+          ]
+        }
+      ],
+      "planned": []
+    },
+    {
+      "theme": "ops",
+      "plugin": "jorekai-ops",
+      "version": "0.3.0",
+      "covers": "Ops loop for a host that serves: setup, access, availability, grade, and-now.",
+      "install": "claude plugin install jorekai-ops@jorekai",
+      "listed": true,
+      "thesis": "One loop drives everything: measure the host, fix what costs the most for the least risk, prove it held, repeat. Nothing changes access unless a second way in already works.",
+      "router": "jorekai-ops:ops",
+      "entry": "/jorekai-ops:setup",
+      "skills": [
+        {
+          "skill": "jorekai-ops:ops",
+          "invoked_by": "you",
+          "description": "Entry point for the server skill set: which sub-skill to reach for, the flows (new host, weekly sweep, something is down), the priority ladder, the two gates in front of every change to access, and the fixes table that carries a fix per control plane.",
+          "reach_for_it_when": "",
+          "hands_back": "",
+          "scripts": []
+        },
+        {
+          "skill": "jorekai-ops:and-now",
+          "invoked_by": "you",
+          "description": "Where a host stands in the ops loop and what comes next, read from the workspace files alone via scripts/status.py: rows past their verify date, open findings from the newest audit, rows waiting for a tool that has not shipped, rows naming an id this theme does not own, proposals without a decision, and unfinished setup.",
+          "reach_for_it_when": "Where does this host stand, what comes next?",
+          "hands_back": "no table. The script's stage, the open items in ladder order, the next verify date.",
+          "scripts": [
+            "status.py"
+          ]
+        },
+        {
+          "skill": "jorekai-ops:setup",
+          "invoked_by": "you",
+          "description": "Take a host into the machines workspace: detect what owns its configuration, create the reading account and the changing account, prove both from a fresh connection, choose the profile that sets the bar, and list the services.",
+          "reach_for_it_when": "Take a host into the workspace, with two accounts and a profile",
+          "hands_back": "no table. The two accounts with the date each was proved from a fresh connection, and the profile that was chosen.",
+          "scripts": [
+            "remote.sh",
+            "scaffold.py"
+          ]
+        },
+        {
+          "skill": "jorekai-ops:access",
+          "invoked_by": "agent or you",
+          "description": "Who can reach a host and how, in one pass via scripts/access.py: root login, password authentication, weak algorithms, missing limits in front of sshd, authorized keys without an owner or past their rotation or under the size bar, one key on several accounts, passwordless sudo rules, accounts the standards do not name, and how many independent ways in exist. Use when asked who can log in to a server, before hardening ssh, before removing a key, or when a host has only one way in.",
+          "reach_for_it_when": "Who can reach this host, with which keys and sudo rules?",
+          "hands_back": "`check id | cost | targets | fix | class`",
+          "scripts": [
+            "access.py"
+          ]
+        },
+        {
+          "skill": "jorekai-ops:availability",
+          "invoked_by": "agent or you",
+          "description": "Whether the services a host is supposed to run are running, firing, current and hardened, in one pass via scripts/availability.py: units that are down or failed, units that restart too often, timers that are not enabled or past their elapse, unit options the profile requires, a deploy path behind the commit it should be at, a repository with no identity file, and a service with no deploy path. Use when a service is down, a timer did not fire, after a deployment, or when asked what is running on a server.",
+          "reach_for_it_when": "Do the services run, fire, and match the commit they should?",
+          "hands_back": "`check id | cost | targets | fix | class`",
+          "scripts": [
+            "availability.py"
+          ]
+        },
+        {
+          "skill": "jorekai-ops:grade",
+          "invoked_by": "agent or you",
+          "description": "Give a verdict to log rows in this theme whose verify date has passed via scripts/grade.py: recompute each row's measure from the newest audit of the tool that found it, then write won, no-change, or returned into the log. Use when a row is due for a verdict, when the weekly pass reports rows past their verify date, or when asked whether a hardening step held.",
+          "reach_for_it_when": "Did the fix hold? Settle the rows past their verify date",
+          "hands_back": "`row | then | now | verdict | next`",
+          "scripts": [
+            "grade.py"
+          ]
+        }
+      ],
+      "planned": [
+        {
+          "skill": "jorekai-ops:exposure",
+          "note": "port, fw, intrusion, tls, panel"
+        },
+        {
+          "skill": "jorekai-ops:currency",
+          "note": "pkg, boot, os, plane"
+        },
+        {
+          "skill": "jorekai-ops:recovery",
+          "note": "backup, secret, log"
+        }
+      ]
+    },
+    {
+      "theme": "seo",
+      "plugin": "jorekai-seo",
+      "version": "1.11.0",
+      "covers": "SEO loop for one or more domains: setup, connect, grill, tech-audit, gsc-review, content, review, links, distribution, diagnose, migrate, report, and-now.",
+      "install": "claude plugin install jorekai-seo@jorekai",
+      "listed": true,
+      "thesis": "One loop drives everything: get indexed, find what almost ranks, fix that page, earn links, repeat. New content comes last.",
+      "router": "jorekai-seo:seo",
+      "entry": "/jorekai-seo:setup",
+      "skills": [
+        {
+          "skill": "jorekai-seo:seo",
+          "invoked_by": "you",
+          "description": "Entry point for the SEO skill set: which sub-skill to reach for, the three flows (new site, weekly loop, drop), the priority ladder, launch checklist, domain naming, tool stack.",
+          "reach_for_it_when": "",
+          "hands_back": "",
+          "scripts": []
+        },
+        {
+          "skill": "jorekai-seo:and-now",
+          "invoked_by": "you",
+          "description": "Where a domain stands in the SEO loop (setup, audit, weekly loop) and the next step, read from the workspace files alone via scripts/status.py: open log rows, verify dates due, export age, briefs without drafts, drafts not shipped, last month without a report.",
+          "reach_for_it_when": "Where am I in the loop, what comes next?",
+          "hands_back": "no table. The script's `stage`, at most three `now`, one `then`.",
+          "scripts": [
+            "status.py"
+          ]
+        },
+        {
+          "skill": "jorekai-seo:report",
+          "invoked_by": "you",
+          "description": "Monthly report for the site's owner, written from the workspace files: totals and the median page from the month's exports, every action of the month with its verdict, visibility in AI answers, and the three things next month does.",
+          "reach_for_it_when": "What did the month change and earn, for the owner?",
+          "hands_back": "no table. `reports/YYYY-MM.md`, one page, not repeated in the answer.",
+          "scripts": []
+        },
+        {
+          "skill": "jorekai-seo:setup",
+          "invoked_by": "you",
+          "description": "Set up the SEO workspace for a repository: one folder per domain under docs/seo (config, connections, strategy, glossary, log, briefs, drafts, exports, audits) plus the pointer block in AGENTS.md and CLAUDE.md. Run once per repo, again when a domain is added.",
+          "reach_for_it_when": "Set up the workspace for a repo or a new domain",
+          "hands_back": "no table. The files they wrote and what is still open.",
+          "scripts": [
+            "scaffold.py"
+          ]
+        },
+        {
+          "skill": "jorekai-seo:connect",
+          "invoked_by": "you",
+          "description": "Generate and hand over a bash wizard that walks a human through connecting a domain to Search Console, submitting the sitemap, importing into Bing Webmaster Tools, and hosting an IndexNow key, then records the results in the SEO workspace.",
+          "reach_for_it_when": "Connect Search Console, sitemap, Bing, IndexNow; submit changed URLs to IndexNow (scripts/indexnow.sh)",
+          "hands_back": "no table. The files they wrote and what is still open.",
+          "scripts": [
+            "indexnow.sh"
+          ]
+        },
+        {
+          "skill": "jorekai-seo:grill",
+          "invoked_by": "you",
+          "description": "Relentless interview about a site's niche, audience, offer, competitors, keywords, evidence, and vocabulary; writes strategy.md and glossary.md in the SEO workspace.",
+          "reach_for_it_when": "Pin niche, audience, competitors, keywords, evidence, vocabulary",
+          "hands_back": "no table of its own. `strategy.md` and `glossary.md`, then that file's keyword table sorted by priority and the open questions.",
+          "scripts": []
+        },
+        {
+          "skill": "jorekai-seo:tech-audit",
+          "invoked_by": "agent or you",
+          "description": "Audit a URL or whole site for technical SEO and indexability: runs scripts/audit.py (bot rendering, title/meta/H1/canonical, noindex conflicts, robots.txt, sitemap lastmod, redirects and their type, hreflang, dates, structured data, images, host variants, soft 404, pagination, duplicates, orphans) and prescribes fixes. Use when asked to check a site for SEO, why a page is not indexed, before a launch, or for canonical, redirect, sitemap, or robots questions.",
+          "reach_for_it_when": "Is the site technically sound and indexable?",
+          "hands_back": "`check id | URLs | fix | how to verify`, ordered Critical, High, Hygiene",
+          "scripts": [
+            "audit.py"
+          ]
+        },
+        {
+          "skill": "jorekai-seo:gsc-review",
+          "invoked_by": "agent or you",
+          "description": "Turn a Google Search Console export into a ranked action list via scripts/gsc_opportunities.py (striking-distance queries at position 8–20, CTR gaps, decayed pages, cannibalization, unindexed URLs), after grading the actions logged in earlier weeks. Use when the user shares GSC CSVs or a zip, asks what to optimize next or which pages to update, or runs the weekly SEO review.",
+          "reach_for_it_when": "What should I work on this week?",
+          "hands_back": "`URL | query | current snippet | action | expected gain`, ordered by expected gain",
+          "scripts": [
+            "gsc_opportunities.py",
+            "snippets.py"
+          ]
+        },
+        {
+          "skill": "jorekai-seo:content",
+          "invoked_by": "agent or you",
+          "description": "Write or refresh a page for search: one target query, SERP recon of the top 5, an outline that answers better, a draft with evidence slots, and the on-page checklist (title, H1, slug, meta, FAQ, internal links, alt). Use when asked to write, rewrite, refresh, or optimize an article, landing page, \"best X\", \"X vs Y\", \"X alternatives\", or how-to page.",
+          "reach_for_it_when": "Write or refresh a page",
+          "hands_back": "no table. `briefs/<slug>.md`, `drafts/<slug>.md`, and one numbered round of questions to the author.",
+          "scripts": []
+        },
+        {
+          "skill": "jorekai-seo:review",
+          "invoked_by": "agent or you",
+          "description": "Review a draft or live page on two separate axes before it ships: Intent (does it answer the target query better than the top 5) and Standards (on-page checklist, glossary, and a fabrication check that traces every experiential claim to filled evidence). Use when asked to review, QA, or check a page or draft for SEO, or before a draft moves into the content directory.",
+          "reach_for_it_when": "Is this draft right for the query and clean on the page?",
+          "hands_back": "no table. `## Intent` and `## Standards`, one line per axis: finding count, worst finding, verdict.",
+          "scripts": []
+        },
+        {
+          "skill": "jorekai-seo:diagnose",
+          "invoked_by": "agent or you",
+          "description": "Diagnose a drop in clicks, impressions, or position for a page, a query, or the whole site: make the drop visible in Search Console data first, then test six fixed hypotheses in order (seasonality, SERP feature, Google update, technical regression, own-site change, competition), change one thing, and log a verify date. Use when traffic fell, rankings dropped, a page lost its snippet, or the user asks why numbers went down.",
+          "reach_for_it_when": "Why did clicks, impressions, or position drop?",
+          "hands_back": "`hypothesis | prediction | check | evidence | verdict`, six rows in rank order",
+          "scripts": []
+        },
+        {
+          "skill": "jorekai-seo:migrate",
+          "invoked_by": "agent or you",
+          "description": "Move a domain, a host, or a URL structure without losing what ranks: inventory of the old URLs, a redirect map old to new, the owner's console steps, then verification of every row with scripts/audit.py --redirects and a full audit of the new site. Use when a site changes domain or subdomain, moves to HTTPS or a new host, renames or restructures URLs, replaces its CMS, or merges into another site.",
+          "reach_for_it_when": "Moving a domain, a host, or the URL structure",
+          "hands_back": "no table. The inventory, `redirect-map.csv`, and the two audit files, each with its FAIL count.",
+          "scripts": []
+        },
+        {
+          "skill": "jorekai-seo:links",
+          "invoked_by": "agent or you",
+          "description": "Earn links to a target page and draft the outreach: internal links first, then unlinked brand mentions, pages that Google and AI assistants (ChatGPT, Claude, Perplexity, Gemini) cite for the keyword, roundups, directories, guest posts. Use when asked for backlinks, link building, outreach, internal linking, or getting cited by AI search.",
+          "reach_for_it_when": "Get links",
+          "hands_back": "no table. `outreach.csv` itself, and the internal links as source URL, anchor, paragraph.",
+          "scripts": []
+        },
+        {
+          "skill": "jorekai-seo:distribution",
+          "invoked_by": "agent or you",
+          "description": "Repurpose a published URL into an X thread, a LinkedIn post, and a Reddit answer that link back, keyword in the first line; also trend-led posts from Google Trends or X. Use when asked to promote, share, or distribute an article, or to write a thread or post from a URL.",
+          "reach_for_it_when": "Promote a page",
+          "hands_back": "`piece | platform | first line | where the link sits`, the texts under the table",
+          "scripts": []
+        }
+      ],
+      "planned": []
+    }
+  ]
+}

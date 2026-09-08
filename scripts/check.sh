@@ -51,7 +51,8 @@ done < <(git ls-files '*.claude-plugin/plugin.json')
 # The router must not lie: every skill directory is named in its theme's router and in README.md,
 # and every jorekai-<theme>:<name> written in any tracked file resolves to a directory or to a
 # row under `## Planned` in that router (decisions/0021). CHANGELOG.md and decisions/ are history
-# and may name a skill that is gone.
+# and may name a skill that is gone; a test names a fixture and not this collection, and its
+# fixtures are proved by the test itself, not by a directory existing.
 for d in $(git ls-files 'skills/*/*/SKILL.md' | xargs -n1 dirname); do
   theme=$(basename "$(dirname "$d")"); name=$(basename "$d")
   [[ "$name" == "$theme" ]] && continue      # the theme's router names the others, not itself
@@ -66,7 +67,7 @@ while IFS= read -r ref; do
   [[ -d "skills/${ref%%:*}/${ref#*:}" ]] && continue
   grep -qxF "$ref" <<<"$planned" && continue
   hit "stale reference: jorekai-$ref names no skill directory and no row under ## Planned"
-done < <(git ls-files | grep -vE '(^|/)CHANGELOG\.md$|^decisions/' | xargs grep -ohE 'jorekai-[a-z]+:[a-z-]+' 2>/dev/null | sed 's/^jorekai-//' | sort -u)
+done < <(git ls-files | grep -vE '(^|/)CHANGELOG\.md$|^decisions/|/test_[^/]+$' | xargs grep -ohE 'jorekai-[a-z]+:[a-z-]+' 2>/dev/null | sed 's/^jorekai-//' | sort -u)
 
 # A skill is user-invoked or the agent may reach it, and the two files that say so must agree.
 # One of them drifting is how a skill silently changes who can start it.
@@ -214,6 +215,11 @@ t python3 skills/ops/availability/scripts/availability.py --help
 t python3 skills/ops/grade/scripts/test_grade.py
 t python3 skills/ops/grade/scripts/grade.py --help
 t python3 skills/ops/grade/scripts/grade.py --namespaces
+t python3 skills/intro/intro/scripts/test_catalog.py
+t python3 skills/intro/intro/scripts/catalog.py --help
+# The map is generated, never typed: a skill added, renamed or removed anywhere fails here
+# until the snapshot knows it, the same way a router may not lie about its sub-skills.
+t python3 skills/intro/intro/scripts/catalog.py --check
 t bash -n skills/ops/setup/scripts/remote.sh
 t bash -n skills/seo/connect/templates/wizard.sh
 t bash -n skills/seo/connect/scripts/indexnow.sh

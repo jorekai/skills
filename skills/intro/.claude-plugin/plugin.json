@@ -1,0 +1,18 @@
+{
+  "name": "jorekai-intro",
+  "description": "The map of this collection: the themes, their loops, and which one you need.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Nils Jorek",
+    "url": "https://github.com/jorekai"
+  },
+  "homepage": "https://github.com/jorekai/skills",
+  "repository": "https://github.com/jorekai/skills",
+  "license": "MIT",
+  "keywords": [
+    "overview",
+    "onboarding",
+    "skills"
+  ],
+  "skills": "./"
+}

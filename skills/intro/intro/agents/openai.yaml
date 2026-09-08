@@ -1,0 +1,5 @@
+interface:
+  display_name: "Intro"
+  short_description: "The map of this collection and which part you need"
+policy:
+  allow_implicit_invocation: false

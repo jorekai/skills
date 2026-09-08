@@ -4,7 +4,8 @@
 # and every skill is /jorekai-<theme>:<name> (see README.md, "Use in a project").
 # A link is named <theme>-<skill>, the same pair as the plugin invocation jorekai-<theme>:<skill>.
 # Two themes carry a skill of the same name (setup, and-now), and a bare name would let one
-# overwrite the other in silence.
+# overwrite the other in silence. A theme whose skill carries the theme's own name is the one
+# exception: <theme> alone, because <theme>-<theme> names nothing the other spelling does not.
 #   scripts/link.sh /path/to/repo               link every skill
 #   scripts/link.sh /path/to/repo seo            link one bucket (skills/seo/*)
 #   scripts/link.sh /path/to/repo setup ...      link named skills (globs ok)
@@ -35,7 +36,8 @@ fi
 dest="$repo/.agents/skills"
 mkdir -p "$dest"
 for s in "${srcs[@]}"; do
-  link="$(basename "$(dirname "$s")")-$(basename "$s")"
+  bucket="$(basename "$(dirname "$s")")"; name="$(basename "$s")"
+  if [[ "$bucket" == "$name" ]]; then link="$bucket"; else link="$bucket-$name"; fi
   rel="$(python3 -c 'import os,sys; print(os.path.relpath(sys.argv[1], sys.argv[2]))' "$s" "$dest")"
   ln -sfn "$rel" "$dest/$link"
   echo "linked $link -> $dest/$link ($rel)"

@@ -4,14 +4,15 @@ Hand-maintained skills for recurring work, one Claude Code plugin per theme. Ins
 
 ```bash
 claude plugin marketplace add jorekai/skills
+claude plugin install jorekai-intro@jorekai    # the map: what is here and which part you need
 claude plugin install jorekai-seo@jorekai      # search work on a site
 claude plugin install jorekai-dx@jorekai       # the machine you work on
 claude plugin install jorekai-ops@jorekai      # a host that serves
 ```
 
-Install one, two, or all three; they share nothing at run time. Then `/jorekai-seo:setup` in the repository of a site, `/jorekai-dx:setup` for this machine, or `/jorekai-ops:setup` for a host that serves. Codex users link the same folders with `scripts/link.sh` (see "Use in a project").
+Install one, two, or all four; they share nothing at run time. Start with `/jorekai-intro:intro`, which draws the collection and names the one command to run next. Then `/jorekai-seo:setup` in the repository of a site, `/jorekai-dx:setup` for this machine, or `/jorekai-ops:setup` for a host that serves. Codex users link the same folders with `scripts/link.sh` (see "Use in a project").
 
-Skills live under `skills/<theme>/<skill>/`. Each skill is a directory with `SKILL.md`, and optionally `references/` (knowledge loaded only when needed), `scripts/` (deterministic helpers, Python stdlib or bash only), `templates/` (files a skill writes into a project), and `agents/openai.yaml` (Codex metadata). Writing rules for every file: `STYLE.md`. Reasons behind the rules: `decisions/`. Versions: one changelog per plugin, `CHANGELOG.md` for `jorekai-seo`, `skills/dx/CHANGELOG.md` for `jorekai-dx`, and `skills/ops/CHANGELOG.md` for `jorekai-ops`. Gate before every commit: `scripts/check.sh`. Contributions: `CONTRIBUTING.md`. License: MIT.
+Skills live under `skills/<theme>/<skill>/`. Each skill is a directory with `SKILL.md`, and optionally `references/` (knowledge loaded only when needed), `scripts/` (deterministic helpers, Python stdlib or bash only), `templates/` (files a skill writes into a project), and `agents/openai.yaml` (Codex metadata). Writing rules for every file: `STYLE.md`. Reasons behind the rules: `decisions/`. Versions: one changelog per plugin, `CHANGELOG.md` for `jorekai-seo`, and `skills/<theme>/CHANGELOG.md` for `jorekai-dx`, `jorekai-ops`, and `jorekai-intro`. Gate before every commit: `scripts/check.sh`. Contributions: `CONTRIBUTING.md`. License: MIT.
 
 ## Structure
 
@@ -28,6 +29,17 @@ Skills live under `skills/<theme>/<skill>/`. Each skill is a directory with `SKI
 | `skills/seo/` | `jorekai-seo` | `/jorekai-seo:seo` | One site in search: indexing, what almost ranks, content, links, moves, monthly report |
 | `skills/dx/` | `jorekai-dx` | `/jorekai-dx:dx` | One machine to work on: the workspace, the weekly sweep, and what to do next |
 | `skills/ops/` | `jorekai-ops` | `/jorekai-ops:ops` | One host that serves: who can reach it, what runs on it, what may change, and whether the change held |
+| `skills/intro/` | `jorekai-intro` | `/jorekai-intro:intro` | The collection itself: every theme with its loop, every skill with who starts it and what it hands back |
+
+## The map
+
+`/jorekai-intro:intro` answers the question that comes before every other one here: what do you have in front of you, a site, the machine you work on, or a host that serves. It draws the themes, their loops, and every skill, then hands over one install line and one start command. It measures nothing, keeps no workspace, and writes no log row (`decisions/0024`).
+
+The map is generated from the collection itself and never typed. `skills/intro/intro/scripts/catalog.py` reads the frontmatter of every `SKILL.md`, each router's tables, the plugin manifests, and the marketplace file, and writes `references/catalog.json`, the snapshot that ships inside the plugin. `catalog.py --check` compares that snapshot to the checkout and runs in `scripts/check.sh`, so a skill added, renamed, or removed anywhere fails the gate until the map knows it.
+
+| Skill | Invoked by | Deterministic part |
+|---|---|---|
+| `jorekai-intro:intro` | user | `scripts/catalog.py`: the map as a report, `--json` for the object a page is filled from, `--theme` for one theme, `--check` for the gate; `templates/page.html`, the page it fills when the session can publish one |
 
 ## The SEO loop, start to end
 
@@ -286,12 +298,13 @@ The collection is a Claude Code plugin (`.claude-plugin/plugin.json`, marketplac
 
 ```bash
 claude plugin marketplace add jorekai/skills                  # once; a local checkout works too: marketplace add /path/to/skills
+claude plugin install jorekai-intro@jorekai
 claude plugin install jorekai-seo@jorekai
 claude plugin install jorekai-dx@jorekai
 claude plugin install jorekai-ops@jorekai
 ```
 
-Then `/jorekai-seo:setup` and the router `/jorekai-seo:seo`, `/jorekai-dx:setup` and `/jorekai-dx:dx`, or `/jorekai-ops:setup` and `/jorekai-ops:ops`. The install is a copy under `~/.claude/plugins/cache/jorekai/`, not a link: after editing a theme, bump `version` in that plugin's manifest, run `claude plugin marketplace update jorekai` and `claude plugin update <plugin>@jorekai`, then start a new session.
+Then `/jorekai-intro:intro` for the map, `/jorekai-seo:setup` and the router `/jorekai-seo:seo`, `/jorekai-dx:setup` and `/jorekai-dx:dx`, or `/jorekai-ops:setup` and `/jorekai-ops:ops`. The install is a copy under `~/.claude/plugins/cache/jorekai/`, not a link: after editing a theme, bump `version` in that plugin's manifest, run `claude plugin marketplace update jorekai` and `claude plugin update <plugin>@jorekai`, then start a new session.
 
 Codex reads `<repo>/.agents/skills/<name>/`; the link script fills that folder:
 
@@ -301,7 +314,7 @@ scripts/link.sh <repo> seo        # one theme (skills/seo/*)
 scripts/link.sh <repo> setup      # named skills, globs allowed
 ```
 
-A link is named `<theme>-<skill>`, the same pair as the plugin invocation, so `$seo-setup` and `$dx-setup` in Codex do not collide. When a skill is stable: move it to `~/Developer/claude-skill-library/skills/` and distribute it with `link.sh` from `project-index`.
+A link is named `<theme>-<skill>`, the same pair as the plugin invocation, so `$seo-setup` and `$dx-setup` in Codex do not collide. A theme whose only skill carries the theme's own name links as `<theme>`, so the map is `$intro`. When a skill is stable: move it to `~/Developer/claude-skill-library/skills/` and distribute it with `link.sh` from `project-index`.
 
 The SEO workspace belongs in the site's repository. A site that lives in no repository (a hosted CMS) gets a small private repository of its own that holds only `docs/seo/`, the pointer block, and the Codex links. The DX and ops workspace is always a private repository of its own, because its subject is a machine and not one project. Both themes share it, one folder per machine and one log folder per theme. This collection is public and carries no workspace, key, ID, or customer data; `scripts/check.sh` enforces that before every commit.
 
@@ -311,6 +324,7 @@ The SEO workspace belongs in the site's repository. A site that lives in no repo
 - `bash scripts/check.sh` before every commit: style, private data, then every offline test and syntax check. Runs gitleaks over the history when installed (`brew install gitleaks`); CI always does. Prints `ok` or one line per hit. Customer names to reject live in `.check_public.local` (gitignored, one regex per line); CI writes it from the secret `CHECK_PUBLIC_LOCAL`.
 - Every line in a SKILL.md must change behaviour; what the model does anyway goes.
 - The router must not lie: whoever adds, renames, or changes a sub-skill checks `skills/<theme>/<theme>/SKILL.md` and that theme's table above in the same commit, and bumps that plugin's version. `check.sh` enforces both directions: a skill missing from the router or from this file, and a `jorekai-<theme>:<name>` that names no directory.
+- The map must not lie either, and nobody edits it by hand: after a change to any skill, run `python3 skills/intro/intro/scripts/catalog.py --scan . --json > skills/intro/intro/references/catalog.json` in the same commit. `check.sh` runs `catalog.py --check` and fails until the snapshot matches the checkout.
 - A step that hands findings, picks, or drafts to a person names the columns of its table, the order, and the row cap; the frame stands once per theme in the router's `## Writing the answer`. `check.sh` fails when a router lacks that section, when a sub-skill is missing from it, and when the columns the router gives a skill stand in no line of that skill's `SKILL.md`.
 - Years, tool names, platform behaviour, and Google features stay out of the steps; a sourced fact stands in a skill's rules or interpretation section, and material a reader looks up goes to `references/`. Every such claim has a row in that theme's `references/sources.md` with URL and check date. Unverified means: labelled as a heuristic, or removed. `python3 scripts/sources_age.py` lists rows older than 180 days; `check.sh` prints them as warnings. Settle those rows once a quarter: re-check against the primary source and move the date, rewrite the claim as a heuristic, or delete it together with what rests on it.
 - Every release touches one plugin: bump `version` in that plugin's manifest, add the entry at the top of the changelog beside it, push, then `claude plugin marketplace update jorekai` and `claude plugin update <plugin>@jorekai`, then start a new session. A running session keeps the skill set it started with, so a skill added by the update answers `Unknown skill` until it restarts.
