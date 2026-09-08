@@ -71,6 +71,26 @@ Every measuring script prints the same shape without `--json`, so one reading or
 
 The console report is for the decision, the JSON is for the record. Only the JSON is written to `audits/`.
 
+## Writing the answer
+
+The report is for the terminal; the answer is for the person, and it has one shape everywhere in this theme:
+
+1. One line first: what ran, what it was measured against, and the path of the JSON. The reader can open it, so nothing inside it is repeated in prose.
+2. One table, in ladder order, at most five rows, one row per check id and never one per target. What the table drops is one sentence under it, never a second table.
+3. Every cost is one number and one unit, copied from the finding's `measure` block. A cost written as prose cannot be graded later.
+4. The fix cell names who does it when that is not you.
+5. One line last: the single next action.
+
+The columns, per skill:
+
+- `jorekai-dx:repos`, `jorekai-dx:machine`, `jorekai-dx:github`, `jorekai-dx:agent-config`: `check id | cost | targets | fix | class`
+- `jorekai-dx:friction`: `shape | cost | what would replace it | what must be true`
+- `jorekai-dx:grade`: `row | then | now | verdict | next`
+- `jorekai-dx:and-now`: no table. The script's `stage`, at most three `now`, one `then`.
+- `jorekai-dx:setup`: no table. The files it wrote and the values still unconfirmed.
+
+A skill whose answer is a file names the file and writes no table. Reason: `decisions/0023`.
+
 ## Principles
 
 - A change is logged only with a measure the same script can recompute later. Reclaimed bytes, a count of failing checks, a duration. Without one it is a proposal, not an action.

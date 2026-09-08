@@ -76,6 +76,8 @@ flowchart TD
 
 ### What each SEO skill delivers
 
+What a skill hands back has a shape too: one line of context, one table ordered by what it costs or earns, one line with the next action. The columns per skill stand in `jorekai-seo:seo` under `## Writing the answer` (`decisions/0023`).
+
 | Step | Skill | Output | Why here |
 |---|---|---|---|
 | Set up | `jorekai-seo:setup` | `docs/seo/<domain>/` with `config.md`, log, briefs, drafts, exports, audits; pointer block in `AGENTS.md` and `CLAUDE.md` | Every later run starts warm: brand regex, CTR calibration, template paths are fixed. Several domains are several folders. |
@@ -164,6 +166,8 @@ flowchart TD
 
 ### What each DX skill delivers
 
+What a skill hands back has a shape too: one line of context, one table in ladder order of at most five rows, one line with the next action. The columns per skill stand in the router under `## Writing the answer` (`decisions/0023`).
+
 | Step | Skill | Output | Why here |
 |---|---|---|---|
 | Set up | `jorekai-dx:setup` | A private workspace repository: `config.md`, `standards.md`, and `machines/<hostname>/` with `audits/`, `log/`, `proposals/`; a pointer line in the agent file the user already keeps | Standards are the thing every later check measures against. A value left blank turns its check off, which beats a number nobody believes. |
@@ -243,6 +247,8 @@ flowchart TD
 
 ### What each ops skill delivers
 
+What a skill hands back has a shape too: one line of context, one table in ladder order of at most five rows, one line with the next action. The columns per skill stand in the router under `## Writing the answer` (`decisions/0023`).
+
 | Step | Skill | Output | Why here |
 |---|---|---|---|
 | Set up | `jorekai-ops:setup` | The host in the shared workspace: `role`, `control_plane`, `access`, `access_paths`, `services`, and the chosen profile in `standards.md`; a reading account without privilege and a changing account with named sudo | The control plane decides which surface every later fix writes to, and a blank one means guessed fixes. The two accounts are what lets a measuring pass run often without exposing anything that can change the host. |
@@ -305,5 +311,6 @@ The SEO workspace belongs in the site's repository. A site that lives in no repo
 - `bash scripts/check.sh` before every commit: style, private data, then every offline test and syntax check. Runs gitleaks over the history when installed (`brew install gitleaks`); CI always does. Prints `ok` or one line per hit. Customer names to reject live in `.check_public.local` (gitignored, one regex per line); CI writes it from the secret `CHECK_PUBLIC_LOCAL`.
 - Every line in a SKILL.md must change behaviour; what the model does anyway goes.
 - The router must not lie: whoever adds, renames, or changes a sub-skill checks `skills/<theme>/<theme>/SKILL.md` and that theme's table above in the same commit, and bumps that plugin's version. `check.sh` enforces both directions: a skill missing from the router or from this file, and a `jorekai-<theme>:<name>` that names no directory.
+- A step that hands findings, picks, or drafts to a person names the columns of its table, the order, and the row cap; the frame stands once per theme in the router's `## Writing the answer`. `check.sh` fails when a router lacks that section, when a sub-skill is missing from it, and when the columns the router gives a skill stand in no line of that skill's `SKILL.md`.
 - Years, tool names, platform behaviour, and Google features stay out of the steps; a sourced fact stands in a skill's rules or interpretation section, and material a reader looks up goes to `references/`. Every such claim has a row in that theme's `references/sources.md` with URL and check date. Unverified means: labelled as a heuristic, or removed. `python3 scripts/sources_age.py` lists rows older than 180 days; `check.sh` prints them as warnings. Settle those rows once a quarter: re-check against the primary source and move the date, rewrite the claim as a heuristic, or delete it together with what rests on it.
 - Every release touches one plugin: bump `version` in that plugin's manifest, add the entry at the top of the changelog beside it, push, then `claude plugin marketplace update jorekai` and `claude plugin update <plugin>@jorekai`, then start a new session. A running session keeps the skill set it started with, so a skill added by the update answers `Unknown skill` until it restarts.

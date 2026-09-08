@@ -2,6 +2,10 @@
 
 One entry per plugin version. The version at the top equals `version` in `.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 1.11.0 (2026-09-08)
+
+- Added: what a skill hands back has a shape, beside the shape of the report it read. `jorekai-seo:seo` carries `## Writing the answer`: one line of context, one table ordered by what it costs or earns, one line with the next action, and the columns for every sub-skill of the theme. `jorekai-seo:diagnose` and `jorekai-seo:distribution` answered in no fixed form at all and now carry one; `jorekai-seo:gsc-review` and `jorekai-seo:tech-audit` name their columns as one line instead of as prose. `decisions/0023`.
+- Added: `scripts/check.sh` fails when a theme router has no `## Writing the answer`, when a sub-skill of that theme is missing from it, and when the column line the router gives a skill stands in no line of that skill's `SKILL.md`. The gate catches the omission; whether the columns are the right ones stays with review.
 ## 1.10.0 (2026-09-07)
 
 - Added: every script that prints a report colours it, and only when the output is a terminal. `NO_COLOR` turns it off, `FORCE_COLOR` turns it on, and removing every escape leaves the same report, so a pipe, a redirect, a captured test and a subagent read what they always read. A level word, a verdict, a check id and a measure carry the colour their role already has; nothing is coloured for its looks. `decisions/0022`.

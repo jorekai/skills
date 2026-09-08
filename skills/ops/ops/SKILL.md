@@ -75,6 +75,25 @@ The console report is for the decision, the JSON is for the record. Only the JSO
 
 A terminal gets the same report in colour: the level word, the verdict, the check id and the measure carry the colour their role already has. Nothing is coloured that a word does not already say, and a pipe, a redirect and a subagent see plain text. Reason: `decisions/0022`.
 
+## Writing the answer
+
+The report is for the terminal; the answer is for the person, and it has one shape everywhere in this theme:
+
+1. One line first: what ran, what it was measured against, and the path of the JSON. The reader can open it, so nothing inside it is repeated in prose.
+2. One table, in ladder order, at most five rows, one row per check id and never one per target. What the table drops is one sentence under it, never a second table.
+3. Every cost is one number and one unit, copied from the finding's `measure` block. A cost written as prose cannot be graded later.
+4. The class cell is the class that will actually run, so a `safe` row on a host where `allow_safe` is `no` reads `confirm`.
+5. One line last: the single next action, and the gate it waits on when it touches a way in.
+
+The columns, per skill:
+
+- `jorekai-ops:access`, `jorekai-ops:availability`: `check id | cost | targets | fix | class`
+- `jorekai-ops:grade`: `row | then | now | verdict | next`
+- `jorekai-ops:and-now`: no table. The script's stage, the open items in ladder order, the next verify date.
+- `jorekai-ops:setup`: no table. The two accounts with the date each was proved from a fresh connection, and the profile that was chosen.
+
+A skill whose answer is a file names the file and writes no table. Reason: `decisions/0023`.
+
 ## Principles
 
 - Measuring and changing are different accounts. The pass that measures has no privilege, so it can run as often as anyone likes without widening anything.

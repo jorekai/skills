@@ -32,7 +32,7 @@ This skill reads the workspace only. It never touches a host, so a row whose new
    A row nobody carried out gets `dropped` by hand, with the reason in the outcome row. Never write `dropped` over a row that has a measure: that hides a fix that did not hold.
    Done when no row is left both past its verify date and without a verdict.
 
-4. **Answer what each verdict asks for.** `won` closes the row and nothing follows. `no-change` means the action was not the cost: the finding goes back to open, or to `proposals/` if nobody knows what would move it. `returned` means the fix treated a symptom, so the next row addresses what refills it, not the same removal again.
+4. **Answer what each verdict asks for.** `won` closes the row and nothing follows. `no-change` means the action was not the cost: the finding goes back to open, or to `proposals/` if nobody knows what would move it. `returned` means the fix treated a symptom, so the next row addresses what refills it, not the same removal again. The answer is one table, `row | then | now | verdict | next`, one row per verdict settled in this pass; a `won` row leaves `next` empty.
    Done when every `no-change` and `returned` row has a next step or a written decision to stop.
 
 ## Interpretation

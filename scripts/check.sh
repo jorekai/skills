@@ -139,6 +139,32 @@ while IFS= read -r line; do hit "colour: an escape outside paint(): $line"; done
   < <(git ls-files 'skills/*/*/scripts/*' | grep -v '/test_' \
       | xargs grep -nF '\033[' 2>/dev/null | grep -v 'PAINT\[key\]')
 
+# What a skill hands back has a shape too (decisions/0023). Every theme router names an answer for
+# every one of its sub-skills under `## Writing the answer`, and a row that gives columns gives them
+# to a skill whose SKILL.md carries the same line: the router is where the theme is read whole, the
+# step is where the model reads it while working. The gate catches the omission, not the wrong choice.
+bt='`'
+for router in $(git ls-files 'skills/*/*/SKILL.md'); do
+  theme=$(echo "$router" | cut -d/ -f2)
+  [[ "$router" == "skills/$theme/$theme/SKILL.md" ]] || continue
+  section=$(awk '/^## Writing the answer/{p=1;next} /^## /{p=0} p' "$router")
+  [[ -n "$section" ]] || { hit "answer: $router has no ## Writing the answer section"; continue; }
+  named=$(grep -oE "jorekai-$theme:[a-z-]+" <<<"$section" | sed "s/^jorekai-$theme://" | sort -u)
+  for d in $(git ls-files "skills/$theme/*/SKILL.md" | xargs -n1 dirname); do
+    name=$(basename "$d"); [[ "$name" == "$theme" ]] && continue
+    grep -qxF "$name" <<<"$named" || hit "answer: jorekai-$theme:$name is missing from ## Writing the answer in $router"
+  done
+  while IFS= read -r line; do
+    ans=${line#*: }
+    [[ "$ans" == "$bt"* && "$ans" == *" | "* ]] || continue
+    cols=$(sed "s/^$bt//; s/$bt.*//" <<<"$ans")
+    for n in $(sed 's/: .*//' <<<"$line" | grep -oE "jorekai-$theme:[a-z-]+" | sed "s/^jorekai-$theme://"); do
+      grep -qF "$bt$cols$bt" "skills/$theme/$n/SKILL.md" \
+        || hit "answer: $router gives jorekai-$theme:$n the columns $bt$cols$bt, its SKILL.md carries no such line"
+    done
+  done < <(grep '^- ' <<<"$section")
+done
+
 # Sources older than 180 days are a warning, not a hit: refresh them when touching the skill.
 python3 scripts/sources_age.py --days 180 | sed 's/^/warning: stale source: /' | grep -v ': 0 row' >&2
 

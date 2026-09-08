@@ -23,7 +23,7 @@ Nothing under `ssh.*`, `key.*`, `fw.*`, `sudo.*` or `user.*` may change until th
    The script paths are relative to this skill's directory. A flag the workspace left blank is absent on purpose: that check does not run on this host. Run the script without `--json` first when you only need to look.
    Done when the JSON holds a `counts` block and the account count matches what the host actually carries. A count of zero means the pass did not reach the host, not that nobody can log in.
 
-2. **Rank the findings, do not list them.** Order by the ladder in the router, not by how many keys a check touched. Look each id up in [../ops/references/fixes.md](../ops/references/fixes.md) for the fix on this host's control plane, the class, and the measure.
+2. **Rank the findings, do not list them.** Order by the ladder in the router, not by how many keys a check touched. Look each id up in [../ops/references/fixes.md](../ops/references/fixes.md) for the fix on this host's control plane, the class, and the measure. The answer is one table, `check id | cost | targets | fix | class`, at most five rows, one row per check id; the rest of the shape is in the router's `## Writing the answer`.
    Done when every `FAIL` id has a named fix and an owner, and the rest is one sentence.
 
 3. **Act by class, never by judgment, and never before the gate.** Gate 2 first: two independent ways in, each answering from a freshly opened connection, a backup copy, an armed rollback timer. Then the class from the table decides the flow.

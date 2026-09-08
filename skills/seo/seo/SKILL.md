@@ -61,6 +61,32 @@ Each rung depends on the one before it.
 4. **Links**: to the pages from rungs 2 and 3. Internal links first.
 5. **New content**: one good post a week, on clusters from `strategy.md` where the site already has impressions.
 
+## Writing the answer
+
+What a skill hands back has a shape, so two runs are comparable and a table can go into the log without being rewritten:
+
+1. One line first: what was read and where it sits. A file the workspace already holds is named, never repeated.
+2. One table, ordered by what it costs or earns, one row per thing to decide. What the table drops is one sentence under it, never a second table.
+3. Every number names its source: an export window, a check id, or a log id.
+4. One line last: the single next action and who does it.
+
+The columns, per skill:
+
+- `jorekai-seo:tech-audit`: `check id | URLs | fix | how to verify`, ordered Critical, High, Hygiene
+- `jorekai-seo:gsc-review`: `URL | query | current snippet | action | expected gain`, ordered by expected gain
+- `jorekai-seo:diagnose`: `hypothesis | prediction | check | evidence | verdict`, six rows in rank order
+- `jorekai-seo:distribution`: `piece | platform | first line | where the link sits`, the texts under the table
+- `jorekai-seo:review`: no table. `## Intent` and `## Standards`, one line per axis: finding count, worst finding, verdict.
+- `jorekai-seo:content`: no table. `briefs/<slug>.md`, `drafts/<slug>.md`, and one numbered round of questions to the author.
+- `jorekai-seo:links`: no table. `outreach.csv` itself, and the internal links as source URL, anchor, paragraph.
+- `jorekai-seo:grill`: no table of its own. `strategy.md` and `glossary.md`, then that file's keyword table sorted by priority and the open questions.
+- `jorekai-seo:migrate`: no table. The inventory, `redirect-map.csv`, and the two audit files, each with its FAIL count.
+- `jorekai-seo:report`: no table. `reports/YYYY-MM.md`, one page, not repeated in the answer.
+- `jorekai-seo:and-now`: no table. The script's `stage`, at most three `now`, one `then`.
+- `jorekai-seo:setup`, `jorekai-seo:connect`: no table. The files they wrote and what is still open.
+
+Reason: `decisions/0023`.
+
 ## Principles that survive algorithm updates
 
 - One page, one query intent. Two pages for one intent cannibalize each other.

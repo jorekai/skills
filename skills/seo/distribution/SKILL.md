@@ -12,11 +12,12 @@ Social posts are indexed within hours and put the URL in front of the people who
 1. **Read the source page.** Extract the primary keyword, the one claim or number worth quoting, 3–5 sub-points, and the original evidence (screenshot, own number). With a workspace, use `glossary.md` terms and the brand-voice lines in `strategy.md`.
 
 2. **Produce three pieces** per [references/formats.md](references/formats.md): X thread, LinkedIn post, Reddit answer. Keyword in the first line of each. The link back sits in the last post of the thread, at the end or in the first comment on LinkedIn, and on Reddit only where it answers the thread.
+   The answer is one table, `piece | platform | first line | where the link sits`, with the ready-to-paste texts under it.
    Done when three ready-to-paste texts exist with the URL placed, and the Reddit piece names a subreddit and the type of thread it answers.
 
 3. **Trend hook, when given.** A trending topic from Google Trends or X leads the first line; sentence two bridges to the page. Without a trend, skip.
 
-4. **Reply targets.** Name 3 larger posts or threads in the niche where a useful reply fits; write each reply. The link goes in only when the reply needs it to be complete.
+4. **Reply targets.** Name 3 larger posts or threads in the niche where a useful reply fits; write each reply. The link goes in only when the reply needs it to be complete. The three replies join the same table, one row each, with the thread in the platform cell.
    Done when three replies exist, each useful with the link removed.
 
 5. **Log** one `distribution` row per published piece (`scaffold.py <domain> --log` in `jorekai-seo:setup`), `verify after` 14 days: referral clicks and any new link.

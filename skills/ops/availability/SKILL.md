@@ -23,7 +23,7 @@ A service the workspace does not name is not measured. The list in `config.md` i
    The script paths are relative to this skill's directory. When the host writes its own report on a timer, fetch it instead of sending the script: `remote.sh --to <account> --fetch <path>`.
    Done when the JSON names every service the workspace lists and none it does not.
 
-2. **Rank the findings, do not list them.** What is down comes before what is only behind, and both come before what is merely unhardened. Look each id up in [../ops/references/fixes.md](../ops/references/fixes.md) for the fix on this host's control plane, the class, and the measure.
+2. **Rank the findings, do not list them.** What is down comes before what is only behind, and both come before what is merely unhardened. Look each id up in [../ops/references/fixes.md](../ops/references/fixes.md) for the fix on this host's control plane, the class, and the measure. The answer is one table, `check id | cost | targets | fix | class`, at most five rows, one row per check id; the rest of the shape is in the router's `## Writing the answer`.
    Done when every `FAIL` id has a named fix and an owner, and the rest is one sentence.
 
 3. **Act by class, never by judgment.** Every id here is `ask` in the table: a restart on a host that serves other people is an outage, however short. Print the command with its reason, and let the person decide.

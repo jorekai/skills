@@ -30,6 +30,7 @@ Rules for every file in this repository and for every agent or person who edits 
 - Code goes in fenced blocks; prose names a file, function, or flag only when the reader must go there.
 - Headers: at most three levels. Under 500 words, no headers.
 - A step that fans out (a crawl, prospecting, SERP recon, a review) sends the reading to subagents and names what comes back: the columns of one table and a word limit. The pages a subagent read stay in its context, never in the caller's.
+- A step that hands findings, picks, or drafts to a person names the shape of the answer: the columns of one table, the order of the rows, and the row cap. The frame around it stands once per theme, in the router's `## Writing the answer` (`decisions/0023`). A skill whose answer is a file names the file and writes no table.
 
 ## Private data
 

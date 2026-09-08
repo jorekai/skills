@@ -2,6 +2,10 @@
 
 One entry per `jorekai-dx` version. The version at the top equals `version` in `skills/dx/.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 2.3.0 (2026-09-08)
+
+- Added: what a skill hands back has a shape, beside the shape of the report it read. `jorekai-dx:dx` carries `## Writing the answer`: one line of context, one table in ladder order of at most five rows, one line with the next action, and the columns for every sub-skill. Five skills said "Rank the findings, do not list them" and then said nothing about the form, so it was invented once per session. `jorekai-dx:repos`, `jorekai-dx:machine`, `jorekai-dx:github` and `jorekai-dx:agent-config` now share `check id | cost | targets | fix | class`, `jorekai-dx:friction` and `jorekai-dx:grade` carry their own. `decisions/0023`.
+- Added: `scripts/check.sh` fails when a theme router has no `## Writing the answer`, when a sub-skill of that theme is missing from it, and when the column line the router gives a skill stands in no line of that skill's `SKILL.md`. The gate catches the omission; whether the columns are the right ones stays with review.
 ## 2.2.0 (2026-09-07)
 
 - Added: every script that prints a report colours it, and only when the output is a terminal. `NO_COLOR` turns it off, `FORCE_COLOR` turns it on, and removing every escape leaves the same report, so a pipe, a redirect, a captured test and a subagent read what they always read. A level word, a verdict, a check id and a measure carry the colour their role already has; nothing is coloured for its looks. `decisions/0022`.

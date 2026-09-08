@@ -26,7 +26,7 @@ This skill reads history and writes proposals. It changes nothing on the machine
 2. **Pick at most three, by time cost.** A shape that runs eighty times and takes two seconds costs less than one that runs six times and takes four minutes. A retry loop costs more than either, because the person is waiting and guessing. Ignore what is merely frequent.
    Done when each pick has a number behind it: runs, failure rate, or total seconds.
 
-3. **Turn each pick into a proposal, not an action.** Write `proposals/<slug>.md` with the finding, the number, what would replace it, and what would have to be true for it to be worth the change. A proposal becomes a log row only once it has a measure the same pass recomputes: the same shape's runs, failure rate, or seconds in the next window.
+3. **Turn each pick into a proposal, not an action.** Write `proposals/<slug>.md` with the finding, the number, what would replace it, and what would have to be true for it to be worth the change. A proposal becomes a log row only once it has a measure the same pass recomputes: the same shape's runs, failure rate, or seconds in the next window. The answer is one table, `shape | cost | what would replace it | what must be true`, one row per proposal and at most three; the rest of the shape is in the router's `## Writing the answer`.
    Done when every proposal names its measure, and nothing was changed on the machine.
 
 4. **Say what the numbers cannot.** A high failure rate on a program that exits on a keypress is a person quitting, not a broken command. A sequence that repeats may be two habits that happen to be adjacent. Ask before proposing.
