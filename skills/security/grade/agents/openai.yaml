@@ -1,0 +1,3 @@
+interface:
+  display_name: "Security grade"
+  short_description: "Settle the log rows whose verify date has passed"

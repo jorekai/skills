@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-08",
+  "generated": "2026-09-09",
   "marketplace": {
     "name": "jorekai",
     "add": "claude plugin marketplace add jorekai/skills"
@@ -116,7 +116,7 @@
     {
       "theme": "intro",
       "plugin": "jorekai-intro",
-      "version": "0.1.6",
+      "version": "0.1.7",
       "covers": "The map of this collection: the themes, their loops, and which one you need.",
       "install": "claude plugin install jorekai-intro@jorekai",
       "listed": true,
@@ -244,6 +244,108 @@
           "note": "pkg, boot, os, plane"
         }
       ]
+    },
+    {
+      "theme": "security",
+      "plugin": "jorekai-security",
+      "version": "0.1.0",
+      "covers": "Security loop for a code repository: setup, deps, secrets, pipeline, review, grade, report, and-now.",
+      "install": "claude plugin install jorekai-security@jorekai",
+      "listed": true,
+      "thesis": "One loop drives everything: measure the repository, fix what an attacker reaches first, prove it held, repeat. A finding earns a log row when it earns a check that can be recomputed.",
+      "router": "jorekai-security:security",
+      "entry": "/jorekai-security:setup",
+      "skills": [
+        {
+          "skill": "jorekai-security:security",
+          "invoked_by": "you",
+          "description": "Entry point for the security skill set: which sub-skill to reach for, the flows (new repository, weekly sweep, a credential is out), the priority ladder, the two gates in front of every fix, and the fixes table that carries a fix and a measure per check id.",
+          "reach_for_it_when": "",
+          "hands_back": "",
+          "scripts": []
+        },
+        {
+          "skill": "jorekai-security:and-now",
+          "invoked_by": "you",
+          "description": "Where a repository stands in the security loop and what comes next, read from the workspace files alone via scripts/status.py: rows past their verify date, open findings from the newest audit, rows naming an id this theme does not own, a review that wrote no rule, proposals without a decision, and unfinished setup.",
+          "reach_for_it_when": "Where does this repository stand, what comes next?",
+          "hands_back": "no table. The script's stage, at most three open items in ladder order, the next verify date.",
+          "scripts": [
+            "status.py"
+          ]
+        },
+        {
+          "skill": "jorekai-security:setup",
+          "invoked_by": "you",
+          "description": "Take a repository into the security workspace: detect the ecosystem, write the trust model that says which input an attacker controls and what already mitigates, record the secret store and the way a credential is rotated, choose the profile that sets the bar, and measure once.",
+          "reach_for_it_when": "Take a repository into the workspace, with a trust model and a profile",
+          "hands_back": "no table. The trust model it wrote, the scanners it found, and the profile that was chosen.",
+          "scripts": [
+            "scaffold.py"
+          ]
+        },
+        {
+          "skill": "jorekai-security:secrets",
+          "invoked_by": "agent or you",
+          "description": "Credentials in the files a repository tracks and in the history behind them, in one pass via scripts/secrets.py: a value in a tracked file, a value still reachable through the history where the file no longer carries it, and a value this pass found that carries no rotation date. Use when asked whether a key leaked, before making a repository public, after a credential was pasted into a file, or as the first pass of a security sweep.",
+          "reach_for_it_when": "Is a credential in the files or in the history, and was it rotated?",
+          "hands_back": "`check id | cost | targets | fix | class`",
+          "scripts": [
+            "secrets.py"
+          ]
+        },
+        {
+          "skill": "jorekai-security:pipeline",
+          "invoked_by": "agent or you",
+          "description": "What the forge runs with this repository's own rights, in one pass via scripts/pipeline.py: a privileged trigger that checks out code from a fork, a shell step that puts a value from outside straight into the command line, a workflow that names no rights for its token, and a third-party action bound to a tag rather than to a commit. Use when asked whether the build can be taken over, before adding a workflow that touches a pull request from a fork, after a dependency of the build changed, or as the pipeline half of a security sweep.",
+          "reach_for_it_when": "What can take over the build, and what does the build token allow?",
+          "hands_back": "`check id | cost | targets | fix | class`",
+          "scripts": [
+            "pipeline.py"
+          ]
+        },
+        {
+          "skill": "jorekai-security:deps",
+          "invoked_by": "agent or you",
+          "description": "Which installed dependency carries a published advisory and which one is already being exploited, in one pass via scripts/deps.py: the lock files resolved to versions, then the advisory database, the catalogue of exploited flaws, and the exploitation probability. Also names a manifest with no lock file beside it. Use when asked whether a dependency is vulnerable, after a lock file changed, when an advisory is announced, or as the dependency half of a security sweep.",
+          "reach_for_it_when": "Which installed dependency is known-bad, and which one is known to be exploited?",
+          "hands_back": "`check id | cost | targets | fix | class`",
+          "scripts": [
+            "deps.py"
+          ]
+        },
+        {
+          "skill": "jorekai-security:review",
+          "invoked_by": "agent or you",
+          "description": "Where attacker-controlled input reaches a dangerous sink in this repository, traced from the entry points the trust model names, verified against the code, and written down as a rule so scripts/review.py recomputes the same measure later. Covers injection, authorization, deserialization, outgoing requests, cryptography, and values that reach a log or a response. Use when asked to review code or a pull request for security, to find vulnerabilities, or as the code half of a security sweep.",
+          "reach_for_it_when": "Where does attacker-controlled input reach a dangerous sink?",
+          "hands_back": "`check id | cost | targets | fix | class`",
+          "scripts": [
+            "review.py"
+          ]
+        },
+        {
+          "skill": "jorekai-security:grade",
+          "invoked_by": "agent or you",
+          "description": "Give a verdict to log rows whose verify date has passed via scripts/grade.py: recompute each row's measure from the newest audit of the tool that found it, then write won, no-change, or returned into the log. Use when a row is due for a verdict, when the weekly pass reports rows past their verify date, or when asked whether a security fix held.",
+          "reach_for_it_when": "Did the fix hold? Settle the rows past their verify date",
+          "hands_back": "`row | then | now | verdict | next`",
+          "scripts": [
+            "grade.py"
+          ]
+        },
+        {
+          "skill": "jorekai-security:report",
+          "invoked_by": "you",
+          "description": "Monthly report for this repository, written from the workspace files: what every check cost when the month opened and what it costs now, every action of the month with its verdict and the class it ran under, what is still open in ladder order, and the three things next month starts with.",
+          "reach_for_it_when": "What did the month do to this repository?",
+          "hands_back": "no table. The path of the report, its headline, and the four counts.",
+          "scripts": [
+            "report.py"
+          ]
+        }
+      ],
+      "planned": []
     },
     {
       "theme": "seo",

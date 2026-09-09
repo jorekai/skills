@@ -1,7 +1,7 @@
 {
-  "name": "jorekai-intro",
-  "description": "The map of this collection: the themes, their loops, and which one you need.",
-  "version": "0.1.7",
+  "name": "jorekai-security",
+  "description": "Security loop for a code repository: setup, deps, secrets, pipeline, review, grade, report, and-now.",
+  "version": "0.1.0",
   "author": {
     "name": "Nils Jorek",
     "url": "https://github.com/jorekai"
@@ -10,8 +10,9 @@
   "repository": "https://github.com/jorekai/skills",
   "license": "MIT",
   "keywords": [
-    "overview",
-    "onboarding",
+    "security",
+    "appsec",
+    "vulnerabilities",
     "skills"
   ],
   "skills": "./"

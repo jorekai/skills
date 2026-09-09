@@ -1,0 +1,5 @@
+interface:
+  display_name: "Security report"
+  short_description: "What the month did to this repository"
+policy:
+  allow_implicit_invocation: false

@@ -1,0 +1,3 @@
+interface:
+  display_name: "Security deps"
+  short_description: "Which installed dependency is known-bad, and which one is exploited"

@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Skills by Nils Jorek: one plugin per theme, jorekai-<theme>.",
-    "version": "1.9.0"
+    "version": "1.10.0"
   },
   "plugins": [
     {
@@ -34,6 +34,13 @@
       "name": "jorekai-ops",
       "description": "Ops loop for a host that serves: setup, access, availability, grade, and-now.",
       "source": "./skills/ops",
+      "category": "productivity",
+      "license": "MIT"
+    },
+    {
+      "name": "jorekai-security",
+      "description": "Security loop for a code repository: setup, secrets, pipeline, deps, review, grade, report, and-now.",
+      "source": "./skills/security",
       "category": "productivity",
       "license": "MIT"
     }

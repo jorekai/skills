@@ -8,18 +8,19 @@ claude plugin install jorekai-intro@jorekai    # the map: what is here and which
 claude plugin install jorekai-seo@jorekai      # search work on a site
 claude plugin install jorekai-dx@jorekai       # the machine you work on
 claude plugin install jorekai-ops@jorekai      # a host that serves
+claude plugin install jorekai-security@jorekai # a code repository and its holes
 ```
 
-Install one, two, or all four; they share nothing at run time. Start with `/jorekai-intro:intro`, which draws the collection and names the one command to run next. Then `/jorekai-seo:setup` in the repository of a site, `/jorekai-dx:setup` for this machine, or `/jorekai-ops:setup` for a host that serves. Codex users link the same folders with `scripts/link.sh` (see "Use in a project").
+Install one, two, or all five; they share nothing at run time. Start with `/jorekai-intro:intro`, which draws the collection and names the one command to run next. Then `/jorekai-seo:setup` in the repository of a site, `/jorekai-dx:setup` for this machine, `/jorekai-ops:setup` for a host that serves, or `/jorekai-security:setup` for a repository whose holes you want measured. Codex users link the same folders with `scripts/link.sh` (see "Use in a project").
 
-Skills live under `skills/<theme>/<skill>/`. Each skill is a directory with `SKILL.md`, and optionally `references/` (knowledge loaded only when needed), `scripts/` (deterministic helpers, Python stdlib or bash only), `templates/` (files a skill writes into a project), and `agents/openai.yaml` (Codex metadata). Writing rules for every file: `STYLE.md`. Reasons behind the rules: `decisions/`. Versions: one changelog per plugin, `CHANGELOG.md` for `jorekai-seo`, and `skills/<theme>/CHANGELOG.md` for `jorekai-dx`, `jorekai-ops`, and `jorekai-intro`. Gate before every commit: `scripts/check.sh`. Contributions: `CONTRIBUTING.md`. License: MIT.
+Skills live under `skills/<theme>/<skill>/`. Each skill is a directory with `SKILL.md`, and optionally `references/` (knowledge loaded only when needed), `scripts/` (deterministic helpers, Python stdlib or bash only), `templates/` (files a skill writes into a project), and `agents/openai.yaml` (Codex metadata). Writing rules for every file: `STYLE.md`. Reasons behind the rules: `decisions/`. Versions: one changelog per plugin, `CHANGELOG.md` for `jorekai-seo`, and `skills/<theme>/CHANGELOG.md` for `jorekai-dx`, `jorekai-ops`, `jorekai-security`, and `jorekai-intro`. Gate before every commit: `scripts/check.sh`. Contributions: `CONTRIBUTING.md`. License: MIT.
 
 ## Structure
 
 - One user-invoked router per theme (for example `/jorekai-seo:seo`) names the sub-skills, the flows, and the priorities. No context cost until it is called.
 - User-invoked skills (`disable-model-invocation: true` plus `policy.allow_implicit_invocation: false` in `agents/openai.yaml`) orchestrate; model-invoked skills with a sharp `description` (one trigger per branch) hold the reusable discipline. Steps end on a completion criterion; reference material sits behind pointers.
 - No tool marketing in steps: tools appear only in `references/tools.md` and are interchangeable.
-- State lives with its subject, never in the skill. The SEO skills read and write `docs/seo/<domain>/` in the site's repository (config, strategy, glossary, weekly log, briefs, drafts, exports, reports). The DX and ops skills read and write one private workspace repository, because their subject is a machine and not one project. They share it: one folder per machine, one log folder per theme. Either way the collection itself holds templates and scripts only.
+- State lives with its subject, never in the skill. The SEO skills read and write `docs/seo/<domain>/` in the site's repository (config, strategy, glossary, weekly log, briefs, drafts, exports, reports). The DX and ops skills read and write one private workspace repository, because their subject is a machine and not one project. They share it: one folder per machine, one log folder per theme. The security skills keep a second private workspace of their own, one folder per repository, because a repository is worked on from several machines and outlives all of them (`decisions/0025`). Either way the collection itself holds templates and scripts only.
 - Every change leaves a row in a weekly log with a measure and a verify date, and the commit that carries it out ends with a trailer naming the row. Every theme learns from the log, not from memory.
 
 ## Themes
@@ -29,6 +30,7 @@ Skills live under `skills/<theme>/<skill>/`. Each skill is a directory with `SKI
 | `skills/seo/` | `jorekai-seo` | `/jorekai-seo:seo` | One site in search: indexing, what almost ranks, content, links, moves, monthly report |
 | `skills/dx/` | `jorekai-dx` | `/jorekai-dx:dx` | One machine to work on: the workspace, the weekly sweep, and what to do next |
 | `skills/ops/` | `jorekai-ops` | `/jorekai-ops:ops` | One host that serves: who can reach it, what runs on it, what may change, and whether the change held |
+| `skills/security/` | `jorekai-security` | `/jorekai-security:security` | One code repository and its holes: what leaked, what can take over the build, what is installed that is known-bad, and where input reaches a dangerous sink |
 | `skills/intro/` | `jorekai-intro` | `/jorekai-intro:intro` | The collection itself: every theme with its loop, every skill with who starts it and what it hands back |
 
 ## The map
@@ -305,6 +307,83 @@ Theme `skills/ops/`. You call user-invoked skills yourself (`/jorekai-ops:<name>
 | `jorekai-ops:recovery` | model | `scripts/recovery.py`: ten checks over backup targets, secret files, unit credentials and the journal; `--root` reads a captured tree, `--filesystem-bytes` fixes the size the share is measured against, and no check ever reads the contents of a secret |
 | `jorekai-ops:report` | user | `scripts/report.py [host] --month YYYY-MM [--write]`: the month from the audits and the log alone, `templates/report.md` |
 | `jorekai-ops:grade` | model | `scripts/grade.py [host]`: recompute the measure of every due log row from the newest audit of its tool, `--write` puts the verdict in the log, `--namespaces` prints which tool owns which check id namespace |
+
+## The security loop, start to end
+
+Two phases again: setup once per repository, then a short weekly pass. What is different is what setup produces. It writes a trust model, and every later pass reads it: the entry points where input from outside arrives, and what already escapes, binds, or authorises. Without that file a review reports every pattern it can match, and a person sorts the list by hand every week.
+
+The other difference is the review. A model finds a flaw once; a script has to find the same flaw again in three weeks, or the log row can never be settled. So every accepted finding is written as a rule in the workspace, and from then on it is counted. A finding that earns no rule earns no row and belongs in `proposals/`. Reasons: `decisions/0026`.
+
+```mermaid
+flowchart TD
+    subgraph E["Setup, once per repository"]
+        S1["/jorekai-security:setup<br/>ecosystem, lock files, what runs the build"]
+        S2["Trust model<br/>entry points that carry outside input,<br/>frameworks that already mitigate"]
+        S3["Secret store and rotation path<br/>where a value lives, how it is replaced"]
+        S4["Profile<br/>the bar in standards.md"]
+        S1 --> S2 --> S3 --> S4
+    end
+
+    subgraph W["Weekly, ten minutes"]
+        W1["jorekai-security:and-now<br/>stage, open items in ladder order, next verify date"]
+        W2["jorekai-security:secrets<br/>values in the tree, values in the history, rotations"]
+        W3["jorekai-security:pipeline<br/>privileged triggers, token rights, unpinned actions"]
+        W4["jorekai-security:deps<br/>lock files, advisories, what is already exploited"]
+        W5["jorekai-security:review<br/>entry point to sink, verified, written as a rule"]
+        W6["Rank by the priority ladder<br/>1. what is out is out<br/>2. the build can be taken over<br/>3. a known-exploited hole is installed"]
+        W7["Gate 1 and gate 2, then act by class<br/>rotate before editing,<br/>a control changes with a test that proves it"]
+        W8["scaffold.py --append-row<br/>check id, class, one measure, verify date"]
+        W9["jorekai-security:grade<br/>recompute the measure of every due row,<br/>write won, no-change, or returned"]
+        W10["jorekai-security:report<br/>the month from the audits and the log,<br/>reports/security/YYYY-MM.md"]
+        W1 --> W2 --> W3 --> W4 --> W5 --> W6 --> W7 --> W8 --> W9
+        W9 -. "next week" .-> W1
+        W9 -. "once a month" .-> W10
+    end
+
+    S4 --> W2
+    W1 -- "no audit, or one that aged out" --> W2
+```
+
+### What each security skill delivers
+
+What a skill hands back has a shape too: one line of context, one table in ladder order of at most five rows, one line with the next action. The columns per skill stand in the router under `## Writing the answer` (`decisions/0023`).
+
+| Step | Skill | Output | Why here |
+|---|---|---|---|
+| Set up | `jorekai-security:setup` | The repository in its own private workspace: `path`, `origin_kind`, `languages`, `package_managers`, `ci`, `entrypoints`, `mitigations`, `secret_store`, `rotation_runbook`, and the chosen profile in `standards.md` | The trust model decides whether a matched pattern is a finding. It is written once and read by every pass, which is what makes the second week cheaper than the first. |
+| Orient | `jorekai-security:and-now` | Stage, rows past their verify date, rows naming an id this theme does not own, a review that wrote no rule, failing ids in ladder order, the next verify date | The state of a repository lives in files. One command answers "and now?" after a break, without reading the repository and without the network. |
+| Rotate | `jorekai-security:secrets` | Credentials in tracked files, credentials reachable through the history alone, and findings with no rotation date; a fingerprint and a place per finding and never a value; full JSON in `audits/` | A history keeps what it was given, so this is the only finding an edit cannot undo. The row records the rotation, not the commit that removed the line. |
+| Hold the build | `jorekai-security:pipeline` | Privileged triggers that check out fork code, shell steps that interpolate a value from outside, workflows with no rights named, third-party actions bound to a tag; full JSON in `audits/` | Whoever runs code in the pipeline owns the fix that is about to be pushed through it, which puts this above every finding in the code itself. |
+| Raise | `jorekai-security:deps` | Installed versions with an advisory that a catalogue of exploited flaws names, with a published fix, or with neither, plus manifests without a lock file; full JSON in `audits/` | Exploited and fixable are different decisions, so they are different numbers. One package counts in one check only, so a raise moves one number down and none up. |
+| Trace | `jorekai-security:review` | Findings traced from an entry point to a sink, verified in a second pass, each written as a rule in `rules/` and then counted by class; full JSON in `audits/` | A model finds once, a script measures twice. The rule is what carries the answer from this month into the verdict next month. |
+| Settle | `jorekai-security:grade` | One verdict per log row past its verify date, recomputed from the newest audit of the tool that found it: `won`, `no-change`, or `returned`, written into the log beside the action | A row without a verdict is a claim nobody checked. `returned` under `cred.*` means the value counts again, which is either a rotation that did not happen or a second copy. |
+| Report | `jorekai-security:report` | `reports/security/YYYY-MM.md`: the same shape as the DX and ops reports, written from the audits and the log alone | The owner of a repository asks what the month changed. Nothing is measured again for the answer, and no value ever reaches the file. |
+
+### The security log
+
+`repos/<slug>/log/security/2026-W37.md`, one file per week, one folder per theme, in a private workspace of this theme's own. The row format is the DX one: an id, the check id that found it, the risk class it ran under, the measure it started from (`Then`), a status, and a verify date. The trailer on a commit that carries an action out is `Security-Log: <row id>`.
+
+Two rules differ. A row about a credential is written for the rotation and never carries the value, only its fingerprint and where it was found. And a row for a review finding names the rule id as its target, because the rule is what `scripts/review.py` recomputes at the verify date; a finding with no rule has no row.
+
+### The two gates
+
+Above the three risk classes sit two gates. The first covers every finding under `cred.*`: the value is rotated at the provider before anything in the repository is touched, the rotation is recorded with its date, and rewriting the history is a second, separate row, because a fork and a mirror keep the old objects either way. The second covers every change to authentication, authorization, sessions, cryptography, or the rights a token carries: a test that fails before the change and passes after it, in the same commit. The failure mode there is not something breaking loudly, it is a check that stops checking and still reads like a check. Details: `skills/security/security/references/risk-classes.md`, reasons: `decisions/0027`.
+
+## Security skills
+
+Theme `skills/security/`. You call user-invoked skills yourself (`/jorekai-security:<name>` in Claude Code, `$security-<name>` in Codex); the agent reaches for the measuring skills when the task fits.
+
+| Skill | Invoked by | Deterministic part |
+|---|---|---|
+| `jorekai-security:security` | user | Router: workspace, flows, priority ladder, what the theme does not do, `references/fixes.md` (check id, class, measure, fix), `references/risk-classes.md`, `references/tools.md`, `references/sources.md` |
+| `jorekai-security:setup` | user | `scripts/scaffold.py`: create the repository folder, `--check` (missing files and sections), `--flags` (the arguments each measuring script takes, plus which scanners this machine has), `--log`, `--append-row`, `--due` |
+| `jorekai-security:and-now` | user | `scripts/status.py [slug]`: stage and next steps from the workspace files, no repository read and no network |
+| `jorekai-security:secrets` | model | `scripts/secrets.py`: three checks over tracked files and the history, provider formats plus a named-value rule with an entropy floor; wraps an installed scanner and merges its findings; `--gitleaks-file` reads a captured report, and no value is ever printed |
+| `jorekai-security:pipeline` | model | `scripts/pipeline.py`: four checks over the workflow files, with a reader for the subset of the format they need; a file it cannot parse is reported as unread, never as clean |
+| `jorekai-security:deps` | model | `scripts/deps.py`: readers for ten lock formats, then the advisory database, the catalogue of exploited flaws and the probability table; `--offline` reads the cache, `--osv-file` reads a captured answer |
+| `jorekai-security:review` | model | `scripts/review.py`: counts the rules an accepted finding left behind, per class; a rule is open when the sink is still written and the mitigation is not there, and a rule whose path matches nothing needs a person |
+| `jorekai-security:grade` | model | `scripts/grade.py [slug]`: one verdict per due row from the newest audit of its tool, `--namespaces` prints which tool owns which check id namespace, `--write` puts the verdicts in the log |
+| `jorekai-security:report` | user | `scripts/report.py [slug] --month`: the month from the audits and the log, `--write` renders `reports/security/YYYY-MM.md` from `templates/report.md` |
 
 ## Use in a project
 

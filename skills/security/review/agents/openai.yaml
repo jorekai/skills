@@ -1,0 +1,3 @@
+interface:
+  display_name: "Security review"
+  short_description: "Where attacker-controlled input reaches a dangerous sink"

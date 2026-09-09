@@ -223,6 +223,25 @@ t python3 skills/ops/grade/scripts/grade.py --help
 t python3 skills/ops/grade/scripts/grade.py --namespaces
 t python3 skills/ops/report/scripts/test_report.py
 t python3 skills/ops/report/scripts/report.py --help
+
+t python3 skills/security/setup/scripts/test_scaffold.py
+t python3 skills/security/and-now/scripts/test_status.py
+t python3 skills/security/secrets/scripts/test_secrets.py
+t python3 skills/security/pipeline/scripts/test_pipeline.py
+t python3 skills/security/deps/scripts/test_deps.py
+t python3 skills/security/review/scripts/test_review.py
+t python3 skills/security/setup/scripts/scaffold.py --root "$(mktemp -d)/sec" example-repo
+t python3 skills/security/setup/scripts/scaffold.py --help
+t python3 skills/security/and-now/scripts/status.py --help
+t python3 skills/security/secrets/scripts/secrets.py --help
+t python3 skills/security/pipeline/scripts/pipeline.py --help
+t python3 skills/security/deps/scripts/deps.py --help
+t python3 skills/security/review/scripts/review.py --help
+t python3 skills/security/grade/scripts/test_grade.py
+t python3 skills/security/grade/scripts/grade.py --help
+t python3 skills/security/grade/scripts/grade.py --namespaces
+t python3 skills/security/report/scripts/test_report.py
+t python3 skills/security/report/scripts/report.py --help
 t python3 skills/intro/intro/scripts/test_catalog.py
 t python3 skills/intro/intro/scripts/catalog.py --help
 # The map is generated, never typed: a skill added, renamed or removed anywhere fails here

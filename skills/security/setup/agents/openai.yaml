@@ -1,0 +1,5 @@
+interface:
+  display_name: "Security setup"
+  short_description: "Take a repository into the workspace and write its trust model"
+policy:
+  allow_implicit_invocation: false

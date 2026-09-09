@@ -1,0 +1,5 @@
+interface:
+  display_name: "Security and now?"
+  short_description: "Where this repository stands and what comes next"
+policy:
+  allow_implicit_invocation: false

@@ -1,0 +1,3 @@
+interface:
+  display_name: "Security pipeline"
+  short_description: "What the forge runs with this repository's own rights"
