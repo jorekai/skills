@@ -398,9 +398,15 @@ def classify(found, kev, epss, floor):
     return exploited, fixable, rest
 
 
+def owned(accepted):
+    """The accepted entries this pass owns. One list reaches every pass, and a check id belongs to
+    exactly one of them, so an entry another pass owns is not this one's to count or to name."""
+    return {p for p in accepted if p[0] in MEASURES}
+
+
 def collect(found, manifests_open, rep, a, reached, catalogues, unasked=""):
     """Every check, in ladder order. A finding is a fact; the fixes table decides what happens."""
-    skip = pairs(a.accept)
+    skip = owned(pairs(a.accept))
     if not reached:
         rep.add("INFO", "dep.vulnerable", unasked or
                 "the advisory database was not reached, so nothing here says whether an installed "

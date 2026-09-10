@@ -203,6 +203,23 @@ class AcceptTest(unittest.TestCase):
             self.assertEqual(cost(out, "build.token-broad"), 0)
             self.assertIn("1 finding is recorded as accepted", json.dumps(out))
 
+    def test_an_entry_another_pass_owns_is_not_counted_here(self):
+        """One accepted list reaches every pass, and a check id belongs to exactly one of them, so
+        a credential somebody accepted must not stand as a note under a build check."""
+        with tempfile.TemporaryDirectory() as d:
+            workflows(d, a="on: [push]\npermissions: {}\njobs:\n  b:\n    steps:\n      - run: echo hi\n")
+            out = run(d, "--accept", "cred.tracked settings.py a test value 2026-01-01")
+            self.assertNotIn("recorded as accepted", json.dumps(out))
+
+    def test_the_header_counts_only_the_entries_this_pass_owns(self):
+        with tempfile.TemporaryDirectory() as d:
+            workflows(d, a="on: [push]\npermissions: {}\njobs:\n  b:\n    steps:\n      - run: echo hi\n")
+            args = [sys.executable, SCRIPT, "--now", NOW, "--root", str(d),
+                    "--accept", "cred.tracked settings.py a test value 2026-01-01"]
+            r = subprocess.run(args, capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertIn("0 accepted findings", r.stdout)
+
 
 class UnreadTest(unittest.TestCase):
     def test_a_file_that_does_not_parse_is_a_note_and_not_a_pass(self):

@@ -347,6 +347,12 @@ def accepted_pairs(specs):
     return out
 
 
+def owned(accepted):
+    """The accepted entries this pass owns. One list reaches every pass, and a check id belongs to
+    exactly one of them, so an entry another pass owns is not this one's to count or to name."""
+    return {p for p in accepted if p[0] in MEASURES}
+
+
 def action_refs(workflow):
     """Every `uses` in the file, from a step and from a job that calls another workflow."""
     jobs = workflow.get("jobs")
@@ -376,7 +382,7 @@ def unpinned(ref, trusted):
 
 def collect(files, rep, a):
     """Every check, in ladder order. A finding is a fact; the fixes table decides what happens."""
-    skip = accepted_pairs(a.accept)
+    skip = owned(accepted_pairs(a.accept))
     trusted = set(a.trusted_owner or [])
     unread = [f for f in files if f["data"] is None]
     if unread:
@@ -578,7 +584,8 @@ def main(argv=None):
                           "items": rep.items}, indent=2, ensure_ascii=False))
     else:
         trusted = ", ".join(a.trusted_owner or []) or "no owner"
-        standards = f"{trusted} trusted without a pin · {plural(len(a.accept or []), 'accepted finding')}"
+        kept = owned(accepted_pairs(a.accept))
+        standards = f"{trusted} trusted without a pin · {plural(len(kept), 'accepted finding')}"
         print(text_report(files, rep, target, standards))
     return 0
 

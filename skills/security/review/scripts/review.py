@@ -160,9 +160,15 @@ def pairs(specs, fields=2):
     return out
 
 
+def owned(accepted):
+    """The accepted entries this pass owns. One list reaches every pass, and a check id belongs to
+    exactly one of them, so an entry another pass owns is not this one's to count or to name."""
+    return {p for p in accepted if p[0] in MEASURES}
+
+
 def collect(rules, broken, rep, a):
     """Every check, in ladder order. A finding is a fact; the fixes table decides what happens."""
-    skip = pairs(a.accept)
+    skip = owned(pairs(a.accept))
     gone, open_rules = [], {}
     for rule in rules:
         if (rule["check"], rule["id"]) in skip:

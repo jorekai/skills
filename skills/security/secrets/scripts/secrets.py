@@ -310,13 +310,21 @@ def pairs(specs, fields=2):
     return out
 
 
+def owned(accepted):
+    """The accepted entries this pass owns. One list reaches every pass, and a check id belongs to
+    exactly one of them, so an entry another pass owns is not this one's to count or to name."""
+    return {p for p in accepted if p[0] in MEASURES}
+
+
 def collect(found, rep, a, tool_used, history_read):
     """Every check, in ladder order. A finding is a fact; the fixes table decides what happens."""
-    skip = pairs(a.accept)
+    skip = owned(pairs(a.accept))
     rotated = {f for f, _ in pairs(a.rotated)}
+    # Which check a value lands in is settled before anybody accepts anything. Deriving this from
+    # the filtered list instead would hand an accepted tree value to `cred.history` as a finding.
+    in_tree = {f["fingerprint"] for f in found if f["where"] == "tree"}
     tree = [f for f in found if f["where"] == "tree"
             and ("cred.tracked", f["path"]) not in skip]
-    in_tree = {f["fingerprint"] for f in tree}
     # A value that is in the tree is already counted there. The history check is what is left:
     # a value the tree no longer carries and every clone still holds.
     history = [f for f in found if f["where"] == "history" and f["fingerprint"] not in in_tree

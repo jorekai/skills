@@ -189,6 +189,24 @@ class AcceptTest(unittest.TestCase):
             self.assertEqual(cost(out, "cred.tracked"), 0)
             self.assertIn("1 finding is recorded as accepted", json.dumps(out))
 
+    def test_accepting_the_tree_finding_does_not_hand_the_value_to_the_history(self):
+        """Which check a value lands in is settled before the accepted list is applied. A value the
+        tree carries is a tree finding, and accepting it must not surface it as a history one."""
+        with tempfile.TemporaryDirectory() as d:
+            root = repository(d, **{"settings.py": f"{NAME} = \'{TOKEN}\'\n"})
+            out = run(root, "--accept", "cred.tracked settings.py a test value 2026-01-01")
+            self.assertEqual(cost(out, "cred.tracked"), 0)
+            self.assertEqual(cost(out, "cred.history"), 0)
+            self.assertEqual(cost(out, "cred.unrotated"), 0)
+
+    def test_an_entry_another_pass_owns_is_not_counted_here(self):
+        """One accepted list reaches every pass, and a check id belongs to exactly one of them."""
+        with tempfile.TemporaryDirectory() as d:
+            root = repository(d, **{"a.py": "x = 1\n"})
+            out = run(root, "--no-history", "--accept",
+                      "build.action-unpinned .github/workflows/a.yml agreed 2026-01-01")
+            self.assertNotIn("recorded as accepted", json.dumps(out))
+
 
 class ScannerTest(unittest.TestCase):
     def test_a_captured_scanner_report_is_merged_into_the_same_shape(self):
