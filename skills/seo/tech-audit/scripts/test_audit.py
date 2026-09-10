@@ -189,6 +189,53 @@ class RedirectScheme(unittest.TestCase):
         self.assertEqual(r["body"], "")
 
 
+class EntryScheme(unittest.TestCase):
+    """A redirect was guarded and the first request was not, so remote content chose the scheme.
+
+    robots.txt names the sitemap and a sitemapindex names the next one, both from the audited site.
+    Either can say file:// or ftp://, and build_opener() carries the handlers for both.
+    """
+
+    def setUp(self):
+        self.opened = []
+        self._opener = audit._OPENER
+        audit._OPENER = type("O", (), {"open": staticmethod(
+            lambda req, timeout=None: self.opened.append(req) or _FakeResponse(200, {}))})()
+
+    def tearDown(self):
+        audit._OPENER = self._opener
+
+    def test_a_file_target_is_refused_before_the_request_is_built(self):
+        r = audit.fetch("file:///etc/passwd")
+        self.assertEqual(self.opened, [])
+        self.assertIsNone(r["status"])
+        self.assertIn("not an HTTP target", r["error"])
+        self.assertEqual(r["body"], "")
+
+    def test_an_ftp_target_opens_no_connection(self):
+        r = audit.fetch("ftp://example.invalid/x")
+        self.assertEqual(self.opened, [])
+        self.assertIn("not an HTTP target", r["error"])
+
+
+class Routable(unittest.TestCase):
+    """A sitemap is content the site serves, so it does not get to name an address in here.
+
+    Every address below is a literal, so getaddrinfo answers without asking a resolver.
+    """
+
+    def test_loopback_private_and_link_local_are_refused(self):
+        for host in ("127.0.0.1:8080", "192.168.1.1", "10.0.0.5", "169.254.169.254"):
+            self.assertFalse(audit.routable(f"http://{host}/sitemap.xml", HOST), host)
+
+    def test_a_public_address_is_allowed(self):
+        self.assertTrue(audit.routable("http://93.184.216.34/sitemap.xml", HOST))
+
+    def test_the_start_host_stays_allowed_whatever_it_resolves_to(self):
+        """The operator aimed there; their own argument is not remote content."""
+        self.assertTrue(audit.routable("http://127.0.0.1:8080/sitemap.xml", "http://127.0.0.1:8080"))
+
+
 class MetaRefreshTest(unittest.TestCase):
     """A meta refresh must not overwrite the request delay: the browser-UA fetch sleeps on it."""
 

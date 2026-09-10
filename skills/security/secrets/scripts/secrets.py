@@ -80,9 +80,12 @@ PROVIDERS = (
 PROVIDER_RE = [(name, re.compile(pattern)) for name, pattern in PROVIDERS]
 # A name that says credential, then a value long enough to be one. The value decides, not the
 # name: a short one and a placeholder are dropped below.
+# The name is matched but not captured: only the credential word inside it is. A name is
+# repository text, it passes no filter, and a finding names the kind and a fingerprint, never
+# what the file wrote (decisions/0026).
 ASSIGNMENT = re.compile(
-    r"(?i)\b([a-z0-9_.-]*(?:secret|token|password|passwd|pwd|api[_-]?key|access[_-]?key"
-    r"|private[_-]?key|credential|auth)[a-z0-9_.-]*)\s*[:=]\s*[\"']?([^\s\"'`,;)]{8,})")
+    r"(?i)\b[a-z0-9_.-]*(?P<word>secret|token|password|passwd|pwd|api[_-]?key|access[_-]?key"
+    r"|private[_-]?key|credential|auth)[a-z0-9_.-]*\s*[:=]\s*[\"']?(?P<value>[^\s\"'`,;)]{8,})")
 # The shortest value the named rule accepts. A real credential is longer than a word, and the
 # named rule has to carry the whole burden of being right, because a name proves nothing.
 MIN_LENGTH = 16
@@ -154,12 +157,12 @@ def named_value(line, bits):
     m = ASSIGNMENT.search(line)
     if not m:
         return None
-    value = ESCAPE.split(m.group(2))[0]
+    value = ESCAPE.split(m.group("value"))[0]
     if len(value) < MIN_LENGTH or classes(value) < 2:
         return None
     if PLACEHOLDER.search(value) or entropy(value) < bits:
         return None
-    return f"value named {m.group(1).lower()}", value
+    return f"value named by {m.group('word').lower()}", value
 
 
 def candidates(line, bits):

@@ -24,10 +24,12 @@ Exit code 0 always; findings are in the report, not the exit status.
 import os
 import argparse
 import csv
+import ipaddress
 import json
 import pathlib
 import random
 import re
+import socket
 import string
 import sys
 import time
@@ -42,6 +44,10 @@ UA_BOT = "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.htm
 UA_BROWSER = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
               "(KHTML, like Gecko) Chrome/124.0 Safari/537.36")
 MAX_BODY = 3_000_000
+# The only two protocols this tool has any business speaking. build_opener() installs urllib's
+# file and ftp handlers as well, so a target that names another scheme is refused before the
+# request is built, not after a redirect names it.
+SCHEME_OK = ("http://", "https://")
 # Query parameters that only track a click. An internal link carrying one creates a URL variant.
 TRACKING_PARAMS = re.compile(r"^(utm_\w+|gclid|gbraid|wbraid|fbclid|msclkid|dclid|mc_cid|mc_eid|_ga|_gl|ref|source)$", re.I)
 # Cart, checkout, and account URLs (WooCommerce English and German slugs, Shopify, generic). Never indexable, never worth a fetch.
@@ -72,6 +78,11 @@ def fetch(url, ua=UA_BOT, timeout=15, max_hops=10, delay=0.0):
     chain = []
     current = url
     for _ in range(max_hops):
+        if not current.lower().startswith(SCHEME_OK):
+            chain.append((current, "scheme"))
+            return {"url": url, "chain": chain, "final_url": current, "status": None,
+                    "headers": {}, "body": "", "elapsed": 0.0,
+                    "error": f"not an HTTP target: {current}"}
         if delay:
             time.sleep(delay)
         req = urllib.request.Request(current, headers={"User-Agent": ua,
@@ -98,7 +109,7 @@ def fetch(url, ua=UA_BOT, timeout=15, max_hops=10, delay=0.0):
         chain.append((current, status))
         if 300 <= status < 400 and "location" in headers:
             target = urllib.parse.urljoin(current, headers["location"])
-            if not target.lower().startswith(("http://", "https://")):
+            if not target.lower().startswith(SCHEME_OK):
                 chain.append((target, "scheme"))
                 return {"url": url, "chain": chain, "final_url": current, "status": None,
                         "headers": {}, "body": "", "elapsed": time.time() - t0,
@@ -364,6 +375,30 @@ def same_site(a, b):
     ha = urllib.parse.urlsplit(a).netloc.lower().removeprefix("www.")
     hb = urllib.parse.urlsplit(b).netloc.lower().removeprefix("www.")
     return ha == hb
+
+
+def routable(url, origin):
+    """Whether an address a document the audited site served may aim this machine at.
+
+    A sitemap is remote content, and it names the next URL to fetch. Left alone it can point at the
+    network this tool runs in, and the report then says whether a private address answered. The
+    start URL is the operator's own argument, so its host stays allowed whatever it resolves to.
+    """
+    host = urllib.parse.urlsplit(url).hostname or ""
+    if not host or same_site(url, origin):
+        return True
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except OSError:
+        return True                      # a name that does not resolve is the fetch's problem
+    for info in infos:
+        try:
+            ip = ipaddress.ip_address(info[4][0])
+        except ValueError:
+            continue
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+            return False
+    return True
 
 
 def looks_random(slug):
@@ -678,6 +713,12 @@ def check_site(start_final, rep, timeout, delay, page=None, page_headers=None):
         if smu in seen_maps:
             continue
         seen_maps.add(smu)
+        if not routable(smu, origin):
+            rep.add("Site", "FAIL", "site.sitemap",
+                    f"{smu} names an address that is not reachable from the public internet; "
+                    "not fetched. A sitemap is content the site serves, and it does not get to "
+                    "aim this machine at the network it runs in")
+            continue
         r = fetch(smu, UA_BOT, timeout, delay=delay)
         if r["status"] != 200 or not r["body"]:
             rep.add("Site", "FAIL", "site.sitemap", f"{smu} returned {r['status'] if r['status'] else 'no response (' + str(r['error']) + ')'}")

@@ -2,6 +2,11 @@
 
 One entry per plugin version. The version at the top equals `version` in `.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 1.11.1 (2026-09-10)
+
+- Fixed: `jorekai-seo:tech-audit` checked the scheme of a redirect target and not of the request it made first. `_OPENER` comes from `build_opener()`, so urllib's file and ftp handlers were installed, and the audited site chose the protocol through the `Sitemap:` line of its robots.txt and through the `<loc>` values of a sitemap index. A `file://` target was opened and read; an `ftp://` target opened a connection to a host and port the site named. `fetch()` now refuses anything but http and https before it builds the request.
+- Fixed: a sitemap could aim the audit at the network it runs in. The report printed whether a private address answered and with what status, which turns a public audit into a scan of the operator's own network. An address a fetched document names is now refused when it resolves to a private, loopback, link-local or reserved address; the start URL is the operator's own argument and its host stays allowed.
+
 ## 1.11.0 (2026-09-08)
 
 - Added: what a skill hands back has a shape, beside the shape of the report it read. `jorekai-seo:seo` carries `## Writing the answer`: one line of context, one table ordered by what it costs or earns, one line with the next action, and the columns for every sub-skill of the theme. `jorekai-seo:diagnose` and `jorekai-seo:distribution` answered in no fixed form at all and now carry one; `jorekai-seo:gsc-review` and `jorekai-seo:tech-audit` name their columns as one line instead of as prose. `decisions/0023`.

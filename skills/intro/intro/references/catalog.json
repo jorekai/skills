@@ -248,7 +248,7 @@
     {
       "theme": "security",
       "plugin": "jorekai-security",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "covers": "Security loop for a code repository: setup, deps, secrets, pipeline, review, grade, report, and-now.",
       "install": "claude plugin install jorekai-security@jorekai",
       "listed": true,
@@ -350,7 +350,7 @@
     {
       "theme": "seo",
       "plugin": "jorekai-seo",
-      "version": "1.11.0",
+      "version": "1.11.1",
       "covers": "SEO loop for one or more domains: setup, connect, grill, tech-audit, gsc-review, content, review, links, distribution, diagnose, migrate, report, and-now.",
       "install": "claude plugin install jorekai-seo@jorekai",
       "listed": true,

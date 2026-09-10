@@ -2,6 +2,10 @@
 
 One entry per `jorekai-security` version. The version at the top equals `version` in `skills/security/.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 0.1.2 (2026-09-10)
+
+- Fixed: `jorekai-security:secrets` promised a finding names the path, the line, the kind and a fingerprint, and then printed repository text. `ASSIGNMENT` captured the whole name around the credential word, every filter applied to the value alone, and the name went into the report and into the committed audit as the finding's kind. The character set carried the dot, so a customer domain in a setting name passed through whole. The regex now captures the credential word instead of the name, and a finding reads `value named by secret`.
+
 ## 0.1.1 (2026-09-10)
 
 - Fixed: one accepted list reaches every pass, and no pass filtered it by the check ids it owns. A credential somebody accepted in `config.md` stood in the pipeline report as a note under `build.token-broad`, a check that never counted it, and the header said findings were left out of counts that pass never took. Every pass now keeps the entries whose check id it owns and drops the rest, the way `decisions/0015` gives every check id exactly one owner.

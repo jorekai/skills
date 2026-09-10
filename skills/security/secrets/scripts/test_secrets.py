@@ -208,6 +208,30 @@ class AcceptTest(unittest.TestCase):
             self.assertNotIn("recorded as accepted", json.dumps(out))
 
 
+class NameTest(unittest.TestCase):
+    """The name half of an assignment is repository text and passes no filter of its own.
+
+    Only the value is measured for length, character classes, a placeholder and entropy, so the
+    name never carries the decision and must never carry into the report either.
+    """
+
+    def test_the_report_names_the_credential_word_and_not_what_the_file_wrote(self):
+        with tempfile.TemporaryDirectory() as d:
+            name = "Xy9Kd2Lm5Pt" + "8Rv1Nw6YQz3Hf7"
+            root = repository(d, **{"conf.ini": f"{name}-secret = '{TOKEN}'\n"})
+            out = run(root, "--no-history")
+            self.assertEqual(cost(out, "cred.tracked"), 1)
+            self.assertNotIn(name.lower(), json.dumps(out).lower())
+            self.assertIn("value named by secret", json.dumps(out))
+
+    def test_a_customer_name_in_a_setting_does_not_reach_the_audit(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = repository(d, **{"conf.ini": f"acme-corp.example.api_key = '{TOKEN}'\n"})
+            out = run(root, "--no-history")
+            self.assertEqual(cost(out, "cred.tracked"), 1)
+            self.assertNotIn("acme-corp", json.dumps(out))
+
+
 class ScannerTest(unittest.TestCase):
     def test_a_captured_scanner_report_is_merged_into_the_same_shape(self):
         with tempfile.TemporaryDirectory() as d:
