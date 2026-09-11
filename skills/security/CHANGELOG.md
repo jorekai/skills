@@ -2,6 +2,10 @@
 
 One entry per `jorekai-security` version. The version at the top equals `version` in `skills/security/.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 0.2.0 (2026-09-11)
+
+- Changed: `jorekai-security:secrets` prints the counting line as a bar of `FAIL`, `WARN`, notes, passed; the cost of a finding stands in its own column after the check id instead of in parentheses; the `next` zone carries the gate on its own line; the passed list wraps. Reason: `decisions/0028`. The router's `## Reading a report` names the bar and the columns.
+
 ## 0.1.2 (2026-09-10)
 
 - Fixed: `jorekai-security:secrets` promised a finding names the path, the line, the kind and a fingerprint, and then printed repository text. `ASSIGNMENT` captured the whole name around the credential word, every filter applied to the value alone, and the name went into the report and into the committed audit as the finding's kind. The character set carried the dot, so a customer domain in a setting name passed through whole. The regex now captures the credential word instead of the name, and a finding reads `value named by secret`.

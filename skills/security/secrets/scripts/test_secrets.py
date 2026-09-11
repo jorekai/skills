@@ -282,6 +282,16 @@ class ContractTest(unittest.TestCase):
             self.assertIn("\nnext  ", r.stdout)
             self.assertNotIn(TOKEN, r.stdout)
 
+    def test_the_counting_line_is_a_bar_and_the_cost_stands_in_its_own_column(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = repository(d, **{"a.py": f"{NAME} = '{TOKEN}'\n"})
+            r = subprocess.run([sys.executable, SCRIPT, "--root", str(root), "--now", NOW,
+                                "--no-tool", "--no-history"], capture_output=True, text=True)
+            self.assertRegex(r.stdout, r"\n\d+ FAIL · \d+ WARN · \d+ notes? · \d+ passed\n")
+            self.assertRegex(r.stdout, r"\nFAIL  cred\.tracked {18}1 credential\n")
+            self.assertNotIn("(costs", r.stdout)
+            self.assertIn("\n      gate: cred.*", r.stdout)
+
     def test_the_report_carries_no_escape_when_nothing_is_a_terminal(self):
         with tempfile.TemporaryDirectory() as d:
             root = repository(d, **{"a.py": "x = 1\n"})

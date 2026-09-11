@@ -1,7 +1,7 @@
 {
   "name": "jorekai-security",
   "description": "Security loop for a code repository: setup, deps, secrets, pipeline, review, grade, report, and-now.",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "author": {
     "name": "Nils Jorek",
     "url": "https://github.com/jorekai"
