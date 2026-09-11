@@ -22,6 +22,7 @@ import re
 import shutil
 import subprocess
 import sys
+import textwrap
 from pathlib import Path
 
 # Colour is a hint on a report that reads the same without it (decisions/0022). It is off unless
@@ -312,16 +313,17 @@ def short(path):
 
 
 def cost(item):
-    """What the finding costs now, in words. Empty when the check carries no measure."""
+    """The cost of a finding as one number and one unit, the column the eye lands on.
+    Empty when the check carries no measure."""
     m = item.get("measure") or {}
     value, unit = m.get("value"), m.get("unit")
     if value is None:
         return ""
     if unit == "bytes":
-        return f"costs {human(value)}"
+        return human(value)
     if unit == "percent":
-        return f"costs {value} points below the floor"
-    return f"costs {value}"
+        return f"{value} points below the floor"
+    return f"{value}"
 
 
 def detail(item):
@@ -350,6 +352,34 @@ def block(rows, indent="      "):
     return [f"{indent}{paint(name.ljust(width), 'dim')}  {value}" for name, value in rows]
 
 
+ID_WIDTH = 28
+
+
+def bar(fails, warns, notes, passed):
+    """Four counts in one line, a zero dimmed, a count above zero in the colour of its word."""
+    cells = [(fails, "FAIL", "FAIL"), (warns, "WARN", "WARN"),
+             (notes, plural(notes, "note").split()[1], "INFO"),
+             (passed, "passed", "PASS")]
+    return " · ".join(paint(f"{n} {word}", key if n else "dim") for n, word, key in cells)
+
+
+def finding_line(item):
+    """Level, id padded to one width, cost: three columns, so the eye reads down them."""
+    tag = paint("note" if item["level"] == "INFO" else f"{item['level']:<4}", item["level"])
+    cid = paint(item["id"].ljust(ID_WIDTH), "id")
+    price = cost(item) if item["level"] != "INFO" else ""
+    if not price:
+        return f"{tag}  {paint(item['id'], 'id')}"
+    return f"{tag}  {cid}  {paint(price, 'dim')}"
+
+
+def wrapped(label, words, width=80):
+    """A dimmed list that wraps at the terminal's width, the label once."""
+    lines = textwrap.wrap(", ".join(words), width=width - len(label) - 2, break_on_hyphens=False)
+    indent = " " * (len(label) + 2)
+    return [paint(f"{label}  {lines[0]}", "dim")] + [paint(indent + l, "dim") for l in lines[1:]]
+
+
 def text_report(rep, target, floors):
     """The console report: what was measured, what needs a decision, what is only a note."""
     c = rep.counts()
@@ -360,28 +390,23 @@ def text_report(rep, target, floors):
     findings = [i for i in ranked if i["level"] in ("FAIL", "WARN")]
     notes = [i for i in ranked if i["level"] == "INFO"]
     passed = [i for i in ranked if i["level"] == "PASS"]
+    fails = sum(1 for i in findings if i["level"] == "FAIL")
     out = [paint(f"machine  {target}", "head"), f"measured against  {floors}", "",
-           f"{plural(len(findings), 'finding')} to decide on, "
-           f"{plural(len(notes), 'note')}, {plural(len(passed), 'check')} passed"]
-    for i in findings:
-        tag = paint(f"{i['level']:<4}", i["level"])
-        price = paint(f"  ({cost(i)})" if cost(i) else "", "dim")
-        out += ["", f"{tag}  {paint(i['id'], 'id')}{price}", f"      {i['message']}"]
+           bar(fails, len(findings) - fails, len(notes), len(passed))]
+    for i in findings + notes:
+        out += ["", finding_line(i), f"      {i['message']}"]
         out += block(detail(i))
         if len(i["data"]) > 5:
-            out.append(f"      and {len(i['data']) - 5} more, the full list is in the JSON")
-    for i in notes:
-        out += ["", f"{paint('note', 'INFO')}  {paint(i['id'], 'id')}", f"      {i['message']}"]
-        out += block(detail(i))
+            out.append(paint(f"      +{len(i['data']) - 5} more in the JSON", "dim"))
     if passed:
-        out += ["", paint("passed  " + ", ".join(i["id"] for i in passed), "dim")]
+        out += [""] + wrapped("passed", [i["id"] for i in passed])
     if findings:
-        out += ["", paint("next", "head") + "  take the largest cost first, then look its id up in the fixes table "
-                    "of jorekai-dx:dx for the fix and the risk class"]
+        out += ["", paint("next", "head") + "  take the largest cost first",
+                paint("      gate: the fixes table of jorekai-dx:dx", "dim")]
     else:
         out += ["", paint("next", "head") + "  nothing to act on, measure again when this audit ages out"]
     if c.get("FAIL"):
-        out += ["      a FAIL outranks every WARN, whatever the totals say"]
+        out += [paint("      a FAIL outranks every WARN, whatever the totals say", "dim")]
     return "\n".join(out)
 
 

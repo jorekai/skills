@@ -80,6 +80,34 @@ class ExportTest(unittest.TestCase):
         self.assertNotIn("acme", gap)
 
 
+class RenderTest(unittest.TestCase):
+    """decisions/0028: a bucket head names its parameters, then fixed-width rows, text left,
+    numbers right."""
+
+    class A:
+        min_impressions = 50
+        pos_min = 8
+        pos_max = 20
+        top = 25
+        brand = None
+        expected_ctr_1 = None
+
+    def test_bucket_head_and_aligned_row(self):
+        a = self.A()
+        a.brand_re = None
+        queries = [{"key": "how to sail", "clicks": 5, "impressions": 300, "ctr": 5 / 300, "position": 12.4}]
+        res = {"n_queries": 1, "n_pages": 0, "brand": None,
+               "striking_queries": g.striking(queries, a), "striking_pages": [],
+               "ctr_gap_queries": [], "ctr_gap_pages": [],
+               "decay": None, "cannibal": None, "not_indexed": None, "baseline": None,
+               "calibration": g.ctr_calibration(queries, a),
+               "totals": {"source": "queries", "previous": None, "now": g.totals(queries)}}
+        out = g.render(res, a)
+        self.assertIn("striking-q  1 queries  pos 8 to 20  min 50 impressions", out)
+        self.assertIn("how to sail                                    300         5     1.7%    12.4", out)
+        self.assertIn("\nnext  ", out)
+
+
 class TotalsTest(unittest.TestCase):
     """Site totals sum the rows the export holds, and the export caps a table at 1,000 rows."""
 

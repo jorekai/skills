@@ -298,6 +298,8 @@ def report(catalog, theme=None, out=sys.stdout):
         print(f"  install  {t['install']}", file=out)
         print(f"  start    {t['entry']}", file=out)
         width = max((len(s["skill"]) for s in t["skills"]), default=0)
+        print(paint(f"  {'skill'.ljust(width)}  {'invoked by'.ljust(12)}  reach for it when", "dim"),
+              file=out)
         for s in t["skills"]:
             key = "you" if s["invoked_by"] == "you" else "agent"
             when = s["reach_for_it_when"] or first_clause(s["description"])

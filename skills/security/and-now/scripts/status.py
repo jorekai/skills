@@ -70,6 +70,12 @@ LADDER = {
 # is either gradeable or names an id of another theme.
 SKILL_OF = {"cred": "jorekai-security:secrets", "build": "jorekai-security:pipeline",
             "dep": "jorekai-security:deps", "vuln": "jorekai-security:review"}
+# A step that opens with a skill name in backticks and a colon carries the skill as its own column, so the
+# leading tag is not printed twice. One that only mentions the skill elsewhere keeps its full
+# text and the tag becomes the column. One with neither falls back to a dash.
+LEAD_SKILL_RE = re.compile(r"^`(jorekai-security:[a-z-]+)`:\s*")
+SKILL_ANY_RE = re.compile(r"`(jorekai-security:[a-z-]+)`")
+CHECK_ANY_RE = re.compile(r"`([a-z]+\.[a-z-]+)`")
 
 
 def value(text, key):
@@ -285,15 +291,34 @@ def report(s, today):
     out.append(f"proposals  {', '.join(s['proposals']) or 'none'}")
     stage, now, then = decide(s, today)
     out += ["", f"{paint('stage', 'head')}  {stage}", "", paint("now", "head")]
-    out += [f"  {i}. {short_paths(step)}" for i, step in enumerate(now, 1)]
+    columns = [step_columns(step) for step in now]
+    width = max((len(skill) for skill, _ in columns), default=0)
+    out += [f"  {i}. {skill.ljust(width)}  {short_paths(text)}"
+            for i, (skill, text) in enumerate(columns, 1)]
     if then:
-        out += ["", paint("then", "head")] + [f"  - {short_paths(t)}" for t in then]
+        out += ["", paint("then", "head") + "  " + "; ".join(short_paths(t) for t in then)]
     return "\n".join(out)
 
 
 def short_paths(text):
     """The home directory inside a sentence written as `~`, so a step fits one line."""
     return text.replace(str(Path.home()), "~")
+
+
+def step_columns(text):
+    """The skill this step belongs to, and the text beside it, as two columns of one line."""
+    m = LEAD_SKILL_RE.match(text)
+    if m:
+        return m.group(1), text[m.end():]
+    m = SKILL_ANY_RE.search(text)
+    if m:
+        return m.group(1), text
+    m = CHECK_ANY_RE.search(text)
+    if m:
+        skill = skill_for(m.group(1))
+        if skill:
+            return skill, text
+    return "-", text
 
 
 def main():

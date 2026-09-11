@@ -59,7 +59,7 @@ class StageTest(unittest.TestCase):
             root, _ = workspace(d, access="", plane="", profile="", paths="")
             stage, now, _ = status.decide(status.read_host(root, "example-host", TODAY), TODAY)
             self.assertEqual(stage, "setup")
-            self.assertTrue(any("no `access` is recorded" in s for s in now))
+            self.assertTrue(any("no `access` is recorded" in t for _, t in now))
 
     def test_a_host_with_work_is_past_setup_even_when_setup_is_unfinished(self):
         """Unfinished setup is an item, never a gate (decisions/0010, same rule here)."""
@@ -68,7 +68,7 @@ class StageTest(unittest.TestCase):
             rows(base, row("2026-W36-01", "ssh.root-login"))
             stage, now, _ = status.decide(status.read_host(root, "example-host", TODAY), TODAY)
             self.assertNotEqual(stage, "setup")
-            self.assertTrue(any("no profile is chosen" in s for s in now))
+            self.assertTrue(any("no profile is chosen" in t for _, t in now))
 
     def test_without_an_audit_the_first_step_is_access(self):
         with tempfile.TemporaryDirectory() as d:
@@ -76,7 +76,7 @@ class StageTest(unittest.TestCase):
             rows(base, row("2026-W36-01", "ssh.root-login"))
             stage, now, _ = status.decide(status.read_host(root, "example-host", TODAY), TODAY)
             self.assertEqual(stage, "measure")
-            self.assertIn("jorekai-ops:access", now[0])
+            self.assertEqual(now[0][0], "jorekai-ops:access")
 
 
 class RowTest(unittest.TestCase):
@@ -87,7 +87,7 @@ class RowTest(unittest.TestCase):
             s = status.read_host(root, "example-host", TODAY)
             self.assertEqual(len(s["due"]), 1)
             _, now, _ = status.decide(s, TODAY)
-            self.assertIn("jorekai-ops:grade", now[0])
+            self.assertEqual(now[0][0], "jorekai-ops:grade")
 
     def test_an_id_this_theme_does_not_own_is_named_as_such(self):
         with tempfile.TemporaryDirectory() as d:
@@ -96,7 +96,7 @@ class RowTest(unittest.TestCase):
             s = status.read_host(root, "example-host", TODAY)
             self.assertEqual([r["check"] for r in s["unknown"]], ["repo.access"])
             _, now, _ = status.decide(s, TODAY)
-            self.assertTrue(any("does not own" in step for step in now))
+            self.assertTrue(any("does not own" in t for _, t in now))
 
     def test_an_id_whose_tool_has_not_shipped_is_parked_not_broken(self):
         """A row waiting for a release is not the same as a row nobody can ever measure."""
@@ -107,7 +107,7 @@ class RowTest(unittest.TestCase):
             self.assertEqual([r["check"] for r in s["parked"]], ["pkg.security"])
             self.assertEqual(s["unknown"], [])
             _, now, _ = status.decide(s, TODAY)
-            self.assertTrue(any("has not shipped" in step for step in now))
+            self.assertTrue(any("has not shipped" in t for _, t in now))
 
     def test_a_parked_row_is_never_due_for_a_verdict(self):
         """Nothing recomputes it, so naming it as gradeable sends the reader to a refusal."""
@@ -118,7 +118,7 @@ class RowTest(unittest.TestCase):
             s = status.read_host(root, "example-host", TODAY)
             self.assertEqual([r["id"] for r in s["due"]], ["2026-W36-02"])
             _, now, _ = status.decide(s, TODAY)
-            grade_step = [step for step in now if step.startswith("grade ")][0]
+            grade_step = [t for _, t in now if t.startswith("grade ")][0]
             self.assertIn("2026-W36-02", grade_step)
             self.assertNotIn("2026-W36-01", grade_step)
 
@@ -144,21 +144,21 @@ class AuditTest(unittest.TestCase):
             audit(base, "availability", "2026-09-06", [{"id": "code.behind", "level": "FAIL"}])
             audit(base, "access", "2026-09-06", [{"id": "access.single-path", "level": "FAIL"}])
             _, now, _ = status.decide(status.read_host(root, "example-host", TODAY), TODAY)
-            self.assertIn("access.single-path", now[0])
+            self.assertIn("access.single-path", now[0][1])
 
     def test_an_audit_older_than_the_bar_is_named(self):
         with tempfile.TemporaryDirectory() as d:
             root, base = workspace(d)
             audit(base, "access", "2026-01-01", [])
             _, now, _ = status.decide(status.read_host(root, "example-host", TODAY), TODAY)
-            self.assertTrue(any("moved on" in step for step in now))
+            self.assertTrue(any("moved on" in t for _, t in now))
 
     def test_without_an_access_audit_nothing_may_change_access(self):
         with tempfile.TemporaryDirectory() as d:
             root, base = workspace(d)
             audit(base, "availability", "2026-09-06", [])
             _, now, _ = status.decide(status.read_host(root, "example-host", TODAY), TODAY)
-            self.assertTrue(any("nothing may change access" in step for step in now))
+            self.assertTrue(any("nothing may change access" in t for _, t in now))
 
 
 class EndToEndTest(unittest.TestCase):
@@ -194,6 +194,19 @@ class EndToEndTest(unittest.TestCase):
             self.assertEqual(r.returncode, 0, r.stderr)
             self.assertIn("stage  measure", r.stdout)
             self.assertIn("ssh.root-login", r.stdout)
+
+    def test_a_now_line_is_two_aligned_columns_and_then_is_one_line(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            rows(base, row("2026-W36-01", "ssh.root-login", "applied", "2026-08-25", "2026-08-20"),
+                 row("2026-W36-02", "key.orphan", "applied", "2026-10-01", "2026-09-01"))
+            audit(base, "access", "2026-09-06", [{"id": "ssh.root-login", "level": "FAIL"}])
+            r = subprocess.run([sys.executable, SCRIPT, "--root", str(root),
+                                "--today", "2026-09-07"], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertRegex(r.stdout, r"\n  1\. jorekai-ops:\S+ +grade ")
+            self.assertRegex(r.stdout, r"\nthen  2026-10-01: first verify date reached, ")
+            self.assertNotIn("\n  - ", r.stdout)
 
     def test_every_ladder_id_names_a_skill(self):
         """An id with no owner is a finding nobody can act on."""

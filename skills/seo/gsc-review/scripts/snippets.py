@@ -226,22 +226,24 @@ def inspect(url, query=None):
 
 
 def render(o):
-    lines = [paint(f"## {o['url']}", "head")]
+    """The console report: the snippet fields as fixed-width rows, text left, then the flags."""
+    lines = [paint(f"snippet  {o['url']}", "head")]
     if o.get("error") or not o.get("status"):
         lines.append(paint(f"fetch failed: {o.get('error') or 'no body'}", "FAIL"))
         return "\n".join(lines) + "\n"
     if o["final_url"] != o["url"]:
         lines.append(f"redirected to {o['final_url']} ({o['status']})")
     cache = ", ".join(f"{k}: {v}" for k, v in o["cache"].items())
-    lines += ["", "| Field | Value | Chars |", "|---|---|---|"]
+    lines.append("")
+    lines.append(paint(f"{'field':<17}{'value':<60}chars", "dim"))
     for label, key in (("title", "title"), ("meta description", "meta"), ("H1", "h1"), ("og:title", "og_title"), ("dateModified", "date_modified")):
         v = o.get(key)
-        shown = (v or "").replace("\n", "⏎").replace("|", "\\|") or "_missing_"
-        lines.append(f"| {label} | {shown} | {len(v) if v else 0} |")
+        shown = (v or "").replace("\n", "⏎") or "missing"
+        lines.append(f"{label:<17}{shown:<60}{len(v) if v else 0:>5}")
     lines.append("")
-    lines.append("flags: " + (", ".join(o["flags"]) if o["flags"] else "none"))
+    lines.append("flags  " + (", ".join(o["flags"]) if o["flags"] else "none"))
     if cache:
-        lines.append(f"cache headers (bot UA): {cache}")
+        lines.append(f"cache headers (bot UA)  {cache}")
     return "\n".join(lines) + "\n"
 
 

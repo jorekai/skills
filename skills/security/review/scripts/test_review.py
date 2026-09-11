@@ -196,6 +196,28 @@ class ContractTest(unittest.TestCase):
             self.assertIn("measured against", r.stdout)
             self.assertIn("\nnext  ", r.stdout)
 
+    def test_the_counting_line_is_a_bar_and_the_cost_stands_in_its_own_column(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, rules = workspace(d, [rule()], **{"src__a.py": MatchTest.CODE})
+            r = subprocess.run([sys.executable, SCRIPT, "--root", str(root), "--rules-dir",
+                                str(rules), "--now", NOW], capture_output=True, text=True)
+            self.assertRegex(r.stdout, r"\n\d+ FAIL · \d+ WARN · \d+ notes? · \d+ passed\n")
+            self.assertRegex(r.stdout, r"\nFAIL  vuln\.injection {16}1 open rule\n")
+            self.assertNotIn("(costs", r.stdout)
+
+    def test_the_gate_line_appears_only_for_a_control_class(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, rules = workspace(d, [rule()], **{"src__a.py": MatchTest.CODE})
+            r = subprocess.run([sys.executable, SCRIPT, "--root", str(root), "--rules-dir",
+                                str(rules), "--now", NOW], capture_output=True, text=True)
+            self.assertNotIn("\n      gate:", r.stdout)
+        with tempfile.TemporaryDirectory() as d:
+            root, rules = workspace(d, [rule(rid="vuln.authz-01", check="vuln.authz",
+                                              sink="def handler")], **{"src__a.py": "def handler(): pass\n"})
+            r = subprocess.run([sys.executable, SCRIPT, "--root", str(root), "--rules-dir",
+                                str(rules), "--now", NOW], capture_output=True, text=True)
+            self.assertIn("\n      gate: a failing test", r.stdout)
+
     def test_the_report_carries_no_escape_when_nothing_is_a_terminal(self):
         with tempfile.TemporaryDirectory() as d:
             root, rules = workspace(d, [rule()])

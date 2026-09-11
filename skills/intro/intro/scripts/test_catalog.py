@@ -196,6 +196,9 @@ class Report(unittest.TestCase):
         self.assertIn("jorekai-demo:later", self.text)
         self.assertIn("planned", self.text)
 
+    def test_every_theme_table_carries_a_column_header_before_its_first_row(self):
+        self.assertRegex(self.text, r"\n  skill +invoked by +reach for it when\n  jorekai-")
+
     def test_the_report_carries_no_escape_when_nothing_is_a_terminal(self):
         self.assertNotIn("\033", self.text)
 

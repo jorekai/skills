@@ -23,6 +23,7 @@ import json
 import re
 import subprocess
 import sys
+import textwrap
 from pathlib import Path
 
 # Colour is a hint on a report that reads the same without it (decisions/0022). It is off unless
@@ -355,11 +356,12 @@ def plural(n, one, many=None):
 
 
 def cost(item):
+    """The cost of a finding as one number and one unit, the column the eye lands on."""
     m = item.get("measure") or {}
     value = m.get("value")
     if value is None:
         return ""
-    return "costs " + plural(value, *ROW_WORD.get(item["id"], ("finding", "findings")))
+    return plural(value, *ROW_WORD.get(item["id"], ("finding", "findings")))
 
 
 def block(rows, indent="      "):
@@ -373,6 +375,37 @@ def detail(item):
     return [(str(d.get("target", "")), str(d.get("value", "")) or "yes") for d in item["data"][:5]]
 
 
+ID_WIDTH = 28
+
+
+def bar(fails, warns, notes, passed):
+    """Four counts in one line, a zero dimmed, a count above zero in the colour of its word."""
+    cells = [(fails, "FAIL", "FAIL"), (warns, "WARN", "WARN"),
+             (notes, plural(notes, "note").split()[1], "INFO"),
+             (passed, "passed", "PASS")]
+    return " · ".join(paint(f"{n} {word}", key if n else "dim") for n, word, key in cells)
+
+
+def finding_line(item):
+    """Level, id padded to one width, cost: three columns, so the eye reads down them.
+
+    A note carries no cost, so its id stands unpadded: padding a column that never comes only
+    to strip it again would depend on whether colour wraps the trailing spaces or not.
+    """
+    tag = paint("note" if item["level"] == "INFO" else f"{item['level']:<4}", item["level"])
+    price = cost(item) if item["level"] != "INFO" else ""
+    if not price:
+        return f"{tag}  {paint(item['id'], 'id')}"
+    return f"{tag}  {paint(item['id'].ljust(ID_WIDTH), 'id')}  {paint(price, 'dim')}"
+
+
+def wrapped(label, words, width=80):
+    """A dimmed list that wraps at the terminal's width, the label once."""
+    lines = textwrap.wrap(", ".join(words), width=width - len(label) - 2, break_on_hyphens=False)
+    indent = " " * (len(label) + 2)
+    return [paint(f"{label}  {lines[0]}", "dim")] + [paint(indent + l, "dim") for l in lines[1:]]
+
+
 def text_report(services, rep, target, standards):
     """The console report: what was measured, what needs a decision, what is only a note."""
     ranked = sorted(rep.items, key=lambda x: (LEVEL_ORDER[x["level"]],
@@ -380,20 +413,17 @@ def text_report(services, rep, target, standards):
     findings = [i for i in ranked if i["level"] in ("FAIL", "WARN")]
     notes = [i for i in ranked if i["level"] == "INFO"]
     passed = [i for i in ranked if i["level"] == "PASS"]
+    fails = sum(1 for i in findings if i["level"] == "FAIL")
     out = [paint(f"availability  {target}  {plural(len(services), 'service')}", "head"),
            f"measured against  {standards}", "",
-           f"{plural(len(findings), 'finding')} to decide on, "
-           f"{plural(len(notes), 'note')}, {plural(len(passed), 'check')} passed"]
+           bar(fails, len(findings) - fails, len(notes), len(passed))]
     for i in findings + notes:
-        tag = paint("note" if i["level"] == "INFO" else f"{i['level']:<4}", i["level"])
-        price = f"  ({cost(i)})" if i["level"] != "INFO" and cost(i) else ""
-        out += ["", f"{tag}  {paint(i['id'], 'id')}" + paint(price, "dim"),
-                f"      {i['message']}"]
+        out += ["", finding_line(i), f"      {i['message']}"]
         out += block(detail(i))
         if len(i["data"]) > 5:
-            out.append(f"      and {len(i['data']) - 5} more, the full list is in the JSON")
+            out.append(paint(f"      +{len(i['data']) - 5} more in the JSON", "dim"))
     if passed:
-        out += ["", paint("passed  " + ", ".join(i["id"] for i in passed), "dim")]
+        out += [""] + wrapped("passed", [i["id"] for i in passed])
     if findings:
         out += ["", paint("next", "head") + "  bring back what is down before anything that is only behind, then look "
                     "each id up in the fixes table of jorekai-ops:ops for the fix per control "

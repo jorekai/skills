@@ -309,10 +309,24 @@ def report(s, today):
         out.append(f"stray log  {plural(len(s['stray_logs']), 'week file')} still at log/, not log/dx/")
     stage, now, then = decide(s, today)
     out += ["", f"{paint('stage', 'head')}  {stage}", "", paint("now", "head")]
-    out += [f"  {i}. {short_paths(step)}" for i, step in enumerate(now, 1)]
+    pairs, width = now_columns(now)
+    out += [f"  {i}. {skill.ljust(width)}  {short_paths(step)}" for i, (skill, step) in enumerate(pairs, 1)]
     if then:
-        out += ["", paint("then", "head")] + [f"  - {short_paths(t)}" for t in then]
+        out += ["", paint("then", "head") + "  " + "; ".join(short_paths(t) for t in then)]
     return "\n".join(out)
+
+
+SKILL_IN_TEXT = re.compile(r"`(jorekai-dx:[a-z0-9-]+)`")
+SKILL_LEAD = re.compile(r"^`jorekai-dx:[a-z0-9-]+`:\s*")
+
+
+def now_columns(steps):
+    """Each step's first named skill, so the numbered list reads two aligned columns: the skill
+    that runs, then what to do. A step naming no skill gets a blank first column."""
+    pairs = [(m.group(1) if (m := SKILL_IN_TEXT.search(step)) else "", SKILL_LEAD.sub("", step))
+             for step in steps]
+    width = max((len(skill) for skill, _ in pairs), default=0)
+    return pairs, width
 
 
 def short_paths(text):

@@ -195,7 +195,9 @@ class Stages(unittest.TestCase):
         r = subprocess.run([sys.executable, str(HERE / "status.py"), "--root", str(self.root), "--today", "2026-09-03"],
                            capture_output=True, text=True, env=env)
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertIn("stage: setup", r.stdout)
+        self.assertIn("stage  setup", r.stdout)
+        self.assertIn("\nstage  ", r.stdout)
+        self.assertRegex(r.stdout, r"\n  1\. jorekai-seo:setup {10}fill config\.md")
 
 
 if __name__ == "__main__":

@@ -252,6 +252,15 @@ class ContractTest(unittest.TestCase):
             self.assertIn("measured against", r.stdout)
             self.assertIn("\nnext  ", r.stdout)
 
+    def test_the_counting_line_is_a_bar_and_the_cost_stands_in_its_own_column(self):
+        with tempfile.TemporaryDirectory() as d:
+            workflows(d, a="on: [push]\njobs:\n  b:\n    steps:\n      - uses: owner/act@v1\n")
+            r = subprocess.run([sys.executable, SCRIPT, "--root", d, "--now", NOW],
+                               capture_output=True, text=True)
+            self.assertRegex(r.stdout, r"\n\d+ FAIL · \d+ WARN · \d+ notes? · \d+ passed\n")
+            self.assertRegex(r.stdout, r"\nWARN  build\.token-broad {13}1 workflow\n")
+            self.assertNotIn("(costs", r.stdout)
+
     def test_the_report_carries_no_escape_when_nothing_is_a_terminal(self):
         with tempfile.TemporaryDirectory() as d:
             r = subprocess.run([sys.executable, SCRIPT, "--root", d, "--now", NOW],

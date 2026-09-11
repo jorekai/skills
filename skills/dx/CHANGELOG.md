@@ -2,6 +2,10 @@
 
 One entry per `jorekai-dx` version. The version at the top equals `version` in `skills/dx/.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 2.5.0 (2026-09-11)
+
+- Changed: `scripts/repos.py`, `scripts/machine.py`, `scripts/friction.py`, `scripts/grade.py`, `scripts/report.py`, and `scripts/status.py` lay out each report zone the way `decisions/0028` fixes it: the counting line is a bar of counts, a finding or a row is columns instead of a sentence, and the cost stands in its own column instead of behind the id in parentheses.
+
 ## 2.4.2 (2026-09-08)
 
 - Fixed: the headline of a report called the first fall in ladder order the biggest one. Biggest is measured as a share of what the check cost before, so two units compare.

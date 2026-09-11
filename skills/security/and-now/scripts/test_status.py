@@ -185,6 +185,22 @@ class ReportTest(unittest.TestCase):
                                capture_output=True, text=True)
             self.assertNotEqual(r.returncode, 0)
 
+    def test_now_lines_carry_the_skill_as_their_own_aligned_column(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, _ = workspace(d)
+            text = status.report(state(root), TODAY)
+            self.assertRegex(text, r"\n  1\. jorekai-security:secrets {2}nothing has measured")
+            self.assertNotIn("`jorekai-security:secrets`: nothing", text)
+
+    def test_the_then_line_is_one_line(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            audit(base, "secrets", "2026-09-08", [])
+            rows(base, row("2026-W36-01", "cred.tracked", "applied", "2026-12-01", "2026-09-01"))
+            text = status.report(state(root), TODAY)
+            self.assertIn("\nthen  2026-12-01", text)
+            self.assertEqual(text.count("\nthen"), 1)
+
     def test_the_report_carries_no_escape_when_nothing_is_a_terminal(self):
         with tempfile.TemporaryDirectory() as d:
             root, _ = workspace(d)

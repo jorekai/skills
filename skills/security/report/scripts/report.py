@@ -209,15 +209,14 @@ def measures(entry):
 
 def movement(found, first, last):
     """What every check id cost when the month opened and what it costs now."""
-    rows, notes = [], []
+    rows, no_audit, opening_only = [], [], []
     for tool in sorted(found):
         start, end = pick(found[tool], first, last)
         if end is None:
-            notes.append(f"no {tool} audit inside the month, so nothing it measures is in this report")
+            no_audit.append(tool)
             continue
         if start is None:
-            notes.append(f"one {tool} audit inside the month and none before it, so its numbers "
-                         "open the next report instead of closing this one")
+            opening_only.append(tool)
             continue
         then, now = measures(start), measures(end)
         for cid in sorted(set(then) & set(now)):
@@ -230,6 +229,15 @@ def movement(found, first, last):
                          "change": nb - tb, "family": family, "unit": tu,
                          "from": start["file"], "to": end["file"]})
     rows.sort(key=lambda r: (rung(r["check"]), r["change"]))
+    notes = []
+    if no_audit:
+        subject, vb = ("it", "measures") if len(no_audit) == 1 else ("they", "measure")
+        notes.append(f"no {', '.join(no_audit)} audit inside the month, so nothing {subject} "
+                     f"{vb} is in this report")
+    if opening_only:
+        poss = "its" if len(opening_only) == 1 else "their"
+        notes.append(f"one {', '.join(opening_only)} audit inside the month and none before it, "
+                     f"so {poss} numbers open the next report instead of closing this one")
     return rows, notes
 
 
@@ -376,11 +384,14 @@ def render(slug, month, data):
 def collect(base_dir, first, last):
     found, other = audits(base_dir)
     moved, notes = movement(found, first, last)
-    for tool in other:
-        notes.append(f"the {tool} audits in this folder belong to another theme and are not read here")
-    for tool in TOOLS:
-        if tool not in found:
-            notes.append(f"no {tool} audit at all, so nothing it measures has ever been in a report")
+    if other:
+        notes.append(f"the {', '.join(other)} audits in this folder belong to another theme "
+                     "and are not read here")
+    missing = [tool for tool in TOOLS if tool not in found]
+    if missing:
+        subject, vb = ("it", "measures") if len(missing) == 1 else ("they", "measure")
+        notes.append(f"no {', '.join(missing)} audit at all, so nothing {subject} {vb} has ever "
+                     "been in a report")
     actions, still_open, verdicts, weeks = log_rows(base_dir, first, last)
     counts = counted(actions, verdicts)
     return {"movement": moved, "notes": notes, "actions": actions, "open": still_open,
@@ -390,10 +401,19 @@ def collect(base_dir, first, last):
             "headline": headline(actions, counts, moved)}
 
 
+def bar(won, no_change, returned, still_open):
+    """Four counts in one line, a zero dimmed, a count above zero in the colour of its word."""
+    cells = [(won, "won", "PASS"), (no_change, "no-change", "WARN"),
+             (returned, "returned", "FAIL"), (still_open, "open", "INFO")]
+    return " · ".join(paint(f"{n} {word}", key if n else "dim") for n, word, key in cells)
+
+
 def console(slug, month, data, written=""):
     """The console report: the month in one line, then what moved, then what is still open."""
+    c = data["counts"]
     out = [paint(f"report  {slug}  {month}", "head"),
-           f"log weeks  {', '.join(data['weeks']) or 'none'}", "", data["headline"]]
+           f"log weeks  {', '.join(data['weeks']) or 'none'}", "",
+           bar(c["won"], c["no-change"], c["returned"], c["open"]), "", data["headline"]]
     if data["movement"]:
         out += ["", paint("moved", "head")]
         for r in data["movement"][:8]:

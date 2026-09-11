@@ -305,6 +305,25 @@ class ConsoleTest(unittest.TestCase):
                                 "2026-10-03"], capture_output=True, text=True)
             self.assertIn("2026-09", r.stdout)
 
+    def test_missing_audits_fold_into_one_note_instead_of_one_per_tool(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, _ = workspace(d)
+            r = subprocess.run([sys.executable, SCRIPT, "--root", str(root), "--month", MONTH],
+                               capture_output=True, text=True)
+            self.assertIn("note  no audit yet for repos, machine, github, agent-config, friction, "
+                          "so nothing they measure has been in a report", r.stdout)
+            self.assertEqual(r.stdout.count("\nnote  "), 1)
+
+    def test_the_counting_line_is_a_bar_of_the_four_verdict_counts(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            log(base, actions=[action("2026-W37-01", "disk.cache", status="verify")],
+                outcomes=["| 2026-W37-01 | disk.cache | ~/x | 2026-09-08 | 10 GB | 2 GB | won |"])
+            r = subprocess.run([sys.executable, SCRIPT, "--root", str(root), "--month", MONTH],
+                               capture_output=True, text=True)
+            self.assertRegex(r.stdout, r"\n\d+ won · \d+ no-change · \d+ returned · \d+ open\n")
+            self.assertIn("1 won · 0 no-change · 0 returned · 0 open", r.stdout)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)

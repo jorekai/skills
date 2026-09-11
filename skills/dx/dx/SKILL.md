@@ -65,12 +65,14 @@ Each rung depends on the one before it. A finding on a lower rung waits.
 Every measuring script prints the same shape without `--json`, so one reading order works everywhere:
 
 1. The first two lines say what was measured and what it was measured against, so a number can be judged without opening `standards.md`.
-2. The counting line says how many findings need a decision, how many notes carry no action, and how many checks passed.
-3. Each finding names its level, its check id, and what it costs now in one unit. Findings come in level order, and the costliest first inside a level.
-4. Under a finding stand at most five targets with their own share of the cost. The rest is in the JSON, which is what the workspace keeps.
-5. The last line says what to do next: act on the largest cost first, and look each id up in [references/fixes.md](references/fixes.md) for the fix and the risk class.
+2. The counting line is a bar of four counts, `FAIL`, `WARN`, notes, passed, in that order. A zero is dimmed.
+3. Each finding is one line of three columns: its level, its check id, and what it costs now as one number and one unit. Findings come in level order, and the costliest first inside a level.
+4. Under a finding stand at most five targets with their own share of the cost, then `+N more` when the JSON holds more. Identical notes fold into one line.
+5. The last zone is `next`: one line that starts with a verb, and under it the gate it waits on. Every id is looked up in [references/fixes.md](references/fixes.md) for the fix and the risk class.
 
 The console report is for the decision, the JSON is for the record. Only the JSON is written to `audits/`.
+
+A terminal gets the same report in colour: the level word, the verdict, the check id and the measure carry the colour their role already has. Nothing is coloured that a word does not already say, and a pipe, a redirect and a subagent see plain text. Reason: `decisions/0022`; the layout inside each zone: `decisions/0028`.
 
 ## Writing the answer
 

@@ -323,8 +323,15 @@ class ReportTest(unittest.TestCase):
 
     def test_a_finding_names_its_cost_and_what_the_number_in_a_row_counts(self):
         text = self.report()
-        self.assertIn("FAIL  git.dirty  (costs 1 repository)", text)
+        self.assertIn("FAIL  " + "git.dirty".ljust(repos.ID_WIDTH) + "  1 repository", text)
+        self.assertNotIn("(costs", text)
         self.assertIn("25 changed paths", text)
+
+    def test_the_counting_line_is_a_bar_and_the_cost_stands_in_its_own_column(self):
+        text = self.report()
+        self.assertRegex(text, r"\n\d+ FAIL · \d+ WARN · \d+ notes? · \d+ passed\n")
+        self.assertIn("\nFAIL  " + "git.dirty".ljust(repos.ID_WIDTH) + "  1 repository\n", text)
+        self.assertNotIn("(costs", text)
 
     def test_passed_checks_are_listed_once_and_never_as_findings(self):
         text = self.report()

@@ -160,11 +160,17 @@ class ReportTest(unittest.TestCase):
         self.assertIn("measured against  free space floor 100 GB", text)
 
     def test_the_counting_line_names_findings_notes_and_passed_checks(self):
-        self.assertIn("1 finding to decide on, 1 note, 1 check passed", self.report())
+        self.assertIn("0 FAIL · 1 WARN · 1 note · 1 passed", self.report())
+
+    def test_the_counting_line_is_a_bar_and_the_cost_stands_in_its_own_column(self):
+        text = self.report()
+        self.assertRegex(text, r"\n\d+ FAIL · \d+ WARN · \d+ notes? · \d+ passed\n")
+        self.assertIn("\nWARN  " + "disk.cache".ljust(machine.ID_WIDTH) + "  40.0 GB\n", text)
+        self.assertNotIn("(costs", text)
 
     def test_a_finding_carries_its_cost_its_targets_and_the_next_step(self):
         text = self.report()
-        self.assertIn("WARN  disk.cache  (costs 40.0 GB)", text)
+        self.assertIn("WARN  " + "disk.cache".ljust(machine.ID_WIDTH) + "  40.0 GB", text)
         self.assertIn("30.0 GB", text)
         self.assertIn("passed  disk.low", text)
         self.assertIn("next  ", text)

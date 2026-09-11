@@ -451,12 +451,14 @@ def finding_line(item):
     tag = paint("note" if item["level"] == "INFO" else f"{item['level']:<4}", item["level"])
     cid = paint(item["id"].ljust(ID_WIDTH), "id")
     price = cost(item) if item["level"] != "INFO" else ""
-    return f"{tag}  {cid}  {paint(price, 'dim')}".rstrip()
+    if not price:
+        return f"{tag}  {paint(item['id'], 'id')}"
+    return f"{tag}  {cid}  {paint(price, 'dim')}"
 
 
 def wrapped(label, words, width=80):
     """A dimmed list that wraps at the terminal's width, the label once."""
-    lines = textwrap.wrap(", ".join(words), width=width - len(label) - 2)
+    lines = textwrap.wrap(", ".join(words), width=width - len(label) - 2, break_on_hyphens=False)
     indent = " " * (len(label) + 2)
     return [paint(f"{label}  {lines[0]}", "dim")] + [paint(indent + l, "dim") for l in lines[1:]]
 

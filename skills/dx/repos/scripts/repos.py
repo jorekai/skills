@@ -20,6 +20,7 @@ import json
 import re
 import subprocess
 import sys
+import textwrap
 import time
 from pathlib import Path
 
@@ -316,10 +317,11 @@ def short(path):
 
 
 def cost(item):
-    """What the finding costs now, in words. Every check here counts repositories."""
+    """The cost of a finding as one number and one unit, the column the eye lands on.
+    Every check here counts repositories."""
     m = item.get("measure") or {}
     value = m.get("value")
-    return "" if value is None else f"costs {plural(value, 'repository', 'repositories')}"
+    return "" if value is None else plural(value, "repository", "repositories")
 
 
 def detail(item):
@@ -346,36 +348,56 @@ def block(rows, indent="      "):
     return [f"{indent}{paint(name.ljust(width), 'dim')}  {value}" for name, value in rows]
 
 
+ID_WIDTH = 28
+
+
+def bar(fails, warns, notes, passed):
+    """Four counts in one line, a zero dimmed, a count above zero in the colour of its word."""
+    cells = [(fails, "FAIL", "FAIL"), (warns, "WARN", "WARN"),
+             (notes, plural(notes, "note").split()[1], "INFO"),
+             (passed, "passed", "PASS")]
+    return " · ".join(paint(f"{n} {word}", key if n else "dim") for n, word, key in cells)
+
+
+def finding_line(item):
+    """Level, id padded to one width, cost: three columns, so the eye reads down them."""
+    tag = paint("note" if item["level"] == "INFO" else f"{item['level']:<4}", item["level"])
+    cid = paint(item["id"].ljust(ID_WIDTH), "id")
+    price = cost(item) if item["level"] != "INFO" else ""
+    if not price:
+        return f"{tag}  {paint(item['id'], 'id')}"
+    return f"{tag}  {cid}  {paint(price, 'dim')}"
+
+
+def wrapped(label, words, width=80):
+    """A dimmed list that wraps at the terminal's width, the label once."""
+    lines = textwrap.wrap(", ".join(words), width=width - len(label) - 2, break_on_hyphens=False)
+    indent = " " * (len(label) + 2)
+    return [paint(f"{label}  {lines[0]}", "dim")] + [paint(indent + l, "dim") for l in lines[1:]]
+
+
 def text_report(repos, rep, targets, standards):
     """The console report: what was scanned, what needs a decision, what is only a note."""
-    c = rep.counts()
     ranked = sorted(rep.items, key=lambda x: (LEVEL_ORDER[x["level"]],
                                               -((x.get("measure") or {}).get("value") or 0), x["id"]))
     findings = [i for i in ranked if i["level"] in ("FAIL", "WARN")]
     notes = [i for i in ranked if i["level"] == "INFO"]
     passed = [i for i in ranked if i["level"] == "PASS"]
+    fails = sum(1 for i in findings if i["level"] == "FAIL")
     out = [paint(f"repos  {plural(len(repos), 'repository', 'repositories')} under "
                  + ", ".join(short(t) for t in targets), "head"),
            f"measured against  {standards}", "",
-           f"{plural(len(findings), 'finding')} to decide on, "
-           f"{plural(len(notes), 'note')}, {plural(len(passed), 'check')} passed"]
-    for i in findings:
-        tag = paint(f"{i['level']:<4}", i["level"])
-        price = paint(f"  ({cost(i)})" if cost(i) else "", "dim")
-        out += ["", f"{tag}  {paint(i['id'], 'id')}{price}", f"      {i['message']}"]
+           bar(fails, len(findings) - fails, len(notes), len(passed))]
+    for i in findings + notes:
+        out += ["", finding_line(i), f"      {i['message']}"]
         out += block(detail(i))
         if len(i["data"]) > 5:
-            out.append(f"      and {len(i['data']) - 5} more, the full list is in the JSON")
-    for i in notes:
-        out += ["", f"{paint('note', 'INFO')}  {paint(i['id'], 'id')}", f"      {i['message']}"]
-        out += block(detail(i))
-        if len(i["data"]) > 5:
-            out.append(f"      and {len(i['data']) - 5} more, the full list is in the JSON")
+            out.append(paint(f"      +{len(i['data']) - 5} more in the JSON", "dim"))
     if passed:
-        out += ["", paint("passed  " + ", ".join(i["id"] for i in passed), "dim")]
+        out += [""] + wrapped("passed", [i["id"] for i in passed])
     if findings:
-        out += ["", paint("next", "head") + "  save the work a FAIL names before anything else, then look each id up "
-                    "in the fixes table of jorekai-dx:dx for the fix and the risk class"]
+        out += ["", paint("next", "head") + "  save the work a FAIL names before anything else",
+                paint("      gate: the fixes table of jorekai-dx:dx", "dim")]
     else:
         out += ["", paint("next", "head") + "  nothing to act on, measure again when this audit ages out"]
     return "\n".join(out)

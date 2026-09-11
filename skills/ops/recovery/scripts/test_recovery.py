@@ -358,6 +358,15 @@ class ReportTest(unittest.TestCase):
                 if i["measure"]:
                     self.assertEqual(i["measure"]["unit"], recovery.MEASURES[i["id"]])
 
+    def test_the_counting_line_is_a_bar_and_the_cost_stands_in_its_own_column(self):
+        with tempfile.TemporaryDirectory() as d:
+            r = subprocess.run([sys.executable, SCRIPT, "--root", d, "--now", NOW,
+                                "--backup", "web=web,source=/srv/web"],
+                               capture_output=True, text=True)
+            self.assertRegex(r.stdout, r"\n\d+ FAIL · \d+ WARN · \d+ notes? · \d+ passed\n")
+            self.assertRegex(r.stdout, r"\nFAIL  backup\.missing {16}1 target without a copy\n")
+            self.assertNotIn("(costs", r.stdout)
+
     def test_the_console_report_carries_no_escape_when_nothing_is_a_terminal(self):
         with tempfile.TemporaryDirectory() as d:
             r = subprocess.run([sys.executable, SCRIPT, "--root", d, "--now", NOW],

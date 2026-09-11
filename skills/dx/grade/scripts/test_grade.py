@@ -141,7 +141,7 @@ class EndToEndTest(unittest.TestCase):
                       {"2026-09-15-machine.json": audit("machine", item("disk.cache", 0, "bytes", {"/tmp/cache": 0})),
                        "2026-09-10-machine.json": audit("machine", item("disk.cache", 40 * 1024 ** 3, "bytes"))})
             got = run(d)
-            self.assertIn("verdict won", got.stdout)
+            self.assertRegex(got.stdout, r"\nwon\s+2026-W36-01")
             self.assertIn("2026-09-15-machine.json", got.stdout)
 
     def test_an_audit_older_than_the_action_grades_nothing(self):
@@ -179,7 +179,7 @@ class EndToEndTest(unittest.TestCase):
             workspace(d, [row("2026-W36-01", "disk.cache", "", "40 GB", after="2026-12-01")],
                       {"2026-09-15-machine.json": audit("machine", item("disk.cache", 0, "bytes"))})
             self.assertIn("nothing due", run(d).stdout)
-            self.assertIn("verdict won", run(d, "--only", "2026-W36-01").stdout)
+            self.assertRegex(run(d, "--only", "2026-W36-01").stdout, r"\nwon\s+2026-W36-01")
 
     def test_a_row_that_was_never_applied_is_never_graded(self):
         with tempfile.TemporaryDirectory() as d:
@@ -251,13 +251,22 @@ class ReportShapeTest(unittest.TestCase):
         self.assertIn("grade  test-machine  2026-09-16", self.report())
 
     def test_the_counting_line_separates_settled_rows_from_the_rest(self):
-        self.assertIn("1 of 2 rows due can be settled, 1 needs a person", self.report())
+        self.assertIn("1 due · 1 won · 0 returned · 0 no-change", self.report())
+
+    def test_the_counting_line_is_a_bar_and_the_row_stands_in_its_own_columns(self):
+        text = self.report()
+        self.assertRegex(text, r"\n\d+ due · \d+ won · \d+ returned · \d+ no-change\n")
+        self.assertIn("won".ljust(10) + "  2026-W36-01  " + "disk.cache".ljust(grade.ID_WIDTH)
+                      + "  40 GB  10 GB", text)
+        self.assertNotIn("(costs", text)
 
     def test_a_verdict_is_printed_with_the_reason_behind_it(self):
-        self.assertIn("verdict won: the cost fell or reached zero", self.report())
+        self.assertIn("won".ljust(10) + "  2026-W36-01", self.report())
+        self.assertIn("the cost fell or reached zero", self.report())
 
     def test_writing_the_verdicts_is_named_as_the_next_step(self):
-        self.assertIn("next  run the same command with --write", self.report())
+        self.assertIn("next  write these verdicts into the log", self.report())
+        self.assertIn("      gate: run the same command with --write", self.report())
 
     def test_nothing_due_says_why_there_is_nothing(self):
         self.assertIn("nothing due, no log row has reached its verify date",

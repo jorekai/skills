@@ -348,6 +348,17 @@ class ReportTest(unittest.TestCase):
             many = item(run(d, ports=("22/tcp",)), "port.world-open", "FAIL")["message"]
             self.assertIn("2 ports take", many)
 
+    def test_the_counting_line_is_a_bar_and_the_cost_stands_in_its_own_column(self):
+        with tempfile.TemporaryDirectory() as d:
+            r = subprocess.run([sys.executable, SCRIPT, "--root", d, "--fw-kind", "none",
+                                "--now", NOW, "--ss-file", str(write(Path(d) / "ss.txt", SS)),
+                                "--expected-port", "22/tcp", "--expected-port", "443/tcp"],
+                               capture_output=True, text=True)
+            self.assertRegex(r.stdout, r"\n\d+ FAIL · \d+ WARN · \d+ notes? · \d+ passed\n")
+            self.assertRegex(r.stdout, r"\nFAIL  fw\.disabled {19}1 host with nothing filtering\n")
+            self.assertNotIn("(costs", r.stdout)
+            self.assertIn("\n      gate: fw.* in the fixes table of jorekai-ops:ops\n", r.stdout)
+
     def test_the_console_report_carries_no_escape_when_nothing_is_a_terminal(self):
         with tempfile.TemporaryDirectory() as d:
             r = subprocess.run([sys.executable, SCRIPT, "--root", d, "--fw-kind", "none",

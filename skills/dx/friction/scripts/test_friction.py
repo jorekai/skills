@@ -213,7 +213,15 @@ class ReportShapeTest(unittest.TestCase):
         self.assertIn("measured against  the last 90 days", text)
 
     def test_a_finding_names_its_cost_in_the_unit_its_check_measures(self):
-        self.assertIn("WARN  friction.failed-command  (costs 4 failed runs)", self.report())
+        text = self.report()
+        self.assertIn("WARN  " + "friction.failed-command".ljust(friction.ID_WIDTH) + "  4 failed runs", text)
+        self.assertNotIn("(costs", text)
+
+    def test_the_counting_line_is_a_bar_and_the_cost_stands_in_its_own_column(self):
+        text = self.report()
+        self.assertRegex(text, r"\n\d+ FAIL · \d+ WARN · \d+ notes? · \d+ passed\n")
+        self.assertIn("\nWARN  " + "friction.failed-command".ljust(friction.ID_WIDTH) + "  4 failed runs\n", text)
+        self.assertNotIn("(costs", text)
 
     def test_seconds_are_printed_in_a_unit_a_person_can_picture(self):
         self.assertEqual(friction.clock(30), "30 seconds")

@@ -18,7 +18,7 @@ Answers "we just did X, and now?" from `docs/seo/<domain>/` without touching the
    ```
 
    Path relative to this skill's directory. Without a domain it reports every folder under `docs/seo/`. Exit code 2 means no workspace: the answer is `jorekai-seo:setup`, stop here.
-   Done when the report prints `stage:` and a numbered `now:` list.
+   Done when the report prints `stage` and a numbered `now` list.
 
 2. **Correct the list with what the files cannot show.** Three cases, nothing else:
    - The user reports a drop in clicks, impressions, or position: `jorekai-seo:diagnose` goes to the top of the list, before any content step.

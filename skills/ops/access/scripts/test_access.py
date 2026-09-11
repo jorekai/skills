@@ -234,6 +234,16 @@ class ContractTest(unittest.TestCase):
             self.assertIn("measured against", r.stdout)
             self.assertIn("\nnext  ", r.stdout)
 
+    def test_the_counting_line_is_a_bar_and_the_cost_stands_in_its_own_column(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = build(d, sshd="PermitRootLogin yes\n")
+            r = subprocess.run([sys.executable, SCRIPT, "--root", str(root)],
+                               capture_output=True, text=True)
+            self.assertRegex(r.stdout, r"\n\d+ FAIL · \d+ WARN · \d+ notes? · \d+ passed\n")
+            self.assertRegex(r.stdout, r"\nFAIL  ssh\.root-login {16}1 open way in\n")
+            self.assertNotIn("(costs", r.stdout)
+            self.assertIn("\n      gate: ssh.* in the fixes table of jorekai-ops:ops\n", r.stdout)
+
     def test_the_next_step_names_the_gate_only_while_the_gate_is_shut(self):
         """A passing check must never be the next step, or the ladder points at nothing."""
         with tempfile.TemporaryDirectory() as d:
@@ -243,8 +253,8 @@ class ContractTest(unittest.TestCase):
             open_ = subprocess.run([sys.executable, SCRIPT, "--root", str(root),
                                     "--path", "a", "--path", "b"],
                                    capture_output=True, text=True).stdout
-            self.assertIn("next  close `access.single-path`", shut)
-            self.assertNotIn("next  close `access.single-path`", open_)
+            self.assertIn("next  close access.single-path", shut)
+            self.assertNotIn("next  close access.single-path", open_)
             self.assertIn("\nnext  ", open_)
 
     def test_no_finding_disagrees_with_its_own_count(self):

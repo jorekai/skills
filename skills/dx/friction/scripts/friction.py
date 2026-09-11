@@ -20,6 +20,7 @@ import os
 import re
 import sqlite3
 import sys
+import textwrap
 import time
 from pathlib import Path
 
@@ -350,15 +351,15 @@ def plural(n, one, many=None):
 
 
 def cost(item):
-    """What the finding costs now, in words, in the unit its check id measures."""
+    """The cost of a finding as one number and one unit, the column the eye lands on."""
     m = item.get("measure") or {}
     value, unit = m.get("value"), m.get("unit")
     if value is None:
         return ""
     if unit == "seconds":
-        return f"costs {clock(value)}"
+        return clock(value)
     one, many = COUNT_WORD.get(item["id"], ("run", "runs"))
-    return f"costs {plural(int(value), one, many)}"
+    return plural(int(value), one, many)
 
 
 def detail(item):
@@ -395,6 +396,34 @@ def block(rows, indent="      "):
             f"  {value}" for name, value in rows]
 
 
+ID_WIDTH = 28
+
+
+def bar(fails, warns, notes, passed):
+    """Four counts in one line, a zero dimmed, a count above zero in the colour of its word."""
+    cells = [(fails, "FAIL", "FAIL"), (warns, "WARN", "WARN"),
+             (notes, plural(notes, "note").split()[1], "INFO"),
+             (passed, "passed", "PASS")]
+    return " · ".join(paint(f"{n} {word}", key if n else "dim") for n, word, key in cells)
+
+
+def finding_line(item):
+    """Level, id padded to one width, cost: three columns, so the eye reads down them."""
+    tag = paint("note" if item["level"] == "INFO" else f"{item['level']:<4}", item["level"])
+    cid = paint(item["id"].ljust(ID_WIDTH), "id")
+    price = cost(item)
+    if not price:
+        return f"{tag}  {paint(item['id'], 'id')}"
+    return f"{tag}  {cid}  {paint(price, 'dim')}"
+
+
+def wrapped(label, words, width=80):
+    """A dimmed list that wraps at the terminal's width, the label once."""
+    lines = textwrap.wrap(", ".join(words), width=width - len(label) - 2, break_on_hyphens=False)
+    indent = " " * (len(label) + 2)
+    return [paint(f"{label}  {lines[0]}", "dim")] + [paint(indent + l, "dim") for l in lines[1:]]
+
+
 def text_report(rep, total, sources, window=""):
     """The console report: what was read, what costs time, what is only a note."""
     ranked = sorted(rep.items, key=lambda x: (LEVEL_ORDER[x["level"]],
@@ -402,25 +431,22 @@ def text_report(rep, total, sources, window=""):
     findings = [i for i in ranked if i["level"] in ("FAIL", "WARN")]
     notes = [i for i in ranked if i["level"] == "INFO"]
     passed = [i for i in ranked if i["level"] == "PASS"]
+    fails = sum(1 for i in findings if i["level"] == "FAIL")
     read = ", ".join(f"{Path(s['source']).name} {plural(s['entries'], 'command')}" for s in sources)
     out = [paint(f"friction  {plural(total, 'command')} from {plural(len(sources), 'source')}", "head")
            + paint(f"  ({read})" if read else "", "dim"), ]
     if window:
         out.append(f"measured against  {window}")
-    out += ["", f"{plural(len(findings), 'finding')} to decide on, "
-                f"{plural(len(notes), 'note')}, {plural(len(passed), 'check')} passed"]
+    out += ["", bar(fails, len(findings) - fails, len(notes), len(passed))]
     for i in findings + notes:
-        label = i["level"] if i["level"] != "INFO" else "note"
-        tag = paint(f"{label:<4}", i["level"])
-        price = paint(f"  ({cost(i)})" if cost(i) else "", "dim")
-        out += ["", f"{tag}  {paint(i['id'], 'id')}{price}", f"      {i['message']}"]
+        out += ["", finding_line(i), f"      {i['message']}"]
         out += block(detail(i))
         if len(i["data"]) > 5:
-            out.append(f"      and {len(i['data']) - 5} more, the full list is in the JSON")
+            out.append(paint(f"      +{len(i['data']) - 5} more in the JSON", "dim"))
     if passed:
-        out += ["", paint("passed  " + ", ".join(i["id"] for i in passed), "dim")]
-    out += ["", paint("next", "head") + "  a shape is worth changing when it is slow or fails, not when it is only "
-                "frequent; the fix for each id is in the fixes table of jorekai-dx:dx"]
+        out += [""] + wrapped("passed", [i["id"] for i in passed])
+    out += ["", paint("next", "head") + "  change a shape only when it is slow or fails, not only when frequent",
+            paint("      gate: the fixes table of jorekai-dx:dx", "dim")]
     return "\n".join(out)
 
 

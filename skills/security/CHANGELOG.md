@@ -4,7 +4,7 @@ One entry per `jorekai-security` version. The version at the top equals `version
 
 ## 0.2.0 (2026-09-11)
 
-- Changed: `jorekai-security:secrets` prints the counting line as a bar of `FAIL`, `WARN`, notes, passed; the cost of a finding stands in its own column after the check id instead of in parentheses; the `next` zone carries the gate on its own line; the passed list wraps. Reason: `decisions/0028`. The router's `## Reading a report` names the bar and the columns.
+- Changed: `jorekai-security:secrets`, `jorekai-security:deps`, `jorekai-security:pipeline`, and `jorekai-security:review` print the counting line as a bar of `FAIL`, `WARN`, notes, passed; the cost of a finding stands in its own column after the check id instead of in parentheses; the `next` zone carries the gate on its own line where one applies; the passed list wraps. `jorekai-security:grade` prints a bar of `due`, `won`, `returned`, `no-change` and one line per row of the verdict, the row id, the check id, and `then`/`now` in their own columns. `jorekai-security:report` prints a bar of `won`, `no-change`, `returned`, `open`, and identical notes about a missing audit fold into one line naming every tool. `jorekai-security:and-now` prints each `now` step with the skill name as its own aligned column, and `then` as one line. Reason: `decisions/0028`. The router's `## Reading a report` names the bar and the columns.
 
 ## 0.1.2 (2026-09-10)
 

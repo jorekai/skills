@@ -375,9 +375,10 @@ def collect(base_dir, first, last):
     moved, notes = movement(found, first, last)
     for tool in other:
         notes.append(f"the {tool} audits in this folder belong to another theme and are not read here")
-    for tool in TOOLS:
-        if tool not in found:
-            notes.append(f"no {tool} audit at all, so nothing it measures has ever been in a report")
+    missing = [tool for tool in TOOLS if tool not in found]
+    if missing:
+        notes.append(f"no audit yet for {', '.join(missing)}, "
+                     "so nothing they measure has been in a report")
     actions, still_open, verdicts, weeks = log_rows(base_dir, first, last)
     counts = counted(actions, verdicts)
     return {"movement": moved, "notes": notes, "actions": actions, "open": still_open,
@@ -387,10 +388,18 @@ def collect(base_dir, first, last):
             "headline": headline(actions, counts, moved)}
 
 
+def bar(counts):
+    """The four counts a month settles into, in one line: a zero dimmed, else its verdict colour."""
+    cells = [(counts["won"], "won", "PASS"), (counts["no-change"], "no-change", "WARN"),
+             (counts["returned"], "returned", "FAIL"), (counts["open"], "open", "INFO")]
+    return " · ".join(paint(f"{n} {word}", key if n else "dim") for n, word, key in cells)
+
+
 def console(machine, month, data, written=""):
     """The console report: the month in one line, then what moved, then what is still open."""
     out = [paint(f"report  {machine}  {month}", "head"),
-           f"log weeks  {', '.join(data['weeks']) or 'none'}", "", data["headline"]]
+           f"log weeks  {', '.join(data['weeks']) or 'none'}", "", data["headline"],
+           "", bar(data["counts"])]
     if data["movement"]:
         out += ["", paint("moved", "head")]
         for r in data["movement"][:8]:

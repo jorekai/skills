@@ -216,24 +216,34 @@ def plural(n, one, many=None):
     return f"{n} {one if n == 1 else (many or one + 's')}"
 
 
+LEAD_SKILL = re.compile(r"^`(jorekai-ops:[a-z-]+)`:\s*")
+
+
+def now_item(text, skill=""):
+    """One `now` line as (skill, text): a leading `` `skill`: `` prefix names its own column,
+    so a step that opens on the skill it names does not repeat that name in the text column."""
+    m = LEAD_SKILL.match(text)
+    return (m.group(1), text[m.end():]) if m else (skill, text)
+
+
 def decide(s, today):
     """Stage and the ordered list of next steps. Every step names what to run or what to write."""
     now, then = [], []
     if s["role"] != "server":
-        return "setup", [f"`jorekai-ops:setup`: {s['host']} does not say `role: server`, "
-                         "so this theme does not measure it"], then
+        return "setup", [now_item(f"`jorekai-ops:setup`: {s['host']} does not say `role: server`, "
+                                  "so this theme does not measure it")], then
 
     setup_open = []
     if not s["access"]:
-        setup_open.append("`jorekai-ops:setup`: no `access` is recorded, so no pass can reach this host")
+        setup_open.append(now_item("`jorekai-ops:setup`: no `access` is recorded, so no pass can reach this host"))
     if not s["control_plane"]:
-        setup_open.append("`jorekai-ops:setup`: the control plane is not detected, so every fix "
-                          "would guess which surface to write to")
+        setup_open.append(now_item("`jorekai-ops:setup`: the control plane is not detected, so every fix "
+                                   "would guess which surface to write to"))
     if not s["profile"]:
-        setup_open.append("`jorekai-ops:setup`: no profile is chosen, so there is no bar to measure against")
+        setup_open.append(now_item("`jorekai-ops:setup`: no profile is chosen, so there is no bar to measure against"))
     if not s["paths"]:
-        setup_open.append("`jorekai-ops:setup`: no independent way in is recorded, so nothing may "
-                          "change access on this host")
+        setup_open.append(now_item("`jorekai-ops:setup`: no independent way in is recorded, so nothing may "
+                                   "change access on this host"))
     started = bool(s["audits"] or s["rows"] or s["proposals"])
     if setup_open and not started:
         return "setup", setup_open, then
@@ -241,50 +251,53 @@ def decide(s, today):
     stage = "loop"
     if s["due"]:
         ids = ", ".join(r.get("id", "?") for r in s["due"][:3])
-        now.append(f"grade {plural(len(s['due']), 'row')} past the verify date ({ids}): "
-                   "`jorekai-ops:grade` recomputes each measure and writes the verdict")
+        now.append(now_item(f"grade {plural(len(s['due']), 'row')} past the verify date ({ids}): "
+                            "recomputes each measure and writes the verdict", skill="jorekai-ops:grade"))
     if s["unknown"]:
         ids = sorted({r["check"] for r in s["unknown"]})
         where = ", ".join(sorted({r["_file"] for r in s["unknown"]})[:2])
-        now.append(f"{plural(len(s['unknown']), 'log row')} {verb(len(s['unknown']), 'name')} a check id "
-                   "this theme does not own "
-                   f"({', '.join(ids[:3])} in {where}): correct the id or drop the row, because "
-                   "nothing recomputes its measure at the verify date")
+        now.append(now_item(f"{plural(len(s['unknown']), 'log row')} {verb(len(s['unknown']), 'name')} a check id "
+                            "this theme does not own "
+                            f"({', '.join(ids[:3])} in {where}): correct the id or drop the row, because "
+                            "nothing recomputes its measure at the verify date"))
     if s["parked"]:
         ids = sorted({r["check"] for r in s["parked"]})
-        now.append(f"{plural(len(s['parked']), 'log row')} {verb(len(s['parked']), 'wait')} for a tool that "
-                   "has not shipped "
-                   f"({', '.join(ids[:3])}, owned by {skill_for(ids[0])}): leave the status at "
-                   "`todo` and the verify date empty until it ships")
+        now.append(now_item(f"{plural(len(s['parked']), 'log row')} {verb(len(s['parked']), 'wait')} for a tool "
+                            f"that has not shipped ({', '.join(ids[:3])}): leave the status at "
+                            "`todo` and the verify date empty until it ships", skill=skill_for(ids[0])))
     audits = s["audits"]
     if not audits:
         stage = "measure"
-        now.append("nothing has measured this host yet: `jorekai-ops:access` first, because every "
-                   "other fix here needs a second way in, then `jorekai-ops:availability`")
+        now.append(now_item("nothing has measured this host yet: this runs first, because every "
+                            "other fix here needs a second way in, then `jorekai-ops:availability`",
+                            skill="jorekai-ops:access"))
     else:
         failing = [(rung(cid), cid, e) for e in audits.values() for cid in e["fail_ids"]]
         for _, cid, e in sorted(failing, key=lambda x: (x[0], x[1]))[:4]:
             stage = "measure"
             owner = skill_for(cid)
-            now.append(f"`{cid}` still fails in {e['file']}"
-                       + (f": `{owner}` names the fix" if owner else "") + ", then one log row for it")
+            now.append(now_item(f"`{cid}` still fails in {e['file']}"
+                                + (", names the fix" if owner else "") + ", then one log row for it",
+                                skill=owner))
         stale = [e for e in audits.values() if e["age"] > s["max_age"]]
         if stale:
             names = ", ".join(f"{e['kind']} ({plural(e['age'], 'day')})"
                               for e in sorted(stale, key=lambda x: -x["age"])[:3])
-            now.append(f"{plural(len(stale), 'audit')} describe a host that has moved on: {names}. "
-                       "Measure again before acting")
+            now.append(now_item(f"{plural(len(stale), 'audit')} describe a host that has moved on: {names}. "
+                                "Measure again before acting"))
         if "access" not in audits:
-            now.append("no `jorekai-ops:access` audit exists: nothing may change access until one does")
+            now.append(now_item("no access audit exists: nothing may change access until one does",
+                                skill="jorekai-ops:access"))
     for r in s["todo"]:
-        now.append(f"open row {r.get('id', '?')} ({r.get('check', '?')} on {r.get('target', '?')}): "
-                   f"{r.get('action', '?')}, then set Status, Applied, and Verify after")
+        now.append(now_item(f"open row {r.get('id', '?')} ({r.get('check', '?')} on {r.get('target', '?')}): "
+                            f"{r.get('action', '?')}, then set Status, Applied, and Verify after",
+                            skill=skill_for(r.get("check", ""))))
     for slug in s["proposals"]:
-        now.append(f"proposals/{slug}.md waits for a decision: give it a measure and it becomes a "
-                   "log row, or drop it")
+        now.append(now_item(f"proposals/{slug}.md waits for a decision: give it a measure and it becomes a "
+                            "log row, or drop it"))
     now += setup_open
     if not now:
-        now.append("nothing open: measure again when the newest audit ages out")
+        now.append(now_item("nothing open: measure again when the newest audit ages out"))
     if s["next_verify"]:
         then.append(f"{s['next_verify'].isoformat()}: first verify date reached, "
                     "`jorekai-ops:grade` settles the row it belongs to")
@@ -317,9 +330,10 @@ def report(s, today):
     out.append(f"proposals  {', '.join(s['proposals']) or 'none'}")
     stage, now, then = decide(s, today)
     out += ["", f"{paint('stage', 'head')}  {stage}", "", paint("now", "head")]
-    out += [f"  {i}. {short_paths(step)}" for i, step in enumerate(now, 1)]
+    width = max((len(skill) for skill, _ in now), default=0)
+    out += [f"  {i}. {skill.ljust(width)}  {short_paths(text)}" for i, (skill, text) in enumerate(now, 1)]
     if then:
-        out += ["", paint("then", "head")] + [f"  - {short_paths(t)}" for t in then]
+        out += ["", paint("then", "head") + "  " + short_paths(then[0])]
     return "\n".join(out)
 
 

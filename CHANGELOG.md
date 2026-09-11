@@ -2,6 +2,10 @@
 
 One entry per plugin version. The version at the top equals `version` in `.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 1.12.0 (2026-09-11)
+
+- Changed: `and-now/scripts/status.py`, `tech-audit/scripts/audit.py`, and `gsc-review/scripts/gsc_opportunities.py` print the layout inside each report zone the same way: `and-now` in labelled lines and a two-column numbered `now`, `tech-audit` in a bar of counts and a three-column finding, `gsc-review` in a bucket head with its parameters and fixed-width rows. `decisions/0028`.
+
 ## 1.11.1 (2026-09-10)
 
 - Fixed: `jorekai-seo:tech-audit` checked the scheme of a redirect target and not of the request it made first. `_OPENER` comes from `build_opener()`, so urllib's file and ftp handlers were installed, and the audited site chose the protocol through the `Sitemap:` line of its robots.txt and through the `<loc>` values of a sitemap index. A `file://` target was opened and read; an `ftp://` target opened a connection to a host and port the site named. `fetch()` now refuses anything but http and https before it builds the request.

@@ -131,7 +131,7 @@ class EndToEndTest(unittest.TestCase):
                       {"2026-09-15-access.json": audit("access", item("key.orphan", 0, "count", {})),
                        "2026-09-10-access.json": audit("access", item("key.orphan", 3, "count", {"deploy": 3}))})
             got = run(d)
-            self.assertIn("verdict won", got.stdout)
+            self.assertIn("won       ", got.stdout)
             self.assertIn("2026-09-15-access.json", got.stdout)
 
     def test_an_audit_older_than_the_action_grades_nothing(self):
@@ -140,7 +140,7 @@ class EndToEndTest(unittest.TestCase):
             workspace(d, [row("2026-W36-01", "ssh.password-auth", "", "2 count")],
                       {"2026-09-01-access.json": audit("access", item("ssh.password-auth", 0, "count"))})
             got = run(d)
-            self.assertIn("no verdict", got.stdout)
+            self.assertIn("unsettled ", got.stdout)
             self.assertIn("older than the action", got.stdout)
 
     def test_a_check_missing_from_the_audit_grades_nothing(self):
@@ -148,7 +148,7 @@ class EndToEndTest(unittest.TestCase):
             workspace(d, [row("2026-W36-01", "user.unlisted", "", "2 count")],
                       {"2026-09-15-access.json": audit("access", item("key.orphan", 0, "count"))})
             got = run(d)
-            self.assertIn("no verdict", got.stdout)
+            self.assertIn("unsettled ", got.stdout)
             self.assertIn("same flags", got.stdout)
 
     def test_no_audit_of_that_tool_names_the_tool_to_run(self):
@@ -167,7 +167,7 @@ class EndToEndTest(unittest.TestCase):
             workspace(d, [row("2026-W36-01", "key.orphan", "", "3 count", after="2026-12-01")],
                       {"2026-09-15-access.json": audit("access", item("key.orphan", 0, "count"))})
             self.assertIn("nothing due", run(d).stdout)
-            self.assertIn("verdict won", run(d, "--only", "2026-W36-01").stdout)
+            self.assertIn("won       ", run(d, "--only", "2026-W36-01").stdout)
 
     def test_a_row_that_was_never_applied_is_never_graded(self):
         with tempfile.TemporaryDirectory() as d:
@@ -239,10 +239,18 @@ class ReportShapeTest(unittest.TestCase):
         self.assertIn(f"grade  {HOST}  2026-09-16", self.report())
 
     def test_the_counting_line_separates_settled_rows_from_the_rest(self):
-        self.assertIn("1 of 2 rows due can be settled, 1 needs a person", self.report())
+        self.assertIn("2 due · 1 won · 0 returned · 0 no-change", self.report())
 
     def test_a_verdict_is_printed_with_the_reason_behind_it(self):
-        self.assertIn("verdict won: the cost fell or reached zero", self.report())
+        self.assertIn("won       2026-W36-01  key.orphan", self.report())
+        self.assertIn("the cost fell or reached zero", self.report())
+
+    def test_the_counting_line_is_a_bar_and_the_row_line_is_columns_with_no_arrow(self):
+        out = self.report()
+        self.assertRegex(out, r"\n\d+ due · \d+ won · \d+ returned · \d+ no-change\n")
+        self.assertRegex(out, r"\nwon {7}2026-W36-01  key\.orphan {20}3 count  0 count\n")
+        self.assertNotIn("->", out)
+        self.assertNotIn("→", out)
 
     def test_nothing_due_says_why_there_is_nothing(self):
         self.assertIn("nothing due, no log row has reached its verify date",

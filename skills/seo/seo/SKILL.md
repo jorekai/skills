@@ -61,6 +61,18 @@ Each rung depends on the one before it.
 4. **Links**: to the pages from rungs 2 and 3. Internal links first.
 5. **New content**: one good post a week, on clusters from `strategy.md` where the site already has impressions.
 
+## Reading a report
+
+Every measuring script prints the same shape without `--json`, so one reading order works everywhere:
+
+1. The first two lines say what ran and over what, then `measured against` and the bar or the thresholds.
+2. `jorekai-seo:tech-audit` prints a bar of four counts, `FAIL`, `WARN`, notes, passed, in that order. A zero is dimmed. Each finding is one line of three columns: its level, its check id, and the count of URLs it names as one number and one unit. Under a finding stand at most five URLs, then `+N more in the JSON`. The passed list wraps at eighty columns and is dimmed. Critical, High, and Hygiene are the three levels of the deliverable table in the skill's step 4, not the script's own `FAIL`/`WARN`/`INFO` levels.
+3. `jorekai-seo:gsc-review` prints six buckets. Each bucket head is a bold label with its parameters (`striking-q  8 queries  pos 8 to 20  min 50 impressions`), then a dimmed column header line, then rows of fixed width: text left, numbers right. A bucket with nothing to show prints one dimmed line naming why.
+4. `jorekai-seo:and-now` prints `and-now`, the domain, the date, and the week, then labelled lines (`setup`, `audit`, `log`, `exports`, `briefs`, `drafts`, `reports`) with their cells joined by a middle dot. Then `stage`, then `now` as numbered lines whose first column is the skill to run, then `then` as one line when a date is due.
+5. The last zone is `next`: one line that starts with a verb, for `jorekai-seo:tech-audit` and `jorekai-seo:gsc-review`.
+
+The console report is for the decision; `--json` is for the record and for the log. A terminal gets the same report in colour: the level word, the check id, and a bucket head carry the colour their role already has. Nothing is coloured that a word does not already say, and a pipe, a redirect, and a subagent see plain text. Reason: `decisions/0022`; the layout inside each zone: `decisions/0028`.
+
 ## Writing the answer
 
 What a skill hands back has a shape, so two runs are comparable and a table can go into the log without being rewritten:

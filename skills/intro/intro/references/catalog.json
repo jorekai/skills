@@ -8,7 +8,7 @@
     {
       "theme": "dx",
       "plugin": "jorekai-dx",
-      "version": "2.4.2",
+      "version": "2.5.0",
       "covers": "Developer experience loop for one machine: setup, repos, machine, github, agent-config, friction, grade, and-now.",
       "install": "claude plugin install jorekai-dx@jorekai",
       "listed": true,
@@ -116,7 +116,7 @@
     {
       "theme": "intro",
       "plugin": "jorekai-intro",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "covers": "The map of this collection: the themes, their loops, and which one you need.",
       "install": "claude plugin install jorekai-intro@jorekai",
       "listed": true,
@@ -140,7 +140,7 @@
     {
       "theme": "ops",
       "plugin": "jorekai-ops",
-      "version": "0.6.3",
+      "version": "0.7.0",
       "covers": "Ops loop for a host that serves: setup, access, availability, exposure, recovery, grade, report, and-now.",
       "install": "claude plugin install jorekai-ops@jorekai",
       "listed": true,
@@ -350,7 +350,7 @@
     {
       "theme": "seo",
       "plugin": "jorekai-seo",
-      "version": "1.11.1",
+      "version": "1.12.0",
       "covers": "SEO loop for one or more domains: setup, connect, grill, tech-audit, gsc-review, content, review, links, distribution, diagnose, migrate, report, and-now.",
       "install": "claude plugin install jorekai-seo@jorekai",
       "listed": true,

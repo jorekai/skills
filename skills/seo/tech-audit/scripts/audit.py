@@ -32,6 +32,7 @@ import re
 import socket
 import string
 import sys
+import textwrap
 import time
 import urllib.error
 import urllib.parse
@@ -959,6 +960,64 @@ def paint(text, key):
 LEVEL_ORDER = {"FAIL": 0, "WARN": 1, "INFO": 2, "PASS": 3}
 
 
+def plural(n, one, many=None):
+    return f"{n} {one}" if n == 1 else f"{n} {many or one + 's'}"
+
+
+ID_WIDTH = 28
+
+
+def bar(counts):
+    """Four counts in one line, a zero dimmed, a count above zero in the colour of its word."""
+    notes = counts.get("INFO", 0)
+    cells = [(counts.get("FAIL", 0), "FAIL", "FAIL"), (counts.get("WARN", 0), "WARN", "WARN"),
+             (notes, plural(notes, "note").split()[1], "INFO"),
+             (counts.get("PASS", 0), "passed", "PASS")]
+    return " · ".join(paint(f"{n} {word}", key if n else "dim") for n, word, key in cells)
+
+
+def urls(item):
+    """The cost of a finding: the count of URLs it names, one number and one unit."""
+    d = item.get("data")
+    return len(d) if isinstance(d, list) and d else 1
+
+
+def finding_line(item):
+    """Level, id padded to one width, then the count of URLs: three columns, one eye pass."""
+    tag = paint("note" if item["level"] == "INFO" else f"{item['level']:<4}", item["level"])
+    cid = paint(item["id"].ljust(ID_WIDTH), "id")
+    price = plural(urls(item), "URL") if item["level"] != "INFO" else ""
+    if not price:
+        return f"{tag}  {paint(item['id'], 'id')}"
+    return f"{tag}  {cid}  {paint(price, 'dim')}"
+
+
+def as_text(d):
+    """One example from a finding's data list, whatever shape it carries (a URL, or a dict)."""
+    if isinstance(d, dict):
+        return str(d.get("link") or d.get("url") or d.get("final") or next(iter(d.values()), ""))
+    return str(d)
+
+
+def detail(item):
+    return [as_text(d) for d in (item.get("data") or [])[:5]]
+
+
+def block(rows, indent="      "):
+    if not rows:
+        return []
+    return [f"{indent}{r}" for r in rows]
+
+
+def wrapped(label, words, width=80):
+    """A dimmed list that wraps at the terminal's width, the label once."""
+    lines = textwrap.wrap(", ".join(words), width=width - len(label) - 2, break_on_hyphens=False)
+    if not lines:
+        return []
+    indent = " " * (len(label) + 2)
+    return [paint(f"{label}  {lines[0]}", "dim")] + [paint(indent + l, "dim") for l in lines[1:]]
+
+
 def check_rendered(path, raw, final, rep, section="Page"):
     """Compare a saved rendered DOM against the raw fetch of the same URL.
 
@@ -1000,20 +1059,35 @@ def check_rendered(path, raw, final, rep, section="Page"):
 
 
 def render(rep, url):
-    c = rep.counts()
-    counts = " · ".join(f"{paint(level, level)} {c.get(level, 0)}"
-                        for level in ("FAIL", "WARN", "INFO", "PASS"))
-    out = [paint(f"# Tech SEO audit: {url}", "head"), "", counts, ""]
+    """The console report: what was measured, what needs a decision, what is only a note
+    (decisions/0028: a bar of counts, a finding as three columns, a wrapped passed list)."""
+    counts = rep.counts()
+    out = [paint(f"tech-audit  {url}", "head"), "measured against  references/fixes.md", "",
+           bar(counts)]
     for section in ("Page", "Site", "Crawl"):
         items = [i for i in rep.items if i["section"] == section]
         if not items:
             continue
-        out.append(paint(f"## {section}", "head"))
-        out.append("")
-        for i in sorted(items, key=lambda x: LEVEL_ORDER[x["level"]]):
-            level = paint(f"**{i['level']}**", i["level"])
-            out.append(f"- {level} `{paint(i['id'], 'id')}`: {i['message']}")
-        out.append("")
+        findings = [i for i in items if i["level"] in ("FAIL", "WARN")]
+        notes = [i for i in items if i["level"] == "INFO"]
+        passed = [i for i in items if i["level"] == "PASS"]
+        out += ["", paint(section, "head")]
+        ranked = sorted(findings + notes, key=lambda x: LEVEL_ORDER[x["level"]])
+        for i in ranked:
+            out += ["", finding_line(i), f"      {i['message']}"]
+            out += block(detail(i))
+            data = i.get("data") or []
+            if len(data) > 5:
+                out.append(paint(f"      +{len(data) - 5} more in the JSON", "dim"))
+        if passed:
+            out += [""] + wrapped("passed", [i["id"] for i in passed])
+    findings = [i for i in rep.items if i["level"] in ("FAIL", "WARN")]
+    out.append("")
+    if findings:
+        out.append(paint("next", "head") + "  map every FAIL and WARN to a fix in references/fixes.md, "
+                   "costliest check id first")
+    else:
+        out.append(paint("next", "head") + "  nothing to act on, measure again when this audit ages out")
     return "\n".join(out)
 
 

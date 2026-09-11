@@ -216,6 +216,16 @@ class ContractTest(unittest.TestCase):
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("--service", r.stderr)
 
+    def test_the_counting_line_is_a_bar_and_the_cost_stands_in_its_own_column(self):
+        with tempfile.TemporaryDirectory() as d:
+            unit_show(d, "mailbot.service", ActiveState="inactive", Result="success", NRestarts="0")
+            r = subprocess.run([sys.executable, SCRIPT, "--show-dir", d, "--now", NOW,
+                                "--service", "mailbot=mailbot.service,path=/"],
+                               capture_output=True, text=True)
+            self.assertRegex(r.stdout, r"\n\d+ FAIL · \d+ WARN · \d+ notes? · \d+ passed\n")
+            self.assertRegex(r.stdout, r"\nFAIL  service\.down {18}1 unit\n")
+            self.assertNotIn("(costs", r.stdout)
+
     def test_the_text_report_ends_on_a_next_step(self):
         with tempfile.TemporaryDirectory() as d:
             unit_show(d, "mailbot.service", ActiveState="inactive", Result="success", NRestarts="0")

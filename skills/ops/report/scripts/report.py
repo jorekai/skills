@@ -207,17 +207,22 @@ def measures(entry):
     return out
 
 
+def fold(names, singular, plural_):
+    """Two identical sentences that differ only in the tool they name fold into one line: the
+    list of names stands where one name stood, and the verb agrees with how many there are."""
+    return (singular if len(names) == 1 else plural_).format(", ".join(names))
+
+
 def movement(found, first, last):
     """What every check id cost when the month opened and what it costs now."""
-    rows, notes = [], []
+    rows, notes, no_audit, one_audit = [], [], [], []
     for tool in sorted(found):
         start, end = pick(found[tool], first, last)
         if end is None:
-            notes.append(f"no {tool} audit inside the month, so nothing it measures is in this report")
+            no_audit.append(tool)
             continue
         if start is None:
-            notes.append(f"one {tool} audit inside the month and none before it, so its numbers "
-                         "open the next report instead of closing this one")
+            one_audit.append(tool)
             continue
         then, now = measures(start), measures(end)
         for cid in sorted(set(then) & set(now)):
@@ -229,6 +234,15 @@ def movement(found, first, last):
             rows.append({"check": cid, "tool": tool, "then": show(tb, tu), "now": show(nb, tu),
                          "change": nb - tb, "family": family, "unit": tu,
                          "from": start["file"], "to": end["file"]})
+    if no_audit:
+        notes.append(fold(no_audit, "no {} audit inside the month, so nothing it measures is in "
+                          "this report",
+                          "no {} audit inside the month, so nothing they measure is in this report"))
+    if one_audit:
+        notes.append(fold(one_audit, "one {} audit inside the month and none before it, so its "
+                          "numbers open the next report instead of closing this one",
+                          "one {} audit inside the month and none before it, so their numbers "
+                          "open the next report instead of closing this one"))
     rows.sort(key=lambda r: (rung(r["check"]), r["change"]))
     return rows, notes
 
@@ -376,11 +390,15 @@ def render(host, month, data):
 def collect(base_dir, first, last):
     found, other = audits(base_dir)
     moved, notes = movement(found, first, last)
-    for tool in other:
-        notes.append(f"the {tool} audits in this folder belong to another theme and are not read here")
-    for tool in TOOLS:
-        if tool not in found:
-            notes.append(f"no {tool} audit at all, so nothing it measures has ever been in a report")
+    if other:
+        notes.append(fold(other, "the {} audits in this folder belong to another theme and are "
+                          "not read here",
+                          "the {} audits in this folder belong to another theme and are not read "
+                          "here"))
+    never = [tool for tool in TOOLS if tool not in found]
+    if never:
+        notes.append(fold(never, "no audit yet for {}, so nothing it measures has been in a report",
+                          "no audit yet for {}, so nothing they measure has been in a report"))
     actions, still_open, verdicts, weeks = log_rows(base_dir, first, last)
     counts = counted(actions, verdicts)
     return {"movement": moved, "notes": notes, "actions": actions, "open": still_open,
@@ -390,10 +408,21 @@ def collect(base_dir, first, last):
             "headline": headline(actions, counts, moved)}
 
 
+def bar(won, no_change, returned, open_):
+    """Four counts in one line, a zero dimmed, a count above zero in the colour of its word."""
+    cells = [(won, "won", "PASS"), (no_change, "no-change", "WARN"),
+             (returned, "returned", "FAIL"), (open_, "open", "head")]
+    return " · ".join(paint(f"{n} {word}", key if n else "dim") for n, word, key in cells)
+
+
 def console(host, month, data, written=""):
-    """The console report: the month in one line, then what moved, then what is still open."""
+    """The console report: the month in one line, the bar of its counts, then what moved and
+    what is still open."""
+    counts = data["counts"]
     out = [paint(f"report  {host}  {month}", "head"),
-           f"log weeks  {', '.join(data['weeks']) or 'none'}", "", data["headline"]]
+           f"log weeks  {', '.join(data['weeks']) or 'none'}", "",
+           bar(counts["won"], counts["no-change"], counts["returned"], counts["open"]), "",
+           data["headline"]]
     if data["movement"]:
         out += ["", paint("moved", "head")]
         for r in data["movement"][:8]:

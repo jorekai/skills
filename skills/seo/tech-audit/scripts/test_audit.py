@@ -522,6 +522,12 @@ class ColourTest(unittest.TestCase):
         self.assertIn("\033", painted)
         self.assertEqual(re.sub(r"\033\[[0-9;]*m", "", painted), plain)
 
+    def test_the_counting_line_is_a_bar_and_a_finding_is_three_columns(self):
+        rep = self.report()
+        out = audit.render(rep, "https://example.com")
+        self.assertRegex(out, r"\n\d+ FAIL · \d+ WARN · \d+ notes? · \d+ passed\n")
+        self.assertRegex(out, r"\nFAIL  title\.missing {17}1 URL\n")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)

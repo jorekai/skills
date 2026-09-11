@@ -281,6 +281,22 @@ class WriteTest(unittest.TestCase):
 
 
 class ConsoleTest(unittest.TestCase):
+    def test_the_counting_line_is_a_bar_of_the_four_verdict_counts(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            log(base, actions=[action("2026-W37-01", "backup.stale", status="won")])
+            r = subprocess.run([sys.executable, SCRIPT, "--root", str(root), "--month", MONTH],
+                               capture_output=True, text=True)
+            self.assertIn("1 won · 0 no-change · 0 returned · 0 open", r.stdout)
+
+    def test_identical_notes_fold_into_one_line_naming_every_tool(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            r = subprocess.run([sys.executable, SCRIPT, "--root", str(root), "--month", MONTH],
+                               capture_output=True, text=True)
+            self.assertIn("no secrets, pipeline, deps, review audit at all", r.stdout)
+            self.assertEqual(r.stdout.count("\nnote  "), 1)
+
     def test_the_console_report_carries_no_escape_when_nothing_is_a_terminal(self):
         with tempfile.TemporaryDirectory() as d:
             root, base = workspace(d)

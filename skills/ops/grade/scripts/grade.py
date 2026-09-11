@@ -338,29 +338,45 @@ def short(path):
     return "~" + text[len(home):] if text.startswith(home + "/") else text
 
 
+ID_WIDTH = 28
+
+
+def bar(due, won, returned, no_change):
+    """Four counts in one line, a zero dimmed, a count above zero in the colour of its word."""
+    cells = [(due, "due", "head"), (won, "won", "PASS"),
+             (returned, "returned", "FAIL"), (no_change, "no-change", "WARN")]
+    return " · ".join(paint(f"{n} {word}", key if n else "dim") for n, word, key in cells)
+
+
+def verdict_line(g):
+    """Verdict word padded to one width, row id, check id padded, then and now as their own
+    columns: no arrow between them, so the eye reads down each column instead of across a line."""
+    verdict = g["verdict"] or "unsettled"
+    tag = paint(f"{verdict:<10}", VERDICT_PAINT.get(g["verdict"], "dim"))
+    cid = paint(g["check"].ljust(ID_WIDTH), "id")
+    return f"{tag}{g['id']}  {cid}  {g['then'] or '-'}  {g['now'] or '-'}"
+
+
 def report(host, graded, today):
-    """The console report: one block per row due, the verdict first, the reason under it."""
+    """The console report: the bar of verdicts, one line per row, the reason under it."""
     out = [paint(f"grade  {host}  {today.isoformat()}", "head")]
     if not graded:
         return "\n".join(out + ["", "nothing due, no log row has reached its verify date"])
-    settled = [g for g in graded if g["verdict"]]
-    rest = len(graded) - len(settled)
-    out.append(f"{len(settled)} of {plural(len(graded), 'row')} due can be settled, "
-               f"{rest} {verb(rest, 'need')} a person")
+    won = sum(1 for g in graded if g["verdict"] == "won")
+    returned = sum(1 for g in graded if g["verdict"] == "returned")
+    no_change = sum(1 for g in graded if g["verdict"] == "no-change")
+    out += ["", bar(len(graded), won, returned, no_change)]
     for g in graded:
-        where = short(g["target"]) if g["target"] else "this host"
-        out += ["", f"{paint(g['id'], 'id')}  {g['check']} on {where}"]
+        out += ["", verdict_line(g)]
         if g["verdict"]:
-            verdict = paint(g["verdict"], VERDICT_PAINT.get(g["verdict"], "dim"))
-            out.append(f"      then {g['then']}, now {g['now']}, verdict {verdict}: "
-                       f"{VERDICT_WORD.get(g['verdict'], '')}")
-        else:
-            out.append(f"      then {g['then']}, {paint('no verdict yet', 'INFO')}")
+            out.append(f"      {VERDICT_WORD.get(g['verdict'], '')}")
+        if g["target"]:
+            out.append(paint(f"      {short(g['target'])}", "dim"))
         if g["note"]:
             out.append(paint(f"      {g['note']}", "dim"))
         if g["audit"]:
             out.append(paint(f"      measured again from {g['audit']}", "dim"))
-    if settled:
+    if won or returned or no_change:
         out += ["", paint("next", "head") + "  run the same command with --write to put these verdicts in the log"]
     return "\n".join(out)
 

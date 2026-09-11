@@ -230,6 +230,15 @@ class ContractTest(unittest.TestCase):
             self.assertIn("measured against", r.stdout)
             self.assertIn("\nnext  ", r.stdout)
 
+    def test_the_counting_line_is_a_bar_and_the_cost_stands_in_its_own_column(self):
+        with tempfile.TemporaryDirectory() as d:
+            tree(d, **{"package.json": "{}"})
+            r = subprocess.run([sys.executable, SCRIPT, "--root", d, "--now", NOW, "--offline"],
+                               capture_output=True, text=True)
+            self.assertRegex(r.stdout, r"\n\d+ FAIL · \d+ WARN · \d+ notes? · \d+ passed\n")
+            self.assertRegex(r.stdout, r"\nWARN  dep\.unresolved {16}1 manifest\n")
+            self.assertNotIn("(costs", r.stdout)
+
     def test_the_report_carries_no_escape_when_nothing_is_a_terminal(self):
         with tempfile.TemporaryDirectory() as d:
             r = subprocess.run([sys.executable, SCRIPT, "--root", d, "--now", NOW, "--offline"],

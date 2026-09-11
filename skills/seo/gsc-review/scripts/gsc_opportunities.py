@@ -308,107 +308,127 @@ def fmt_pct(x):
     return f"{x * 100:.1f}%"
 
 
-def table(headers, rows):
-    out = ["| " + " | ".join(headers) + " |", "|" + "---|" * len(headers)]
+def fixed_table(headers, aligns, widths, rows):
+    """A column header line, dimmed, then rows of fixed widths: text left, numbers right."""
+    cell = lambda v, a, w: str(v).ljust(w) if a == "l" else str(v).rjust(w)
+    out = [paint("  ".join(cell(h, a, w) for h, a, w in zip(headers, aligns, widths)), "dim")]
     for r in rows:
-        out.append("| " + " | ".join(str(c).replace("|", "\\|") for c in r) + " |")
-    return "\n".join(out)
+        out.append("  ".join(cell(v, a, w) for v, a, w in zip(r, aligns, widths)))
+    return out
+
+
+def bucket(out, label, params, headers, aligns, widths, rows, empty):
+    """A bucket head (bold label, its parameters), then its rows, or a dimmed empty line."""
+    out.append(paint(label, "head") + "  " + "  ".join(params))
+    if rows:
+        out += fixed_table(headers, aligns, widths, rows)
+    else:
+        out.append(paint(f"  {empty}", "dim"))
+    out.append("")
 
 
 def render(res, a):
-    o = [paint("# GSC opportunities", "head"), ""]
-    o.append(f"Thresholds: impressions ≥ {a.min_impressions}, striking distance = position {a.pos_min}–{a.pos_max}. "
-             f"Queries: {res['n_queries']}, pages: {res['n_pages']}.")
+    """The console report: totals and baseline, then the six buckets, `next` last
+    (decisions/0028: a bucket head names its parameters, rows are fixed-width columns)."""
+    o = [paint(f"gsc-review  {res['n_queries']} queries  {res['n_pages']} pages", "head"),
+         f"measured against  impressions >= {a.min_impressions}, striking pos {a.pos_min} to {a.pos_max}", ""]
     if res.get("brand"):
         b = res["brand"]
-        o.append(f"Brand queries (matching --brand): {b['queries']} queries, {b['clicks']} of {b['total_clicks']} clicks "
-                 f"({fmt_pct(b['clicks'] / b['total_clicks']) if b['total_clicks'] else '0%'}). Excluded from buckets 1 and 3.")
-    o.append("Expected CTR is a heuristic curve (scale " + f"{CTR_SCALE:.2f}" + "). Queries with an AI Overview sit far below it; "
-             "in GSC every link inside one AI Overview shares a single position, so a low CTR at a good position is often the AI Overview, not the snippet.")
+        share = fmt_pct(b["clicks"] / b["total_clicks"]) if b["total_clicks"] else "0%"
+        o.append(f"brand      {b['queries']} queries · {b['clicks']} of {b['total_clicks']} clicks ({share}), "
+                 "excluded from buckets 1 and 3")
     cal = res["calibration"]
     if cal["ctr_1"] is not None:
-        o.append(f"Suggested --expected-ctr-1: {cal['ctr_1']:.2f} (median CTR of {cal['n']} non-brand queries at position 1.0 to 1.5).")
+        o.append(f"calibration  suggested --expected-ctr-1 {cal['ctr_1']:.2f} "
+                 f"(median CTR of {cal['n']} non-brand queries at position 1.0 to 1.5, scale {CTR_SCALE:.2f})")
     else:
-        o.append(f"No --expected-ctr-1 suggestion: {cal['n']} non-brand queries at position 1.0 to 1.5, {MIN_CALIBRATION_N} needed.")
+        o.append(f"calibration  no suggestion yet: {cal['n']} of {MIN_CALIBRATION_N} non-brand queries "
+                 "at position 1.0 to 1.5")
     o.append("")
+
     t = res["totals"]
-    o.append(f"## Site totals: the {t['source']} in this export, capped at 1,000 rows per table")
-    o.append("")
     n, prev = t["now"], t["previous"]
     if prev is None:
-        o.append(table(["Metric", "This export"],
-                       [("Clicks", n["clicks"]), ("Impressions", n["impressions"]),
-                        ("CTR", fmt_pct(n["ctr"])), (t["source"].capitalize(), n["rows"])]))
+        bucket(o, "totals", [f"{t['source']} in this export", "capped at 1,000 rows"],
+               ["metric", "this export"], ["l", "r"], [12, 14],
+               [("clicks", n["clicks"]), ("impressions", n["impressions"]),
+                ("ctr", fmt_pct(n["ctr"])), (t["source"], n["rows"])], "no rows")
     else:
-        def change(a, b):
-            return f"{(a - b) / b * 100:+.1f} %" if b else "n/a"
-        o.append(table(["Metric", "This export", "Previous", "Change"],
-                       [("Clicks", n["clicks"], prev["clicks"], change(n["clicks"], prev["clicks"])),
-                        ("Impressions", n["impressions"], prev["impressions"], change(n["impressions"], prev["impressions"])),
-                        ("CTR", fmt_pct(n["ctr"]), fmt_pct(prev["ctr"]), f"{(n['ctr'] - prev['ctr']) * 100:+.2f} pp"),
-                        (t["source"].capitalize(), n["rows"], prev["rows"], f"{n['rows'] - prev['rows']:+d}")]))
-    o.append("")
-    o.append("## Site baseline: subtract it before a single page counts as won")
-    o.append("")
+        def change(x, y):
+            return f"{(x - y) / y * 100:+.1f}%" if y else "n/a"
+        bucket(o, "totals", [f"{t['source']} in this export", "capped at 1,000 rows"],
+               ["metric", "this export", "previous", "change"], ["l", "r", "r", "r"], [12, 14, 14, 10],
+               [("clicks", n["clicks"], prev["clicks"], change(n["clicks"], prev["clicks"])),
+                ("impressions", n["impressions"], prev["impressions"], change(n["impressions"], prev["impressions"])),
+                ("ctr", fmt_pct(n["ctr"]), fmt_pct(prev["ctr"]), f"{(n['ctr'] - prev['ctr']) * 100:+.2f}pp"),
+                (t["source"], n["rows"], prev["rows"], f"{n['rows'] - prev['rows']:+d}")], "no rows")
+
     b = res["baseline"]
     if b is None:
-        o.append("_pass --previous with the export for the preceding period of equal length_")
+        bucket(o, "baseline", ["subtract before a page counts as won"], [], [], [], [],
+               "pass --previous with the export for the preceding period of equal length")
     elif b["position"] is None:
-        o.append(f"_{b['n']} pages in both exports reach the impression threshold, {MIN_BASELINE_N} needed_")
+        bucket(o, "baseline", ["subtract before a page counts as won"], [], [], [], [],
+               f"{b['n']} pages in both exports reach the impression threshold, {MIN_BASELINE_N} needed")
     else:
-        o.append(table(["Metric", "Median change, all pages", "Pages"],
-                       [("Position", f"{b['position']:+.1f} (a higher number is worse)", b["n"]),
-                        ("CTR", f"{b['ctr'] * 100:+.2f} pp", b["n"]),
-                        ("Clicks", f"{b['clicks'] * 100:+.1f} %" if b["clicks"] is not None
-                         else f"under {MIN_BASELINE_N} pages had {MIN_BASELINE_CLICKS}+ clicks before", b["n_clicks"])]))
-    o.append("")
-    o.append("## 1. Striking distance (queries): add the exact query to title/H1/H2, add the section top results have")
-    o.append("")
-    o.append(table(["Query", "Impr.", "Clicks", "CTR", "Pos."],
-                   [(r["key"], r["impressions"], r["clicks"], fmt_pct(r["ctr"]), f"{r['position']:.1f}")
-                    for r in res["striking_queries"][:a.top]]) or "_none_")
-    o.append("")
-    o.append("## 2. Striking distance (pages)")
-    o.append("")
-    o.append(table(["Page", "Impr.", "Clicks", "Pos."],
-                   [(r["key"], r["impressions"], r["clicks"], f"{r['position']:.1f}")
-                    for r in res["striking_pages"][:a.top]]) or "_none_")
-    o.append("")
-    o.append("## 3. CTR gap: rewrite title + meta description, keep the keyword")
-    o.append("")
-    o.append(table(["Query", "Impr.", "CTR", "Expected", "Pos.", "Missed clicks"],
-                   [(r["key"], r["impressions"], fmt_pct(r["ctr"]), fmt_pct(r["expected_ctr"]),
-                     f"{r['position']:.1f}", r["missed_clicks"]) for r in res["ctr_gap_queries"][:a.top]]) or "_none_")
-    o.append("")
-    o.append(table(["Page", "Impr.", "CTR", "Expected", "Pos.", "Missed clicks"],
-                   [(r["key"], r["impressions"], fmt_pct(r["ctr"]), fmt_pct(r["expected_ctr"]),
-                     f"{r['position']:.1f}", r["missed_clicks"]) for r in res["ctr_gap_pages"][:a.top]]) or "_none_")
-    o.append("")
-    o.append("## 4. Decayed pages: refresh content before writing anything new (check Compare year over year first: demand shift or ranking loss)")
-    o.append("")
+        bucket(o, "baseline", ["subtract before a page counts as won"],
+               ["metric", "median change", "pages"], ["l", "r", "r"], [10, 30, 6],
+               [("position", f"{b['position']:+.1f} (higher is worse)", b["n"]),
+                ("ctr", f"{b['ctr'] * 100:+.2f}pp", b["n"]),
+                ("clicks", f"{b['clicks'] * 100:+.1f}%" if b["clicks"] is not None
+                 else f"under {MIN_BASELINE_N} pages had {MIN_BASELINE_CLICKS}+ clicks before", b["n_clicks"])],
+               "no rows")
+
+    bucket(o, "striking-q", [f"{len(res['striking_queries'])} queries", f"pos {a.pos_min} to {a.pos_max}",
+                            f"min {a.min_impressions} impressions"],
+           ["query", "impr.", "clicks", "ctr", "pos."], ["l", "r", "r", "r", "r"], [40, 8, 8, 7, 6],
+           [(r["key"], r["impressions"], r["clicks"], fmt_pct(r["ctr"]), f"{r['position']:.1f}")
+            for r in res["striking_queries"][:a.top]], "none")
+    bucket(o, "striking-p", [f"{len(res['striking_pages'])} pages", f"pos {a.pos_min} to {a.pos_max}"],
+           ["page", "impr.", "clicks", "pos."], ["l", "r", "r", "r"], [46, 8, 8, 6],
+           [(r["key"], r["impressions"], r["clicks"], f"{r['position']:.1f}")
+            for r in res["striking_pages"][:a.top]], "none")
+    bucket(o, "ctr-gap-q", [f"{len(res['ctr_gap_queries'])} queries", "expected CTR is a heuristic curve"],
+           ["query", "impr.", "ctr", "expected", "pos.", "missed"], ["l", "r", "r", "r", "r", "r"],
+           [34, 8, 7, 8, 6, 7],
+           [(r["key"], r["impressions"], fmt_pct(r["ctr"]), fmt_pct(r["expected_ctr"]),
+             f"{r['position']:.1f}", r["missed_clicks"]) for r in res["ctr_gap_queries"][:a.top]], "none")
+    bucket(o, "ctr-gap-p", [f"{len(res['ctr_gap_pages'])} pages"],
+           ["page", "impr.", "ctr", "expected", "pos.", "missed"], ["l", "r", "r", "r", "r", "r"],
+           [40, 8, 7, 8, 6, 7],
+           [(r["key"], r["impressions"], fmt_pct(r["ctr"]), fmt_pct(r["expected_ctr"]),
+             f"{r['position']:.1f}", r["missed_clicks"]) for r in res["ctr_gap_pages"][:a.top]], "none")
     if res["decay"] is None:
-        o.append("_pass --previous with the export for the preceding period of equal length_")
+        bucket(o, "decay", ["refresh content, do not write anything new"], [], [], [], [],
+               "pass --previous with the export for the preceding period of equal length")
     else:
-        o.append(table(["Page", "Clicks now", "Clicks before", "Pos. now", "Pos. before", "Lost"],
-                       [(r["key"], r["clicks"], r["prev_clicks"], f"{r['position']:.1f}", f"{r['prev_position']:.1f}", r["lost"])
-                        for r in res["decay"][:a.top]]) or "_none_")
-    o.append("")
-    o.append("## 5. Cannibalization: two URLs for one query. Not a penalty per Google; merge only when the pages duplicate each other")
-    o.append("")
+        bucket(o, "decay", [f"{len(res['decay'])} pages", "check Compare year over year first"],
+               ["page", "now", "before", "pos now", "pos before", "lost"],
+               ["l", "r", "r", "r", "r", "r"], [40, 6, 8, 8, 10, 6],
+               [(r["key"], r["clicks"], r["prev_clicks"], f"{r['position']:.1f}", f"{r['prev_position']:.1f}", r["lost"])
+                for r in res["decay"][:a.top]], "none")
     if res["cannibal"] is None:
-        o.append("_pass --page-queries with a page×query table (GSC API, Looker Studio, or a per-page query export)_")
+        bucket(o, "cannibal", ["two URLs for one query, not a penalty per Google"], [], [], [], [],
+               "pass --page-queries with a page x query table")
     else:
-        o.append(table(["Query", "Impr.", "Keep", "Merge/301", "Positions"],
-                       [(r["query"], r["impressions"], r["keep"], "<br>".join(r["merge"]), r["positions"])
-                        for r in res["cannibal"][:a.top]]) or "_none_")
-    o.append("")
-    o.append("## 6. Not indexed: link internally + request indexing; still unindexed after 4 weeks, merge or remove")
-    o.append("")
+        bucket(o, "cannibal", [f"{len(res['cannibal'])} queries", "merge only pages that duplicate each other"],
+               ["query", "impr.", "keep", "merge/301"], ["l", "r", "l", "l"], [24, 7, 26, 26],
+               [(r["query"], r["impressions"], r["keep"], "; ".join(r["merge"]))
+                for r in res["cannibal"][:a.top]], "none")
     if res["not_indexed"] is None:
-        o.append("_pass --not-indexed with the URL export of “Crawled – currently not indexed” / “Discovered – currently not indexed”_")
+        bucket(o, "not-indexed", ["link internally, then request indexing"], [], [], [], [],
+               "pass --not-indexed with the URL export of a not-indexed reason")
     else:
-        o.append("\n".join(f"- {u}" for u in res["not_indexed"][:a.top]) or "_none_")
-    o.append("")
+        bucket(o, "not-indexed", [f"{len(res['not_indexed'])} URLs", "unindexed after 4 weeks: merge or remove"],
+               ["url"], ["l"], [70],
+               [(u,) for u in res["not_indexed"][:a.top]], "none")
+
+    if res["not_indexed"] or res["decay"] or res["ctr_gap_queries"] or res["ctr_gap_pages"] \
+            or res["striking_queries"] or res["striking_pages"]:
+        o.append(paint("next", "head") + "  decide one action per row per bucket "
+                 "(references/actions.md), costliest first")
+    else:
+        o.append(paint("next", "head") + "  nothing to act on, export again next week")
     return "\n".join(o)
 
 

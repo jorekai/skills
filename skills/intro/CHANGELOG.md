@@ -2,6 +2,10 @@
 
 One entry per `jorekai-intro` version. The version at the top equals `version` in `skills/intro/.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 0.1.8 (2026-09-11)
+
+- Changed: the report prints a dimmed column header over every theme's skill table, so `invoked by` and `reach for it when` read as columns; the snapshot carries the versions every theme bumped for `decisions/0028`.
+
 ## 0.1.7 (2026-09-09)
 
 - Changed: the snapshot carries the fifth theme, `jorekai-security` 0.1.0, its nine skills, and the marketplace entry that lists it.

@@ -96,6 +96,23 @@ def plural(n, word):
     return f"{n} {word}" if n == 1 else f"{n} {word}s"
 
 
+LABEL_WIDTH = 11    # a labelled line's field: the label padded so every value starts in one column
+NAME_WIDTH = 25     # longest skill name today is jorekai-seo:distribution (25 chars)
+# A leading skill name, backtick-quoted or not, an optional flag, an optional closing backtick
+# and colon: the first column of a numbered `now` line (decisions/0028).
+STEP_SKILL = re.compile(r"^`(jorekai-seo:[a-z][a-z-]*(?:\s+--[a-z-]+)?)`:?\s*|^(jorekai-seo:[a-z][a-z-]*):\s*")
+
+
+def split_step(step):
+    """The skill name and the rest of the text, the two columns of a numbered `now` line.
+    A step with no leading skill name (a generic instruction) gets a blank first column."""
+    m = STEP_SKILL.match(step)
+    if not m:
+        return "", step
+    skill = m.group(1) or m.group(2)
+    return skill, step[m.end():]
+
+
 def file_date(p):
     m = DATE_RE.search(p.name)
     return dt.date.fromisoformat(m.group(1)) if m else dt.date.fromtimestamp(p.stat().st_mtime)
@@ -250,31 +267,38 @@ def decide(s, today):
 
 
 def report(s, today):
+    """The console report: what the workspace holds, then the stage and the next steps
+    (decisions/0028: labelled lines, a bold `stage`, `now` as two-column numbered lines)."""
     c = s["connections"]
-    out = [paint(f"# {s['domain']}, {today.isoformat()} ({week_of(today)})", "head"), ""]
-    out.append("setup        config " + ("filled" if s["config"] else "TEMPLATE")
-               + " | connections: " + ", ".join(f"{k.split('_')[0].lower()} {v.split()[0] if v else 'MISSING'}" for k, v in c.items())
-               + " | strategy " + ("filled" if s["strategy"] else "TEMPLATE")
-               + " | glossary " + ("filled" if s["glossary"] else "TEMPLATE"))
+    out = [paint(f"and-now  {s['domain']}  {today.isoformat()}  {week_of(today)}", "head"), ""]
+    out.append(f"{'setup':<{LABEL_WIDTH}}" + " · ".join([
+        "config " + ("filled" if s["config"] else "TEMPLATE"),
+        "connections " + ", ".join(f"{k.split('_')[0].lower()} {v.split()[0] if v else 'MISSING'}" for k, v in c.items()),
+        "strategy " + ("filled" if s["strategy"] else "TEMPLATE"),
+        "glossary " + ("filled" if s["glossary"] else "TEMPLATE")]))
     a = s["audit"]
-    out.append("audit        " + (f"{a['file']}: {paint('FAIL', 'FAIL')} {a['fail']}, "
-                                  f"{paint('WARN', 'WARN')} {a['warn']}" if a else "none"))
+    out.append(f"{'audit':<{LABEL_WIDTH}}" + (f"{a['file']}: {paint('FAIL', 'FAIL')} {a['fail']} · "
+                                              f"{paint('WARN', 'WARN')} {a['warn']}" if a else "none"))
     by = {}
     for r in s["rows"]:
         by[r.get("status", "?")] = by.get(r.get("status", "?"), 0) + 1
-    out.append(f"log          {len(s['rows'])} rows: " + (", ".join(f"{k} {v}" for k, v in sorted(by.items())) or "empty")
-               + f" | due for verdict {len(s['due'])}"
-               + (f" | next verify {s['next_verify'].isoformat()}" if s["next_verify"] else ""))
+    log_cells = [f"{len(s['rows'])} rows: " + (", ".join(f"{k} {v}" for k, v in sorted(by.items())) or "empty"),
+                 f"due for verdict {len(s['due'])}"]
+    if s["next_verify"]:
+        log_cells.append(f"next verify {s['next_verify'].isoformat()}")
+    out.append(f"{'log':<{LABEL_WIDTH}}" + " · ".join(log_cells))
     exp = s["export"]
-    out.append("exports      " + (f"{exp.name} ({plural((today - file_date(exp)).days, 'day')} old)" if exp else "none"))
-    out.append(f"briefs       {', '.join(s['briefs']) or 'none'}")
-    out.append(f"drafts       {', '.join(s['drafts']) or 'none'}")
-    out.append(f"reports      {', '.join(s['reports']) or 'none'}")
+    out.append(f"{'exports':<{LABEL_WIDTH}}" + (f"{exp.name} ({plural((today - file_date(exp)).days, 'day')} old)" if exp else "none"))
+    out.append(f"{'briefs':<{LABEL_WIDTH}}{', '.join(s['briefs']) or 'none'}")
+    out.append(f"{'drafts':<{LABEL_WIDTH}}{', '.join(s['drafts']) or 'none'}")
+    out.append(f"{'reports':<{LABEL_WIDTH}}{', '.join(s['reports']) or 'none'}")
     stage, now, then = decide(s, today)
-    out += ["", f"{paint('stage', 'head')}: {stage}", paint("now:", "head")]
-    out += [f"  {i}. {step}" for i, step in enumerate(now, 1)]
+    out += ["", f"{paint('stage', 'head')}  {stage}", "", paint("now", "head")]
+    for i, step in enumerate(now, 1):
+        skill, rest = split_step(step)
+        out.append(f"  {i}. {skill.ljust(NAME_WIDTH)}  {rest}".rstrip())
     if then:
-        out += ["then:"] + [f"  - {t}" for t in then]
+        out += ["", f"{paint('then', 'head')}  {'; '.join(then)}"]
     return "\n".join(out)
 
 

@@ -299,6 +299,20 @@ class ConsoleTest(unittest.TestCase):
                                capture_output=True, text=True, env=env)
             self.assertIn("\033[", r.stdout)
 
+    def test_the_counting_line_is_a_bar_and_repeated_notes_fold_into_one(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            audit(base, "2026-08-30", "recovery", [measured("backup.stale", 40)])
+            audit(base, "2026-09-20", "recovery", [measured("backup.stale", 12)])
+            r = subprocess.run([sys.executable, SCRIPT, "--root", str(root), HOST,
+                                "--month", MONTH], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertRegex(r.stdout,
+                             r"\n\d+ won · \d+ no-change · \d+ returned · \d+ open\n")
+            self.assertIn("\nnote  no audit yet for access, availability, exposure, so nothing "
+                         "they measure has been in a report\n", r.stdout)
+            self.assertEqual(r.stdout.count("\nnote  "), 1)
+
     def test_the_month_defaults_to_the_one_that_ended(self):
         with tempfile.TemporaryDirectory() as d:
             root, _ = workspace(d)

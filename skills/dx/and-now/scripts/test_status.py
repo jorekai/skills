@@ -305,6 +305,26 @@ class CliTest(unittest.TestCase):
             self.assertIn("stage  ", r.stdout)
             self.assertIn("now\n  1. ", r.stdout)
 
+    def test_the_now_list_carries_the_skill_name_as_its_own_column(self):
+        with tempfile.TemporaryDirectory() as d:
+            w = Workspace(d)
+            r = subprocess.run([sys.executable, str(HERE / "status.py"), "--root", str(w.root),
+                                "--today", TODAY.isoformat()], capture_output=True, text=True)
+            self.assertRegex(r.stdout, r"\n  1\. jorekai-dx:setup {2,}\S")
+
+    def test_then_prints_as_one_line(self):
+        with tempfile.TemporaryDirectory() as d:
+            w = Workspace(d)
+            w.machine_filled()
+            w.standards_filled()
+            w.audit()
+            w.rows(ROW.format(id="2026-W36-01", check="disk.cache", target="~/x", action="cleared",
+                              cls="safe", then="41", st="applied", applied="2026-09-02", after="2026-09-16"))
+            r = subprocess.run([sys.executable, str(HERE / "status.py"), "--root", str(w.root),
+                                "--today", TODAY.isoformat()], capture_output=True, text=True)
+            self.assertIn("\nthen  2026-09-16: first verify date reached", r.stdout)
+            self.assertNotIn("\nthen\n  - ", r.stdout)
+
 
 class StrayLogTest(unittest.TestCase):
     """A week file at the old flat path is invisible to every reader (decisions/0015)."""
