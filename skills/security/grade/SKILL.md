@@ -1,6 +1,6 @@
 ---
 name: grade
-description: "Give a verdict to log rows whose verify date has passed via scripts/grade.py: recompute each row's measure from the newest audit of the tool that found it, then write won, no-change, or returned into the log. Use when a row is due for a verdict, when the weekly pass reports rows past their verify date, or when asked whether a security fix held."
+description: "Check whether logged security fixes held, using the latest audit from the tool that found each issue. Write won, no-change, or returned. Use when a review date is due or overdue, during the weekly pass, or when asked whether a security fix worked."
 ---
 
 # Security grade
@@ -20,7 +20,7 @@ This skill reads the workspace only. It never reads a repository, so a row whose
    The script path is relative to this skill's directory. Exit code 2 means there is no workspace or no such repository folder: the answer is `jorekai-security:setup`, stop here.
    Done when every row past its verify date carries either a verdict or one sentence saying what is missing.
 
-2. **Close the gaps, then measure again.** A row that cannot be graded names its reason: no audit of that tool, an audit older than the action, a check the audit does not carry, or two units that do not compare. Run the measuring skill the row names, with the same arguments as before, then grade again.
+2. **Resolve missing evidence, then measure again.** Check the reason given: a missing audit, an audit from before the change, an unchecked rule, or incompatible units. Rerun the measuring skill with the original arguments, then grade again.
    Done when every gradable row has a fresh audit behind it, and every remaining gap is one a person has to answer.
 
 3. **Write the verdicts.**
@@ -41,6 +41,7 @@ This skill reads the workspace only. It never reads a repository, so a row whose
 - `returned` on anything under `cred.*` is the serious one. A credential that counts again means either the rotation did not happen or a second copy of the value exists. It goes to the front of the ladder, above everything else that is open.
 - `returned` on `build.*` usually means a merge brought the old file back. The next attempt is a check in the pipeline itself, not the same edit again.
 - `no-change` twice on the same check id means the check is the wrong measure for the work, not that the work failed. Rewrite the row, or record the finding under `accepted` in `config.md` with its reason.
-- A row about a rule from `jorekai-security:review` is graded against the rule, so it settles when the sink is gone or the mitigation stands beside it. A rule whose file no longer exists reads zero and needs a person: a file that was deleted and a flaw that was fixed look the same to a matcher.
+- Close a review action only when the audit records a result for its rule. A missing result or `null` keeps the action open. Rerun review if the audit has no results per rule (`decisions/0030`).
+- A missing total does not prevent grading another rule whose result is known.
 - A count compares exactly, because a count does not drift. The other unit families allow five percent of the starting value, which is why almost every check in this theme measures in `count`.
-- An audit older than the action grades nothing. The verdict would otherwise be measured from before the change, which always reads as `won`.
+- An audit from before the action cannot show whether the fix held. Measure again before grading.

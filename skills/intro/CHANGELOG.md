@@ -2,6 +2,14 @@
 
 One entry per `jorekai-intro` version. The version at the top equals `version` in `skills/intro/.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 0.1.10 (2026-09-13)
+
+- Changed: The map carries the versions the three measuring plugins reached with the ranked report.
+
+## 0.1.9 (2026-09-13)
+
+- Changed: Keep quotes inside descriptions when generating the catalog; a header the gate rejects keeps its raw text instead of stopping the scan. Refresh the map with the revised descriptions and plugin versions.
+
 ## 0.1.8 (2026-09-11)
 
 - Changed: the report prints a dimmed column header over every theme's skill table, so `invoked by` and `reach for it when` read as columns; the snapshot carries the versions every theme bumped for `decisions/0028`.

@@ -101,6 +101,7 @@ class MatchTest(unittest.TestCase):
             out = run(root, rules)
             self.assertEqual(cost(out, "vuln.injection"), 0)
             self.assertEqual(item(out, "vuln.injection")["level"], "PASS")
+            self.assertEqual(item(out, "vuln.injection")["measure"]["by"], {"vuln.injection-01": 0})
 
     def test_a_mitigation_beside_the_sink_closes_the_rule(self):
         with tempfile.TemporaryDirectory() as d:
@@ -118,8 +119,37 @@ class MatchTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             root, rules = workspace(d, [rule(path="gone/*.py")], **{"src__a.py": self.CODE})
             out = run(root, rules)
-            self.assertEqual(cost(out, "vuln.injection"), 0)
-            self.assertIn("matches no file today", json.dumps(out))
+            self.assertIsNone(cost(out, "vuln.injection"))
+            self.assertIsNone(item(out, "vuln.injection")["measure"]["by"]["vuln.injection-01"])
+            self.assertNotEqual(item(out, "vuln.injection")["level"], "PASS")
+            self.assertIn("could not be checked", json.dumps(out))
+
+    def test_a_readable_file_does_not_hide_an_unread_file_in_the_same_rule(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, rules = workspace(d, [rule()], **{"src__a.py": self.SAFE})
+            (root / "src" / "b.py").write_bytes(b"\0unread")
+            self.assertIsNone(cost(run(root, rules), "vuln.injection"))
+
+    def test_an_open_sink_proves_one_open_rule_even_when_another_file_is_unread(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, rules = workspace(d, [rule()], **{"src__a.py": self.CODE})
+            (root / "src" / "b.py").write_bytes(b"\0unread")
+            self.assertEqual(cost(run(root, rules), "vuln.injection"), 1)
+
+    def test_known_and_unknown_rules_keep_separate_target_values(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, rules = workspace(d, [rule(path="gone/*.py"), rule(rid="vuln.injection-02")],
+                                    **{"src__a.py": self.SAFE})
+            measured = item(run(root, rules), "vuln.injection")["measure"]
+            self.assertIsNone(measured["value"])
+            self.assertEqual(measured["by"], {"vuln.injection-01": None, "vuln.injection-02": 0})
+
+    def test_an_unusable_rule_prevents_a_complete_class_total(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, rules = workspace(d, [rule(), "{not json"], **{"src__a.py": self.SAFE})
+            out = run(root, rules)
+            self.assertIsNone(cost(out, "vuln.injection"))
+            self.assertNotEqual(item(out, "vuln.injection")["level"], "PASS")
 
     def test_the_sentence_agrees_with_the_count_in_front_of_it(self):
         """One rule is, two rules are. A report that prints the other reads like a template."""
@@ -159,7 +189,8 @@ class MatchTest(unittest.TestCase):
             (root / "src").mkdir(parents=True, exist_ok=True)
             (root / "src" / "a.bin").write_bytes(b"\0\0secret")
             out = run(root, rules)
-            self.assertIn("matches no file today", json.dumps(out))
+            self.assertIn("could not be checked", json.dumps(out))
+            self.assertIsNone(cost(out, "vuln.injection"))
 
 
 class AcceptTest(unittest.TestCase):
@@ -196,13 +227,13 @@ class ContractTest(unittest.TestCase):
             self.assertIn("measured against", r.stdout)
             self.assertIn("\nnext  ", r.stdout)
 
-    def test_the_counting_line_is_a_bar_and_the_cost_stands_in_its_own_column(self):
+    def test_the_counting_line_is_a_bar_and_every_finding_is_one_line(self):
         with tempfile.TemporaryDirectory() as d:
             root, rules = workspace(d, [rule()], **{"src__a.py": MatchTest.CODE})
             r = subprocess.run([sys.executable, SCRIPT, "--root", str(root), "--rules-dir",
                                 str(rules), "--now", NOW], capture_output=True, text=True)
             self.assertRegex(r.stdout, r"\n\d+ FAIL · \d+ WARN · \d+ notes? · \d+ passed\n")
-            self.assertRegex(r.stdout, r"\nFAIL  vuln\.injection {16}1 open rule\n")
+            self.assertRegex(r.stdout, r"\n +\d+  FAIL +vuln\.injection +1 +open +rule")
             self.assertNotIn("(costs", r.stdout)
 
     def test_the_gate_line_appears_only_for_a_control_class(self):
@@ -217,6 +248,26 @@ class ContractTest(unittest.TestCase):
             r = subprocess.run([sys.executable, SCRIPT, "--root", str(root), "--rules-dir",
                                 str(rules), "--now", NOW], capture_output=True, text=True)
             self.assertIn("\n      gate: a failing test", r.stdout)
+
+    def test_an_unread_rule_adds_a_line_and_takes_no_action_away(self):
+        """An open finding keeps the fix and the gate; the unread path stands under them."""
+        with tempfile.TemporaryDirectory() as d:
+            root, rules = workspace(d, [rule(rid="vuln.authz-01", check="vuln.authz",
+                                             sink="def handler"), rule(path="gone/*.py")],
+                                    **{"src__a.py": "def handler(): pass\n"})
+            r = subprocess.run([sys.executable, SCRIPT, "--root", str(root), "--rules-dir",
+                                str(rules), "--now", NOW], capture_output=True, text=True)
+            self.assertIn("\nnext  close the sink", r.stdout)
+            self.assertIn("\n      gate: a failing test", r.stdout)
+            self.assertIn("\n      check the listed rule files", r.stdout)
+
+    def test_an_unread_rule_alone_still_carries_the_next_step(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, rules = workspace(d, [rule(path="gone/*.py")], **{"src__a.py": MatchTest.SAFE})
+            r = subprocess.run([sys.executable, SCRIPT, "--root", str(root), "--rules-dir",
+                                str(rules), "--now", NOW], capture_output=True, text=True)
+            self.assertIn("\nnext  check the listed rule files", r.stdout)
+            self.assertNotIn("close the sink", r.stdout)
 
     def test_the_report_carries_no_escape_when_nothing_is_a_terminal(self):
         with tempfile.TemporaryDirectory() as d:
@@ -233,6 +284,33 @@ class ContractTest(unittest.TestCase):
             r = subprocess.run([sys.executable, SCRIPT, "--root", str(root), "--rules-dir",
                                 str(rules), "--now", NOW], capture_output=True, text=True, env=env)
             self.assertIn("\033[", r.stdout)
+
+
+class ChainTest(unittest.TestCase):
+    """The list answers what and how heavy, `--explain` answers the rest, one finding at a time."""
+
+    def test_the_chain_names_its_fields_in_the_order_a_person_asks_them(self):
+        rep = review.Report()
+        rep.add("FAIL", "vuln.injection", "one line about it", [], measure=1)
+        out = review.explain_report(rep, "this repository", review.load_fixes(), "1", None)
+        labels = [l.split()[0] for l in out.splitlines() if l and not l.startswith(" ")][1:]
+        self.assertEqual(labels, ["what", "weight", "means", "fix", "undo", "verify"])
+        self.assertIn("Attacker-controlled input reaches an interpreter, a", out)
+        self.assertIn("rank 1 of 1", out)
+
+    def test_a_name_no_finding_carries_says_so(self):
+        rep = review.Report()
+        rep.add("FAIL", "vuln.injection", "one line about it", [], measure=1)
+        self.assertIn("no finding called nothing.here",
+                      review.explain_report(rep, "this repository", {}, "nothing.here", None))
+
+    def test_the_change_column_reads_the_measure_of_an_earlier_pass(self):
+        rep = review.Report()
+        rep.add("FAIL", "vuln.injection", "one line about it", [], measure=2)
+        lines = review.listing(rep.items, [], review.load_fixes(), {"vuln.injection": 1})
+        self.assertIn("change", lines[0])
+        self.assertRegex(lines[1], r"\+1")
+        self.assertRegex(review.listing(rep.items, [], {}, {})[1], r" new ")
 
 
 if __name__ == "__main__":

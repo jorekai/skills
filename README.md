@@ -41,7 +41,7 @@ The map is generated from the collection itself and never typed. `skills/intro/i
 
 | Skill | Invoked by | Deterministic part |
 |---|---|---|
-| `jorekai-intro:intro` | user | `scripts/catalog.py`: the map as a report, `--json` for the object a page is filled from, `--theme` for one theme, `--check` for the gate; `templates/page.html`, the page it fills when the session can publish one |
+| `jorekai-intro:intro` | user | `scripts/catalog.py`: list themes, skills, and the next command; `--json` supplies the page data, `--theme` selects one theme, `--check` detects an outdated map; `templates/page.html` supplies the page layout |
 
 ## The SEO loop, start to end
 
@@ -118,7 +118,7 @@ Theme `skills/seo/`. You call user-invoked skills yourself (`/jorekai-seo:<name>
 
 | Skill | Invoked by | Deterministic part |
 |---|---|---|
-| `jorekai-seo:seo` | user | Router: workspace, three flows, priority ladder, launch checklist, domain naming, tool stack, `references/sources.md` |
+| `jorekai-seo:seo` | user | Router: workspace, three flows, priority ladder, answer formats, launch checklist, domain naming, tool stack, `references/sources.md` |
 | `jorekai-seo:setup` | user | `scripts/scaffold.py`: create folders, `--log` (log path and next id), `--due` (actions due, with their `Then` value), `--check` (missing files, directories, and sections a template has gained) |
 | `jorekai-seo:report` | user | no script of its own: the totals and baseline of `gsc_opportunities.py`, the month's log rows, `templates/report.md`, `references/ai-visibility.md` |
 | `jorekai-seo:and-now` | user | `scripts/status.py [domain]`: stage and next steps from the workspace files, no network |
@@ -212,7 +212,7 @@ Theme `skills/dx/`. You call user-invoked skills yourself (`/jorekai-dx:<name>` 
 
 | Skill | Invoked by | Deterministic part |
 |---|---|---|
-| `jorekai-dx:dx` | user | Router: workspace, flows, priority ladder, `references/fixes.md` (check id, fix, class, measure), `references/risk-classes.md`, `references/tools.md`, `references/sources.md` |
+| `jorekai-dx:dx` | user | Router: workspace, flows, priority ladder, answer formats, `references/fixes.md` (check id, fix, class, measure), `references/risk-classes.md`, `references/tools.md`, `references/sources.md` |
 | `jorekai-dx:setup` | user | `scripts/scaffold.py`: create the workspace, `--log` (log path, next id, commit trailer), `--append-row` (one action row from named fields), `--due` (rows past their verify date, with their `Then` value), `--check` (missing files, directories, and sections a template has gained) |
 | `jorekai-dx:and-now` | user | `scripts/status.py [machine]`: stage and next steps from the workspace files, no machine access and no network |
 | `jorekai-dx:repos` | model | `scripts/repos.py PATH ...`: every local repository in one pass, one item per check id with the full list under `data`, no fetch and no push |
@@ -305,7 +305,7 @@ Theme `skills/ops/`. You call user-invoked skills yourself (`/jorekai-ops:<name>
 | `jorekai-ops:availability` | model | `scripts/availability.py`: nine checks over units, timers, required options and deploy paths; `--show-dir` reads captured `systemctl show` output instead of systemd |
 | `jorekai-ops:exposure` | model | `scripts/exposure.py`: eight checks over listening sockets, the firewall, certificates and the units that watch failed attempts; `--ss-file`, `--fw-file`, `--enddate-dir` and `--show-dir` read captured output instead of the running host |
 | `jorekai-ops:recovery` | model | `scripts/recovery.py`: ten checks over backup targets, secret files, unit credentials and the journal; `--root` reads a captured tree, `--filesystem-bytes` fixes the size the share is measured against, and no check ever reads the contents of a secret |
-| `jorekai-ops:report` | user | `scripts/report.py [host] --month YYYY-MM [--write]`: the month from the audits and the log alone, `templates/report.md` |
+| `jorekai-ops:report` | user | `scripts/report.py [host] --month YYYY-MM [--write]`: measured changes, action verdicts, and open rows from the audits and log, `templates/report.md` |
 | `jorekai-ops:grade` | model | `scripts/grade.py [host]`: recompute the measure of every due log row from the newest audit of its tool, `--write` puts the verdict in the log, `--namespaces` prints which tool owns which check id namespace |
 
 ## The security loop, start to end
@@ -381,9 +381,9 @@ Theme `skills/security/`. You call user-invoked skills yourself (`/jorekai-secur
 | `jorekai-security:secrets` | model | `scripts/secrets.py`: three checks over tracked files and the history, provider formats plus a named-value rule with an entropy floor; wraps an installed scanner and merges its findings; `--gitleaks-file` reads a captured report, and no value is ever printed |
 | `jorekai-security:pipeline` | model | `scripts/pipeline.py`: four checks over the workflow files, with a reader for the subset of the format they need; a file it cannot parse is reported as unread, never as clean |
 | `jorekai-security:deps` | model | `scripts/deps.py`: readers for ten lock formats, then the advisory database, the catalogue of exploited flaws and the probability table; `--offline` reads the cache, `--osv-file` reads a captured answer |
-| `jorekai-security:review` | model | `scripts/review.py`: counts the rules an accepted finding left behind, per class; a rule is open when the sink is still written and the mitigation is not there, and a rule whose path matches nothing needs a person |
-| `jorekai-security:grade` | model | `scripts/grade.py [slug]`: one verdict per due row from the newest audit of its tool, `--namespaces` prints which tool owns which check id namespace, `--write` puts the verdicts in the log |
-| `jorekai-security:report` | user | `scripts/report.py [slug] --month`: the month from the audits and the log, `--write` renders `reports/security/YYYY-MM.md` from `templates/report.md` |
+| `jorekai-security:review` | model | `scripts/review.py`: check the saved rules and count open findings. Missing or unreadable files leave results unknown. |
+| `jorekai-security:grade` | model | `scripts/grade.py [slug]`: compare due actions with the latest audit. Leave actions open when evidence is missing. `--write` saves verdicts; `--namespaces` lists the tool for each check group. |
+| `jorekai-security:report` | user | `scripts/report.py [slug] --month`: summarize the audits and action log, explaining missing measurements. `--write` saves `reports/security/YYYY-MM.md` using `templates/report.md`. |
 
 ## Use in a project
 
@@ -415,6 +415,8 @@ The SEO workspace belongs in the site's repository. A site that lives in no repo
 
 - `STYLE.md` is the rulebook for prose, code, commits, and private data. Every agent reads it through `AGENTS.md` (Codex, Cursor, Gemini) or `CLAUDE.md` (Claude Code).
 - `bash scripts/check.sh` before every commit: style, private data, then every offline test and syntax check. Runs gitleaks over the history when installed (`brew install gitleaks`); CI always does. Prints `ok` or one line per hit. Customer names to reject live in `.check_public.local` (gitignored, one regex per line); CI writes it from the secret `CHECK_PUBLIC_LOCAL`.
+- `scripts/check_frontmatter.py` checks every skill header, including new files. Errors name the file, line, and field to fix. Copy the header example in `STYLE.md`.
+- The security loop test runs setup, review, logging, grading, and reporting together. Moving a reviewed file leaves its action open; a measured fix closes the action once.
 - Every line in a SKILL.md must change behaviour; what the model does anyway goes.
 - The router must not lie: whoever adds, renames, or changes a sub-skill checks `skills/<theme>/<theme>/SKILL.md` and that theme's table above in the same commit, and bumps that plugin's version. `check.sh` enforces both directions: a skill missing from the router or from this file, and a `jorekai-<theme>:<name>` that names no directory.
 - The map must not lie either, and nobody edits it by hand: after a change to any skill, run `python3 skills/intro/intro/scripts/catalog.py --scan . --json > skills/intro/intro/references/catalog.json` in the same commit. `check.sh` runs `catalog.py --check` and fails until the snapshot matches the checkout.

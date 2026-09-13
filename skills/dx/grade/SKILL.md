@@ -1,6 +1,6 @@
 ---
 name: grade
-description: Give a verdict to log rows whose verify date has passed via scripts/grade.py: recompute each row's measure from the newest audit of the tool that found it, then write won, no-change, or returned into the log. Use when a row is due for a verdict, when the weekly pass reports rows past their verify date, or when asked whether a fix held.
+description: "Check whether logged fixes held, using the latest audit from the tool that found each issue. Write won, no-change, or returned. Use when a review date is due or overdue, during the weekly pass, or when asked whether a fix worked."
 ---
 
 # Grade

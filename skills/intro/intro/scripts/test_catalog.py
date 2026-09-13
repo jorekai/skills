@@ -89,6 +89,19 @@ def checkout(root):
 
 
 class Scan(unittest.TestCase):
+    def test_quoted_descriptions_keep_their_text(self):
+        description = 'Write a "best X" page: compare the options.'
+        text = "---\nname: sample\ndescription: " + json.dumps(description) + "\n---\n"
+        self.assertEqual(catalog.frontmatter(text)["description"], description)
+
+    def test_a_header_the_gate_rejects_does_not_stop_the_map(self):
+        """check_frontmatter.py names a bad quote. The map reads the rest instead of dying."""
+        for value in ('"unterminated', '"a" b', '"bad \\q"'):
+            with self.subTest(value=value):
+                text = f"---\nname: sample\ndescription: {value}\n---\n"
+                self.assertEqual(catalog.frontmatter(text), {"name": "sample",
+                                                             "description": value})
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = checkout(self.tmp.name)

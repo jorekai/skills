@@ -1,6 +1,6 @@
 ---
 name: review
-description: "Where attacker-controlled input reaches a dangerous sink in this repository, traced from the entry points the trust model names, verified against the code, and written down as a rule so scripts/review.py recomputes the same measure later. Covers injection, authorization, deserialization, outgoing requests, cryptography, and values that reach a log or a response. Use when asked to review code or a pull request for security, to find vulnerabilities, or as the code half of a security sweep."
+description: "Trace attacker-controlled input from documented entry points to dangerous operations. Check injection, authorization, deserialization, outgoing requests, cryptography, and data in logs or responses. Verify each finding against the code and save a rule to check it again later. Use for code or pull request security reviews, vulnerability searches, or the code part of a security sweep."
 ---
 
 # Security review
@@ -37,9 +37,9 @@ The bar is high on purpose. A report of everything that could be wrong is a repo
    ```
 
    A rule file is `<check id>-<n>.json` and holds `id`, `check`, `path` as a glob, `sink` as a regular expression matching the code as it stands, optionally `mitigation` matching what would mean it is handled, plus `why`, `written` and `commit`. The sink pattern is narrow enough to name this occurrence and loose enough to survive a rename of a variable. The mitigation is matched against the whole file, not against the lines around the sink, so a pattern that also hits a comment or an unrelated function closes the rule while the sink stands untouched.
-   Done when every accepted finding has a rule, the pass runs, and the count per class equals the number of findings that are still open.
+   Done when every verified finding has a rule, and every rule has a result or a reason it could not be checked.
 
-5. **Rank the findings, do not list them.** Order by the ladder in the router. Look each id up in [../security/references/fixes.md](../security/references/fixes.md) for the fix, the class, and the gate. The answer is one table, `check id | cost | targets | fix | class`, at most five rows, one row per check id; the rest of the shape is in the router's `## Writing the answer`.
+5. **Rank the findings, do not list them.** Order by the ladder in the router. Look each id up in [../security/references/fixes.md](../security/references/fixes.md) for the fix, the class, and the gate. The pass already ranks by that ladder, because the `Rung` column of that file is the same table, and `--explain RANK` prints the chain behind one line: what it means, where it comes from, the fix, the way back, and what closes it. The answer is one table, `check id | cost | targets | fix | class`, at most five rows, one row per check id; the rest of the shape is in the router's `## Writing the answer`.
    Done when every `FAIL` id has a named fix and an owner, and the rest is one sentence.
 
 6. **Fix under gate 2, then log what was done.**
@@ -58,7 +58,8 @@ The bar is high on purpose. A report of everything that could be wrong is a repo
 - Attacker-controlled is decided by the trust model, not by the shape of the code. The same line is a finding in a request handler and nothing at all in a build script that takes its argument from a constant.
 - A framework that escapes, binds, or authorises by default is a mitigation, and a mitigation that is recorded stops a whole class from being reported. What is not recorded is reported, which is the honest direction to be wrong in.
 - A rule answers whether the sink is still written the way it was written. That is weaker than whether the code is safe, and it is the question a script can answer twice. The strong question is answered once, by the review, and the rule is what carries that answer forward.
-- A rule whose path matches no file reads zero and needs a person, because a file that was deleted and a flaw that was fixed look the same to a matcher.
+- Store each rule's result in `measure.by`: `1` for open, `0` for closed or accepted risk, `null` for unknown. If a file is missing or unreadable, check whether it moved before treating the finding as fixed.
+- A rule that cannot be checked makes the total for its class unknown (`null`). An unusable rule file blocks all class totals until repaired. Keep the measured results for other rules (`decisions/0030`).
 - A class with no rule is not reported as clean. Nothing has looked at it yet, and a zero would say the opposite.
 - A finding in a file that only runs in a test is not a finding. A credential in one is, and that belongs to another pass.
 - The bar drops findings that are real but unproved. That is the trade this pass makes, and the ones it drops come back next time with the same evidence, which is cheaper than a report nobody trusts.

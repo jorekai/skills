@@ -1,6 +1,6 @@
 # Fixes by check id
 
-One row per check id a shipped tool emits: what the finding means, the risk class it runs under, and the measure that grades it later with the unit that measure is written in. `scripts/check.sh` compares the unit here against the unit the script reports for that id, so a row graded in another unit is graded against nothing.
+One row per check id a shipped tool emits: what the finding means, the risk class it runs under, the rung of the ladder it sits on, and the measure that grades it later with the unit that measure is written in. The rung is what orders a report: a scanner ranks its findings by this column, so the first line of a report and the first item of `jorekai-ops:and-now` are the same piece of work. `scripts/check.sh` compares the unit here against the unit the script reports for that id, so a row graded in another unit is graded against nothing.
 
 Where the fix differs between control planes, a section under [Fixes per control plane](#fixes-per-control-plane) holds one block per plane. A check that is fixed the same way everywhere has no section.
 
@@ -8,61 +8,61 @@ The namespaces `pkg`, `boot`, `os` and `plane` belong to this theme and arrive w
 
 ## Access
 
-| Check | What it means | Class | Measure (unit) |
-|---|---|---|---|
-| `ssh.root-login` | Root can log in over ssh directly, so the account that measures can also change the host | `ask` | Ways in that reach root directly, zero when `PermitRootLogin no` (`count`) |
-| `ssh.password-auth` | A guessed password is a way in beside every key. Counted per place that permits one, including a `Match` block that reopens it for one group | `ask` | Settings that permit a password login (`count`) |
-| `ssh.weak-crypto` | An offered algorithm rests on SHA-1, a 64-bit block cipher, or a key type OpenSSH no longer offers by default | `ask` | Weak algorithms offered (`count`) |
-| `ssh.no-limit` | Nothing in front of sshd makes an attempt expensive: no allow list, no attempt cap, no grace time, no per-source limit | `ask` | Limits not set, out of four (`count`) |
-| `key.orphan` | An authorized key sits on an account the standards do not name, so nobody owns the way in it opens | `ask` | Keys with no named owner (`count`) |
-| `key.past-rotation` | A key file was last written before the rotation date the profile sets | `ask` | Keys past their rotation (`count`) |
-| `key.weak` | A key uses a retired type or falls under the bit bar | `ask` | Keys under the bar (`count`) |
-| `key.duplicate` | One key opens several accounts, so revoking one person takes access from everyone holding it | `ask` | Accounts sharing a key (`count`) |
-| `access.single-path` | Fewer independent ways in than the bar, so no change to access may run at all | `ask` | Ways in missing from the bar (`count`) |
-| `sudo.nopasswd` | A passwordless sudo rule names a command this table does not | `ask` | Rules outside the permitted commands (`count`) |
-| `user.unlisted` | An account carries a login shell and the standards do not name it | `ask` | Unnamed accounts with a login shell (`count`) |
+| Check | What it means | Class | Rung | Measure (unit) |
+|---|---|---|---|---|
+| `ssh.root-login` | Root can log in over ssh directly, so the account that measures can also change the host | `ask` | 2 | Ways in that reach root directly, zero when `PermitRootLogin no` (`count`) |
+| `ssh.password-auth` | A guessed password is a way in beside every key. Counted per place that permits one, including a `Match` block that reopens it for one group | `ask` | 2 | Settings that permit a password login (`count`) |
+| `ssh.weak-crypto` | An offered algorithm rests on SHA-1, a 64-bit block cipher, or a key type OpenSSH no longer offers by default | `ask` | 4 | Weak algorithms offered (`count`) |
+| `ssh.no-limit` | Nothing in front of sshd makes an attempt expensive: no allow list, no attempt cap, no grace time, no per-source limit | `ask` | 5 | Limits not set, out of four (`count`) |
+| `key.orphan` | An authorized key sits on an account the standards do not name, so nobody owns the way in it opens | `ask` | 1 | Keys with no named owner (`count`) |
+| `key.past-rotation` | A key file was last written before the rotation date the profile sets | `ask` | 4 | Keys past their rotation (`count`) |
+| `key.weak` | A key uses a retired type or falls under the bit bar | `ask` | 4 | Keys under the bar (`count`) |
+| `key.duplicate` | One key opens several accounts, so revoking one person takes access from everyone holding it | `ask` | 1 | Accounts sharing a key (`count`) |
+| `access.single-path` | Fewer independent ways in than the bar, so no change to access may run at all | `ask` | 1 | Ways in missing from the bar (`count`) |
+| `sudo.nopasswd` | A passwordless sudo rule names a command this table does not | `ask` | 4 | Rules outside the permitted commands (`count`) |
+| `user.unlisted` | An account carries a login shell and the standards do not name it | `ask` | 6 | Unnamed accounts with a login shell (`count`) |
 
 ## Availability
 
-| Check | What it means | Class | Measure (unit) |
-|---|---|---|---|
-| `service.down` | A unit the standards name is not running | `ask` | Units not running (`count`) |
-| `service.failed` | A unit ended in a failure, so its last run did not do what it is for | `ask` | Units in a failure (`count`) |
-| `service.restarts` | A unit restarted more often than the bar, so something makes it fall over | `ask` | Restarts over the bar (`count`) |
-| `timer.disabled` | A timer the standards name is not enabled, so nothing fires it after a reboot | `ask` | Timers not enabled (`count`) |
-| `timer.missed` | A timer is past its next elapse by more than the grace window | `ask` | Timers past their elapse (`count`) |
-| `unit.unhardened` | A unit is missing an option the profile requires and no exception records why | `ask` | Required options not set (`count`) |
-| `code.behind` | A deploy path runs code behind the commit the standards name | `ask` | Commits behind (`count`) |
-| `deploy.no-key` | A repository's host carries no identity file, so nothing here can pull it | `ask` | Repositories without a key (`count`) |
-| `deploy.absent` | A service the standards name has no deploy path on this host | `ask` | Services without a path (`count`) |
+| Check | What it means | Class | Rung | Measure (unit) |
+|---|---|---|---|---|
+| `service.down` | A unit the standards name is not running | `ask` | 3 | Units not running (`count`) |
+| `service.failed` | A unit ended in a failure, so its last run did not do what it is for | `ask` | 3 | Units in a failure (`count`) |
+| `service.restarts` | A unit restarted more often than the bar, so something makes it fall over | `ask` | 5 | Restarts over the bar (`count`) |
+| `timer.disabled` | A timer the standards name is not enabled, so nothing fires it after a reboot | `ask` | 3 | Timers not enabled (`count`) |
+| `timer.missed` | A timer is past its next elapse by more than the grace window | `ask` | 3 | Timers past their elapse (`count`) |
+| `unit.unhardened` | A unit is missing an option the profile requires and no exception records why | `ask` | 5 | Required options not set (`count`) |
+| `code.behind` | A deploy path runs code behind the commit the standards name | `ask` | 5 | Commits behind (`count`) |
+| `deploy.no-key` | A repository's host carries no identity file, so nothing here can pull it | `ask` | 3 | Repositories without a key (`count`) |
+| `deploy.absent` | A service the standards name has no deploy path on this host | `ask` | 3 | Services without a path (`count`) |
 
 ## Recovery
 
-| Check | What it means | Class | Measure (unit) |
-|---|---|---|---|
-| `backup.missing` | A target the standards name has no copy on this host and none recorded anywhere else | `confirm` | Targets without a copy (`count`) |
-| `backup.stale` | The newest copy of a target is older than the window the standards allow | `confirm` | Targets past their window (`count`) |
-| `backup.offsite` | Every copy of a target sits on this host, so what takes the host takes the copy | `confirm` | Targets with every copy here (`count`) |
-| `backup.untested` | No restore of this target finished inside the window, so the copy is a file nobody has read back | `confirm` | Targets without a restore test (`count`) |
-| `secret.missing` | A secret the standards name is not on this host, so something that needs it fails later | `ask` | Secrets that are not there (`count`) |
-| `secret.mode` | A secret is readable or writable by more than the account that owns it | `ask` | Secrets readable beyond their owner (`count`) |
-| `secret.in-repo` | A secret sits inside a work tree without being ignored, so a commit can take it into a history that keeps it | `ask` | Secrets inside a work tree (`count`) |
-| `secret.plaintext` | A credential reaches a service as an environment variable, which unprivileged clients read back over the bus | `ask` | Credentials passed in units (`count`) |
-| `log.no-retention` | Neither bound on the journal is set, so how far back it reaches is whatever the build chose | `confirm` | Bounds nobody set, out of two (`count`) |
-| `log.growth` | The journal holds more of its filesystem than the standards allow | `ask` | Percentage points over the share (`percent`) |
+| Check | What it means | Class | Rung | Measure (unit) |
+|---|---|---|---|---|
+| `backup.missing` | A target the standards name has no copy on this host and none recorded anywhere else | `confirm` | 1 | Targets without a copy (`count`) |
+| `backup.stale` | The newest copy of a target is older than the window the standards allow | `confirm` | 1 | Targets past their window (`count`) |
+| `backup.offsite` | Every copy of a target sits on this host, so what takes the host takes the copy | `confirm` | 5 | Targets with every copy here (`count`) |
+| `backup.untested` | No restore of this target finished inside the window, so the copy is a file nobody has read back | `confirm` | 5 | Targets without a restore test (`count`) |
+| `secret.missing` | A secret the standards name is not on this host, so something that needs it fails later | `ask` | 5 | Secrets that are not there (`count`) |
+| `secret.mode` | A secret is readable or writable by more than the account that owns it | `ask` | 1 | Secrets readable beyond their owner (`count`) |
+| `secret.in-repo` | A secret sits inside a work tree without being ignored, so a commit can take it into a history that keeps it | `ask` | 1 | Secrets inside a work tree (`count`) |
+| `secret.plaintext` | A credential reaches a service as an environment variable, which unprivileged clients read back over the bus | `ask` | 1 | Credentials passed in units (`count`) |
+| `log.no-retention` | Neither bound on the journal is set, so how far back it reaches is whatever the build chose | `confirm` | 6 | Bounds nobody set, out of two (`count`) |
+| `log.growth` | The journal holds more of its filesystem than the standards allow | `ask` | 6 | Percentage points over the share (`percent`) |
 
 ## Exposure
 
-| Check | What it means | Class | Measure (unit) |
-|---|---|---|---|
-| `port.world-open` | A port takes connections from anywhere and the standards name none of them | `ask` | Ports open to anywhere (`count`) |
-| `panel.exposed` | The surface that changes this host answers on the open network | `ask` | Panel ports open to anywhere (`count`) |
-| `fw.disabled` | Nothing filters this host, or the firewall holds rules and is not filtering | `confirm` | Hosts with nothing filtering (`count`) |
-| `tls.expired` | A certificate is past its date, so a client is told the connection cannot be trusted | `confirm` | Certificates past their date (`count`) |
-| `tls.expiring` | A certificate runs out inside the window the standards allow | `confirm` | Certificates inside the window (`count`) |
-| `intrusion.off` | A unit that should watch failed attempts is not running | `confirm` | Units that are not watching (`count`) |
-| `port.unexpected` | A port nobody named listens on one address of this host | `ask` | Ports nobody named (`count`) |
-| `fw.rule-orphan` | A rule lets a port in that nothing on this host serves | `ask` | Rules for ports nothing serves (`count`) |
+| Check | What it means | Class | Rung | Measure (unit) |
+|---|---|---|---|---|
+| `port.world-open` | A port takes connections from anywhere and the standards name none of them | `ask` | 2 | Ports open to anywhere (`count`) |
+| `panel.exposed` | The surface that changes this host answers on the open network | `ask` | 2 | Panel ports open to anywhere (`count`) |
+| `fw.disabled` | Nothing filters this host, or the firewall holds rules and is not filtering | `confirm` | 2 | Hosts with nothing filtering (`count`) |
+| `tls.expired` | A certificate is past its date, so a client is told the connection cannot be trusted | `confirm` | 2 | Certificates past their date (`count`) |
+| `tls.expiring` | A certificate runs out inside the window the standards allow | `confirm` | 4 | Certificates inside the window (`count`) |
+| `intrusion.off` | A unit that should watch failed attempts is not running | `confirm` | 4 | Units that are not watching (`count`) |
+| `port.unexpected` | A port nobody named listens on one address of this host | `ask` | 6 | Ports nobody named (`count`) |
+| `fw.rule-orphan` | A rule lets a port in that nothing on this host serves | `ask` | 6 | Rules for ports nothing serves (`count`) |
 
 ## Fixes per control plane
 

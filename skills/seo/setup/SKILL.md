@@ -1,6 +1,6 @@
 ---
 name: setup
-description: Set up the SEO workspace for a repository: one folder per domain under docs/seo (config, connections, strategy, glossary, log, briefs, drafts, exports, audits) plus the pointer block in AGENTS.md and CLAUDE.md. Run once per repo, again when a domain is added.
+description: "Create one SEO workspace folder per domain under docs/seo. Include configuration, connections, strategy, glossary, logs, briefs, drafts, exports, and audits. Add pointers in AGENTS.md and CLAUDE.md. Run for a new repository or an added domain."
 disable-model-invocation: true
 argument-hint: "[domain ...]"
 ---

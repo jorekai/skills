@@ -1,6 +1,6 @@
 ---
 name: tech-audit
-description: Audit a URL or whole site for technical SEO and indexability: runs scripts/audit.py (bot rendering, title/meta/H1/canonical, noindex conflicts, robots.txt, sitemap lastmod, redirects and their type, hreflang, dates, structured data, images, host variants, soft 404, pagination, duplicates, orphans) and prescribes fixes. Use when asked to check a site for SEO, why a page is not indexed, before a launch, or for canonical, redirect, sitemap, or robots questions.
+description: "Audit a URL or site for technical SEO and indexing problems, then prescribe fixes. Check bot rendering, metadata, headings, canonicals, noindex conflicts, robots.txt, sitemaps, redirects, hreflang, dates, structured data, and images. Also check host variants, soft 404s, pagination, duplicates, and orphan pages. Use for site SEO checks, indexing problems, launches, or canonical, redirect, sitemap, and robots questions."
 ---
 
 # Tech SEO audit

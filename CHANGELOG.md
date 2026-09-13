@@ -2,6 +2,10 @@
 
 One entry per plugin version. The version at the top equals `version` in `.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 1.12.1 (2026-09-13)
+
+- Changed: Quote skill descriptions and split long descriptions into shorter sentences. Keep their scope and invocation settings.
+
 ## 1.12.0 (2026-09-11)
 
 - Changed: `and-now/scripts/status.py`, `tech-audit/scripts/audit.py`, and `gsc-review/scripts/gsc_opportunities.py` print the layout inside each report zone the same way: `and-now` in labelled lines and a two-column numbered `now`, `tech-audit` in a bar of counts and a three-column finding, `gsc-review` in a bucket head with its parameters and fixed-width rows. `decisions/0028`.

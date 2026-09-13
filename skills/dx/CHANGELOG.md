@@ -2,6 +2,15 @@
 
 One entry per `jorekai-dx` version. The version at the top equals `version` in `skills/dx/.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 2.6.0 (2026-09-13)
+
+- Changed: Every measuring pass prints one line per finding: rank, level, check id, cost, the place it names, and the risk class. `--explain RANK` prints the chain behind one line, and `--previous FILE` adds a `change` column read from an earlier findings JSON. A finding with no cost carries its sentence under its row.
+- Added: A `Rung` column in the fixes table, copied from the ladder in `jorekai-dx:and-now`. The pass ranks by it, and `scripts/check_rungs.py` fails when the two disagree.
+
+## 2.5.1 (2026-09-13)
+
+- Changed: Quote skill descriptions and split long descriptions into shorter sentences. Keep their scope and invocation settings.
+
 ## 2.5.0 (2026-09-11)
 
 - Changed: `scripts/repos.py`, `scripts/machine.py`, `scripts/friction.py`, `scripts/grade.py`, `scripts/report.py`, and `scripts/status.py` lay out each report zone the way `decisions/0028` fixes it: the counting line is a bar of counts, a finding or a row is columns instead of a sentence, and the cost stands in its own column instead of behind the id in parentheses.

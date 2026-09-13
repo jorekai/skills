@@ -230,13 +230,13 @@ class ContractTest(unittest.TestCase):
             self.assertIn("measured against", r.stdout)
             self.assertIn("\nnext  ", r.stdout)
 
-    def test_the_counting_line_is_a_bar_and_the_cost_stands_in_its_own_column(self):
+    def test_the_counting_line_is_a_bar_and_every_finding_is_one_line(self):
         with tempfile.TemporaryDirectory() as d:
             tree(d, **{"package.json": "{}"})
             r = subprocess.run([sys.executable, SCRIPT, "--root", d, "--now", NOW, "--offline"],
                                capture_output=True, text=True)
             self.assertRegex(r.stdout, r"\n\d+ FAIL · \d+ WARN · \d+ notes? · \d+ passed\n")
-            self.assertRegex(r.stdout, r"\nWARN  dep\.unresolved {16}1 manifest\n")
+            self.assertRegex(r.stdout, r"\n +\d+  WARN +dep\.unresolved +1 +manifest")
             self.assertNotIn("(costs", r.stdout)
 
     def test_the_report_carries_no_escape_when_nothing_is_a_terminal(self):
@@ -252,6 +252,33 @@ class ContractTest(unittest.TestCase):
             r = subprocess.run([sys.executable, SCRIPT, "--root", d, "--now", NOW, "--offline"],
                                capture_output=True, text=True, env=env)
             self.assertIn("\033[", r.stdout)
+
+
+class ChainTest(unittest.TestCase):
+    """The list answers what and how heavy, `--explain` answers the rest, one finding at a time."""
+
+    def test_the_chain_names_its_fields_in_the_order_a_person_asks_them(self):
+        rep = deps.Report()
+        rep.add("FAIL", "dep.unresolved", "one line about it", [], measure=1)
+        out = deps.explain_report(rep, "this repository", deps.load_fixes(), "1", None)
+        labels = [l.split()[0] for l in out.splitlines() if l and not l.startswith(" ")][1:]
+        self.assertEqual(labels, ["what", "weight", "means", "fix", "undo", "verify"])
+        self.assertIn("A manifest has no lock file", out)
+        self.assertIn("rank 1 of 1", out)
+
+    def test_a_name_no_finding_carries_says_so(self):
+        rep = deps.Report()
+        rep.add("FAIL", "dep.unresolved", "one line about it", [], measure=1)
+        self.assertIn("no finding called nothing.here",
+                      deps.explain_report(rep, "this repository", {}, "nothing.here", None))
+
+    def test_the_change_column_reads_the_measure_of_an_earlier_pass(self):
+        rep = deps.Report()
+        rep.add("FAIL", "dep.unresolved", "one line about it", [], measure=2)
+        lines = deps.listing(rep.items, [], deps.load_fixes(), {"dep.unresolved": 1})
+        self.assertIn("change", lines[0])
+        self.assertRegex(lines[1], r"\+1")
+        self.assertRegex(deps.listing(rep.items, [], {}, {})[1], r" new ")
 
 
 if __name__ == "__main__":

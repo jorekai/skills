@@ -1,6 +1,6 @@
 ---
 name: diagnose
-description: Diagnose a drop in clicks, impressions, or position for a page, a query, or the whole site: make the drop visible in Search Console data first, then test six fixed hypotheses in order (seasonality, SERP feature, Google update, technical regression, own-site change, competition), change one thing, and log a verify date. Use when traffic fell, rankings dropped, a page lost its snippet, or the user asks why numbers went down.
+description: "Diagnose falling clicks, impressions, or rankings for a page, query, or site. Confirm the drop in Search Console first. Test seasonality, search features, Google updates, technical regressions, site changes, and competition in that order. Change one thing and log a review date. Use for traffic drops, ranking losses, lost snippets, or questions about declining numbers."
 ---
 
 # SEO diagnose

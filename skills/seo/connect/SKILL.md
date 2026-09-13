@@ -1,6 +1,6 @@
 ---
 name: connect
-description: Generate and hand over a bash wizard that walks a human through connecting a domain to Search Console, submitting the sitemap, importing into Bing Webmaster Tools, and hosting an IndexNow key, then records the results in the SEO workspace.
+description: "Create a bash wizard for connecting a domain to Search Console, submitting its sitemap, and importing it into Bing Webmaster Tools. It also walks the owner through hosting an IndexNow key and records results in the SEO workspace."
 disable-model-invocation: true
 argument-hint: "[domain]"
 ---

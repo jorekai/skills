@@ -348,14 +348,14 @@ class ReportTest(unittest.TestCase):
             many = item(run(d, ports=("22/tcp",)), "port.world-open", "FAIL")["message"]
             self.assertIn("2 ports take", many)
 
-    def test_the_counting_line_is_a_bar_and_the_cost_stands_in_its_own_column(self):
+    def test_the_counting_line_is_a_bar_and_every_finding_is_one_line(self):
         with tempfile.TemporaryDirectory() as d:
             r = subprocess.run([sys.executable, SCRIPT, "--root", d, "--fw-kind", "none",
                                 "--now", NOW, "--ss-file", str(write(Path(d) / "ss.txt", SS)),
                                 "--expected-port", "22/tcp", "--expected-port", "443/tcp"],
                                capture_output=True, text=True)
             self.assertRegex(r.stdout, r"\n\d+ FAIL · \d+ WARN · \d+ notes? · \d+ passed\n")
-            self.assertRegex(r.stdout, r"\nFAIL  fw\.disabled {19}1 host with nothing filtering\n")
+            self.assertRegex(r.stdout, r"\n +\d+  FAIL   fw\.disabled +1 host with nothing filtering +firewall +confirm\n")
             self.assertNotIn("(costs", r.stdout)
             self.assertIn("\n      gate: fw.* in the fixes table of jorekai-ops:ops\n", r.stdout)
 
@@ -372,6 +372,33 @@ class ReportTest(unittest.TestCase):
             r = subprocess.run([sys.executable, SCRIPT, "--root", d, "--fw-kind", "none",
                                 "--now", NOW], capture_output=True, text=True, env=env)
             self.assertIn("\033[", r.stdout)
+
+
+class ChainTest(unittest.TestCase):
+    """The list answers what and how heavy, `--explain` answers the rest, one finding at a time."""
+
+    def test_the_chain_names_its_fields_in_the_order_a_person_asks_them(self):
+        rep = exposure.Report()
+        rep.add("FAIL", "fw.disabled", "one line about it", [], measure=1)
+        out = exposure.explain_report(rep, "this host", exposure.load_fixes(), "1", None)
+        labels = [l.split()[0] for l in out.splitlines() if l and not l.startswith(" ")][1:]
+        self.assertEqual(labels, ["what", "weight", "means", "fix", "undo", "verify"])
+        self.assertIn("Nothing filters this host", out)
+        self.assertIn("rank 1 of 1", out)
+
+    def test_a_name_no_finding_carries_says_so(self):
+        rep = exposure.Report()
+        rep.add("FAIL", "fw.disabled", "one line about it", [], measure=1)
+        self.assertIn("no finding called nothing.here",
+                      exposure.explain_report(rep, "this host", {}, "nothing.here", None))
+
+    def test_the_change_column_reads_the_measure_of_an_earlier_pass(self):
+        rep = exposure.Report()
+        rep.add("FAIL", "fw.disabled", "one line about it", [], measure=2)
+        lines = exposure.listing(rep.items, [], exposure.load_fixes(), {"fw.disabled": 1})
+        self.assertIn("change", lines[0])
+        self.assertRegex(lines[1], r"\+1")
+        self.assertRegex(exposure.listing(rep.items, [], {}, {})[1], r" new ")
 
 
 if __name__ == "__main__":

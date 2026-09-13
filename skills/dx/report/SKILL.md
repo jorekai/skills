@@ -1,6 +1,6 @@
 ---
 name: report
-description: Monthly report for this machine, written from the workspace files: what every check cost when the month opened and what it costs now, every action of the month with its verdict, what is still open in ladder order, and the three things next month starts with.
+description: "Write the monthly machine report from the workspace. Compare costs at the start and end of the month, list action results and open issues by priority, and name three next steps."
 disable-model-invocation: true
 argument-hint: "[machine] [YYYY-MM]"
 ---

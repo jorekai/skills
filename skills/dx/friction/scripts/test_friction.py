@@ -214,13 +214,13 @@ class ReportShapeTest(unittest.TestCase):
 
     def test_a_finding_names_its_cost_in_the_unit_its_check_measures(self):
         text = self.report()
-        self.assertIn("WARN  " + "friction.failed-command".ljust(friction.ID_WIDTH) + "  4 failed runs", text)
+        self.assertRegex(text, r"\n +\d+  WARN   friction\.failed-command +4 failed runs")
         self.assertNotIn("(costs", text)
 
-    def test_the_counting_line_is_a_bar_and_the_cost_stands_in_its_own_column(self):
+    def test_the_counting_line_is_a_bar_and_every_finding_is_one_line(self):
         text = self.report()
         self.assertRegex(text, r"\n\d+ FAIL · \d+ WARN · \d+ notes? · \d+ passed\n")
-        self.assertIn("\nWARN  " + "friction.failed-command".ljust(friction.ID_WIDTH) + "  4 failed runs\n", text)
+        self.assertRegex(text, r"\n +\d+  WARN   friction\.failed-command +4 failed runs +")
         self.assertNotIn("(costs", text)
 
     def test_seconds_are_printed_in_a_unit_a_person_can_picture(self):
@@ -232,6 +232,33 @@ class ReportShapeTest(unittest.TestCase):
         text = self.report()
         self.assertIn("passed  friction.retry-prompt", text)
         self.assertNotIn("PASS  friction.retry-prompt", text)
+
+
+class ChainTest(unittest.TestCase):
+    """The list answers what and how heavy, `--explain` answers the rest, one finding at a time."""
+
+    def test_the_chain_names_its_fields_in_the_order_a_person_asks_them(self):
+        rep = friction.Report()
+        rep.add("FAIL", "friction.failed-command", "one line about it", [], measure=1)
+        out = friction.explain_report(rep, "this repository", friction.load_fixes(), "1", None)
+        labels = [l.split()[0] for l in out.splitlines() if l and not l.startswith(" ")][1:]
+        self.assertEqual(labels, ["what", "weight", "means", "fix", "undo", "verify"])
+        self.assertIn("A shape fails often enough to", out)
+        self.assertIn("rank 1 of 1", out)
+
+    def test_a_name_no_finding_carries_says_so(self):
+        rep = friction.Report()
+        rep.add("FAIL", "friction.failed-command", "one line about it", [], measure=1)
+        self.assertIn("no finding called nothing.here",
+                      friction.explain_report(rep, "this repository", {}, "nothing.here", None))
+
+    def test_the_change_column_reads_the_measure_of_an_earlier_pass(self):
+        rep = friction.Report()
+        rep.add("FAIL", "friction.failed-command", "one line about it", [], measure=2)
+        lines = friction.listing(rep.items, [], friction.load_fixes(), {"friction.failed-command": 1})
+        self.assertIn("change", lines[0])
+        self.assertRegex(lines[1], r"\+1")
+        self.assertRegex(friction.listing(rep.items, [], {}, {})[1], r" new ")
 
 
 if __name__ == "__main__":

@@ -150,13 +150,23 @@ def same_target(a, b):
 def measure_now(item, target):
     """What the check costs now for this row: the target's own share, or the total without one."""
     m = item.get("measure")
-    if not m or m.get("value") is None or m.get("unit") not in UNITS:
+    if not m or m.get("unit") not in UNITS:
         return None, "", "the finding carries no measure, so this check cannot be graded yet"
     by = m.get("by") or {}
+    review = tool_for(item.get("id", "")) == "review"
+    if review and not by:
+        return None, "", "the audit does not say which rules were checked; run review again"
     if target and by:
         for key, v in by.items():
             if same_target(key, target):
+                if v is None:
+                    return None, "", "this rule was not measured; check its file path, then run review again"
                 return float(v), m["unit"], ""
+        if review:
+            return None, "", "this rule is missing from the audit; run review again"
+    if m.get("value") is None:
+        return None, "", "some rules could not be checked, so the total is unknown"
+    if target and by:
         return 0.0, m["unit"], "the target no longer appears in the finding"
     if target and not by:
         # A passing check carries zero and names no target, which is the answer for every target.
@@ -346,7 +356,7 @@ def report(slug, graded, today):
         if g["note"]:
             out.append(paint(f"      {g['note']}", "dim"))
         if g["audit"]:
-            out.append(paint(f"      measured again from {g['audit']}", "dim"))
+            out.append(paint(f"      audit: {g['audit']}", "dim"))
     if won + returned + no_change:
         out += ["", paint("next", "head") + "  run the same command with --write to put these verdicts in the log"]
     return "\n".join(out)

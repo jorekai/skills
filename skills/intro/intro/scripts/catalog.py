@@ -55,7 +55,7 @@ FIELD = re.compile(r"^([a-z][a-z-]*):\s*(.*)$")
 
 
 def frontmatter(text):
-    """The `key: value` lines between the first two `---` fences, quotes stripped."""
+    """The `key: value` lines between the first two `---` fences, quoted text decoded."""
     lines = text.splitlines()
     if not lines or lines[0].strip() != "---":
         return {}
@@ -70,7 +70,14 @@ def frontmatter(text):
         elif key and line.strip():
             out[key] = f"{out[key]} {line.strip()}".strip()
     for key, value in out.items():
-        if len(value) > 1 and value[0] == value[-1] and value[0] in "\"'":
+        if value.startswith('"'):
+            # A header the gate rejects keeps its raw text here. check_frontmatter.py names the
+            # file and the line; a map that dies on one bad quote names nothing at all.
+            try:
+                out[key] = json.loads(value)
+            except ValueError:
+                pass
+        elif len(value) > 1 and value[0] == value[-1] == "'":
             out[key] = value[1:-1]
     return out
 

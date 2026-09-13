@@ -38,6 +38,9 @@ filler='\b(delve|leverage|seamless(ly)?|robust|crucial|game-changer|unlock|in to
 while IFS= read -r line; do hit "filler: $line"; done < <(echo "$style" | xargs grep -niE "$filler" 2>/dev/null)
 while IFS= read -r line; do hit "emoji: $line"; done < <(echo "$style" | xargs perl -CSD -ne 'print "$ARGV:$.:$_" if /[\x{1F300}-\x{1FAFF}\x{2600}-\x{27BF}]/; close ARGV if eof' 2>/dev/null)
 
+# Check skill headers before reading their fields.
+python3 scripts/check_frontmatter.py || hit "frontmatter: fix the fields named above"
+
 # Every plugin's version equals the top entry of the changelog beside its manifest; a version
 # bump without a changelog line is a hit. One version and one changelog per plugin (decisions/0013).
 while IFS= read -r manifest; do
@@ -127,6 +130,10 @@ for fixes in $(git ls-files 'skills/*/*/references/fixes.md'); do
     done < <(python3 "$script" --measures 2>/dev/null)
   done < <(git ls-files "skills/$theme/*/scripts/*.py" | grep -v '/test_')
 done
+
+# One order of work per theme (decisions/0031): the rung a fixes table gives an id is the rung its
+# ladder gives it, so the first line of a report and the first item of and-now are the same job.
+python3 scripts/check_rungs.py || hit "rung: fix the rows named above"
 
 # Colour is a hint on a report that reads the same without it (decisions/0022). A script that
 # paints carries the terminal guard, and an escape reaches the output through paint() alone: one
@@ -238,6 +245,7 @@ t python3 skills/security/pipeline/scripts/pipeline.py --help
 t python3 skills/security/deps/scripts/deps.py --help
 t python3 skills/security/review/scripts/review.py --help
 t python3 skills/security/grade/scripts/test_grade.py
+t python3 skills/security/grade/scripts/test_loop.py
 t python3 skills/security/grade/scripts/grade.py --help
 t python3 skills/security/grade/scripts/grade.py --namespaces
 t python3 skills/security/report/scripts/test_report.py
@@ -254,6 +262,8 @@ t bash -n scripts/link.sh
 # A filter that matches nothing must reach the message, not die on an empty array under `set -u`.
 t bash -c 'bash scripts/link.sh "$(mktemp -d)" nosuchskill 2>&1 | grep -qx "nothing matched"'
 t python3 scripts/sources_age.py --help
+t python3 scripts/test_frontmatter.py
+t python3 scripts/check_rungs.py --help
 for f in $(git ls-files 'skills/*/*/agents/openai.yaml'); do t test -s "$f"; done
 for d in $(git ls-files 'skills/*/*/SKILL.md' | xargs -n1 dirname); do t test -f "$d/agents/openai.yaml"; done
 

@@ -1,6 +1,6 @@
 ---
 name: report
-description: Monthly report for this host, written from the workspace files: what every check cost when the month opened and what it costs now, every action of the month with its verdict and the class it ran under, what is still open in ladder order, and the three things next month starts with.
+description: "Write the monthly host report from the workspace. Compare costs at the start and end of the month. List action results, risk classes, and open issues by priority, then name three next steps."
 disable-model-invocation: true
 argument-hint: "[host] [YYYY-MM]"
 ---

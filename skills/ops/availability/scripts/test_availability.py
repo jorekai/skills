@@ -216,14 +216,14 @@ class ContractTest(unittest.TestCase):
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("--service", r.stderr)
 
-    def test_the_counting_line_is_a_bar_and_the_cost_stands_in_its_own_column(self):
+    def test_the_counting_line_is_a_bar_and_every_finding_is_one_line(self):
         with tempfile.TemporaryDirectory() as d:
             unit_show(d, "mailbot.service", ActiveState="inactive", Result="success", NRestarts="0")
             r = subprocess.run([sys.executable, SCRIPT, "--show-dir", d, "--now", NOW,
                                 "--service", "mailbot=mailbot.service,path=/"],
                                capture_output=True, text=True)
             self.assertRegex(r.stdout, r"\n\d+ FAIL · \d+ WARN · \d+ notes? · \d+ passed\n")
-            self.assertRegex(r.stdout, r"\nFAIL  service\.down {18}1 unit\n")
+            self.assertRegex(r.stdout, r"\n +\d+  FAIL   service\.down +1 unit +mailbot +ask\n")
             self.assertNotIn("(costs", r.stdout)
 
     def test_the_text_report_ends_on_a_next_step(self):
@@ -235,6 +235,33 @@ class ContractTest(unittest.TestCase):
             self.assertEqual(r.returncode, 0, r.stderr)
             self.assertIn("measured against", r.stdout)
             self.assertIn("\nnext  ", r.stdout)
+
+
+class ChainTest(unittest.TestCase):
+    """The list answers what and how heavy, `--explain` answers the rest, one finding at a time."""
+
+    def test_the_chain_names_its_fields_in_the_order_a_person_asks_them(self):
+        rep = availability.Report()
+        rep.add("FAIL", "service.down", "one line about it", [], measure=1)
+        out = availability.explain_report(rep, "this host", availability.load_fixes(), "1", None)
+        labels = [l.split()[0] for l in out.splitlines() if l and not l.startswith(" ")][1:]
+        self.assertEqual(labels, ["what", "weight", "means", "fix", "undo", "verify"])
+        self.assertIn("A unit the standards name is not running", out)
+        self.assertIn("rank 1 of 1", out)
+
+    def test_a_name_no_finding_carries_says_so(self):
+        rep = availability.Report()
+        rep.add("FAIL", "service.down", "one line about it", [], measure=1)
+        self.assertIn("no finding called nothing.here",
+                      availability.explain_report(rep, "this host", {}, "nothing.here", None))
+
+    def test_the_change_column_reads_the_measure_of_an_earlier_pass(self):
+        rep = availability.Report()
+        rep.add("FAIL", "service.down", "one line about it", [], measure=2)
+        lines = availability.listing(rep.items, [], availability.load_fixes(), {"service.down": 1})
+        self.assertIn("change", lines[0])
+        self.assertRegex(lines[1], r"\+1")
+        self.assertRegex(availability.listing(rep.items, [], {}, {})[1], r" new ")
 
 
 if __name__ == "__main__":

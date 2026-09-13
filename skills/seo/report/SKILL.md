@@ -1,6 +1,6 @@
 ---
 name: report
-description: Monthly report for the site's owner, written from the workspace files: totals and the median page from the month's exports, every action of the month with its verdict, visibility in AI answers, and the three things next month does.
+description: "Write the owner's monthly SEO report from the workspace. Include export totals, the median page, action results, visibility in AI answers, and three next steps."
 disable-model-invocation: true
 argument-hint: "[domain] [YYYY-MM]"
 ---

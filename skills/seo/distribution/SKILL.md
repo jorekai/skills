@@ -1,6 +1,6 @@
 ---
 name: distribution
-description: Repurpose a published URL into an X thread, a LinkedIn post, and a Reddit answer that link back, keyword in the first line; also trend-led posts from Google Trends or X. Use when asked to promote, share, or distribute an article, or to write a thread or post from a URL.
+description: "Turn a published URL into an X thread, LinkedIn post, and Reddit answer, each with a link and keyword in line one. Also draft posts around trends from Google Trends or X. Use when asked to promote, share, or distribute an article, or write a thread or post from a URL."
 ---
 
 # Distribution

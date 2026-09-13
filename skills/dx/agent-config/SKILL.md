@@ -1,6 +1,6 @@
 ---
 name: agent-config
-description: The agent surface of every project, compared against standards.md: the pointer file a session reads first, permission settings, hooks that run on a tool call, and the servers a session depends on. Use when an agent does not find its way in a project, when settings drifted between projects, when a hook fails, or after adding a project.
+description: "Check each project's agent configuration against standards.md: the starting file, permissions, hooks, and required servers. Use when an agent cannot navigate a project, settings differ unexpectedly, a hook fails, or a project was added."
 ---
 
 # Agent configuration

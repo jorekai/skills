@@ -1,6 +1,6 @@
 ---
 name: review
-description: Review a draft or live page on two separate axes before it ships: Intent (does it answer the target query better than the top 5) and Standards (on-page checklist, glossary, and a fabrication check that traces every experiential claim to filled evidence). Use when asked to review, QA, or check a page or draft for SEO, or before a draft moves into the content directory.
+description: "Review a draft or live page before publication. Check intent against the top five results, then check on-page standards, glossary terms, and evidence for every experiential claim. Give separate verdicts for intent and standards. Use for SEO reviews, QA, page or draft checks, or before moving a draft into the content directory."
 ---
 
 # SEO review

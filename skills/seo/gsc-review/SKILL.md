@@ -1,6 +1,6 @@
 ---
 name: gsc-review
-description: Turn a Google Search Console export into a ranked action list via scripts/gsc_opportunities.py (striking-distance queries at position 8–20, CTR gaps, decayed pages, cannibalization, unindexed URLs), after grading the actions logged in earlier weeks. Use when the user shares GSC CSVs or a zip, asks what to optimize next or which pages to update, or runs the weekly SEO review.
+description: "Turn a Search Console export into prioritized actions after reviewing results from earlier weeks. Find queries at positions 8–20, CTR gaps, declining pages, keyword cannibalization, and unindexed URLs. Use for GSC CSVs or ZIP files, weekly SEO reviews, or questions about which pages to update or optimize next."
 ---
 
 # GSC review

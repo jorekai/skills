@@ -21,6 +21,7 @@ Rules for every file in this repository and for every agent or person who edits 
 
 ## Structure
 
+- Skill headers follow the example below. `scripts/check_frontmatter.py` checks every header, including new files (`decisions/0029`).
 - Every line in a `SKILL.md` changes behaviour; what the model does anyway goes.
 - Steps end on a completion criterion ("Done when ...").
 - A step carries no year, no tool name, and no platform fact. A sourced fact stands outside `## Steps`, in `## Rules`, in `## Interpretation`, or in the opening paragraph.
@@ -31,6 +32,21 @@ Rules for every file in this repository and for every agent or person who edits 
 - Headers: at most three levels. Under 500 words, no headers.
 - A step that fans out (a crawl, prospecting, SERP recon, a review) sends the reading to subagents and names what comes back: the columns of one table and a word limit. The pages a subagent read stay in its context, never in the caller's.
 - A step that hands findings, picks, or drafts to a person names the shape of the answer: the columns of one table, the order of the rows, and the row cap. The frame around it stands once per theme, in the router's `## Writing the answer` (`decisions/0023`). A skill whose answer is a file names the file and writes no table.
+
+## Skill headers
+
+Frontmatter is the block between `---` lines at the start of `SKILL.md`. Copy this example for a user-invoked skill:
+
+```yaml
+---
+name: sample
+description: "Review a draft: check its claims and sources."
+disable-model-invocation: true
+argument-hint: "[file]"
+---
+```
+
+Set `name` to the folder name. Use one field per line and double quotes around `description` and `argument-hint`. Inside quoted text, write a quote as `\"` and a backslash as `\\`, following JSON string syntax. Write `true` or `false` without quotes. `argument-hint` is optional. Whether a skill may run implicitly follows the invocation rule in `AGENTS.md`.
 
 ## Private data
 

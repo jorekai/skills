@@ -77,6 +77,25 @@ class VerdictTest(unittest.TestCase):
 
 
 class TargetTest(unittest.TestCase):
+    def test_an_unmeasured_rule_cannot_be_graded(self):
+        it = item("vuln.injection", 0, "count", {"rule-1": None})
+        value, _, note = grade.measure_now(it, "rule-1")
+        self.assertIsNone(value)
+        self.assertIn("not measured", note)
+
+    def test_a_closed_rule_can_be_graded_beside_an_unknown_rule(self):
+        it = item("vuln.injection", 0, "count", {"rule-1": None, "rule-2": 0})
+        it["measure"]["value"] = None
+        self.assertEqual(grade.measure_now(it, "rule-2"), (0.0, "count", ""))
+        self.assertIsNone(grade.measure_now(it, "")[0])
+
+    def test_an_old_review_pass_without_target_evidence_needs_a_new_audit(self):
+        for by in ({}, {"rule-2": 0}):
+            with self.subTest(by=by):
+                value, _, note = grade.measure_now(item("vuln.injection", 0, "count", by), "rule-1")
+                self.assertIsNone(value)
+                self.assertIn("run review again", note)
+
     def test_a_row_with_a_target_is_graded_against_that_target(self):
         it = item("cred.tracked", 3, "count", {"a.py": 2, "b.py": 1})
         self.assertEqual(grade.measure_now(it, "b.py")[0], 1)

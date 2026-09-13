@@ -1,6 +1,6 @@
 ---
 name: grill
-description: Relentless interview about a site's niche, audience, offer, competitors, keywords, evidence, and vocabulary; writes strategy.md and glossary.md in the SEO workspace.
+description: "Interview the owner about the site's niche, audience, offer, competitors, keywords, evidence, and vocabulary. Write strategy.md and glossary.md in the SEO workspace."
 disable-model-invocation: true
 argument-hint: "[domain]"
 ---

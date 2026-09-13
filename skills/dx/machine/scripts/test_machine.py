@@ -145,14 +145,18 @@ class ContainersTest(unittest.TestCase):
 class ReportTest(unittest.TestCase):
     """The console report is what a person reads before deciding, so its shape is a contract."""
 
-    def report(self):
+    def filled(self):
         rep = machine.Report()
         rep.add("WARN", "disk.cache", "40.0 GB in 2 cache directories, all refilled on next use",
                 [{"path": "/x/one", "size": 30 * machine.GB}, {"path": "/x/two", "size": 10 * machine.GB}],
                 measure=40 * machine.GB, by={"/x/one": 30 * machine.GB, "/x/two": 10 * machine.GB})
         rep.add("PASS", "disk.low", "200.0 GB free on /x", measure=0)
         rep.add("INFO", "container.reclaimable", "docker did not answer")
-        return machine.text_report(rep, "test-machine", "free space floor 100 GB")
+        return rep
+
+    def report(self):
+        return machine.text_report(self.filled(), "test-machine", "free space floor 100 GB",
+                                   machine.load_fixes())
 
     def test_the_header_says_what_was_measured_and_against_what(self):
         text = self.report()
@@ -162,34 +166,62 @@ class ReportTest(unittest.TestCase):
     def test_the_counting_line_names_findings_notes_and_passed_checks(self):
         self.assertIn("0 FAIL · 1 WARN · 1 note · 1 passed", self.report())
 
-    def test_the_counting_line_is_a_bar_and_the_cost_stands_in_its_own_column(self):
+    def test_the_counting_line_is_a_bar_and_every_finding_is_one_line(self):
         text = self.report()
         self.assertRegex(text, r"\n\d+ FAIL · \d+ WARN · \d+ notes? · \d+ passed\n")
-        self.assertIn("\nWARN  " + "disk.cache".ljust(machine.ID_WIDTH) + "  40.0 GB\n", text)
+        self.assertRegex(text, r"\n  #  level  check +measure +where +class\n")
+        self.assertRegex(text, r"\n +1  WARN   disk\.cache +40\.0 GB +/x/one \+1 +safe\n")
         self.assertNotIn("(costs", text)
 
-    def test_a_finding_carries_its_cost_its_targets_and_the_next_step(self):
+    def test_the_list_carries_the_cost_and_the_targets_wait_in_the_long_form(self):
         text = self.report()
-        self.assertIn("WARN  " + "disk.cache".ljust(machine.ID_WIDTH) + "  40.0 GB", text)
-        self.assertIn("30.0 GB", text)
+        self.assertIn("40.0 GB", text)
         self.assertIn("passed  disk.low", text)
         self.assertIn("next  ", text)
+        self.assertIn("30.0 GB", machine.explain_report(self.filled(), "test-machine",
+                                                        machine.load_fixes(), "1", None))
 
     def test_a_pass_is_never_reported_as_a_finding(self):
         self.assertNotIn("PASS  disk.low", self.report())
 
-    def test_a_note_names_its_targets_like_a_finding(self):
+    def test_a_note_is_ranked_like_a_finding_and_names_where_it_looked(self):
         """A note is read the same way as a finding, so it says what it found and where."""
         rep = machine.Report()
         rep.add("INFO", "disk.cache", "8.0 GB in 1 cache directory, under the threshold",
                 [{"path": "/x/one", "size": 8 * machine.GB}], measure=8 * machine.GB,
                 by={"/x/one": 8 * machine.GB})
         text = machine.text_report(rep, "test-machine", "free space floor 100 GB")
-        self.assertIn("note  disk.cache", text)
-        self.assertIn("8.0 GB", text)
+        self.assertRegex(text, r"\n +1  note   disk\.cache +8\.0 GB +/x/one")
 
     def test_a_home_path_is_written_short(self):
         self.assertEqual(machine.short(str(Path.home()) + "/one"), "~/one")
+
+
+class ChainTest(unittest.TestCase):
+    """The list answers what and how heavy, `--explain` answers the rest, one finding at a time."""
+
+    def test_the_chain_names_its_fields_in_the_order_a_person_asks_them(self):
+        rep = machine.Report()
+        rep.add("FAIL", "disk.cache", "one line about it", [], measure=1)
+        out = machine.explain_report(rep, "this repository", machine.load_fixes(), "1", None)
+        labels = [l.split()[0] for l in out.splitlines() if l and not l.startswith(" ")][1:]
+        self.assertEqual(labels, ["what", "weight", "means", "fix", "undo", "verify"])
+        self.assertIn("Cache directories a tool refills on", out)
+        self.assertIn("rank 1 of 1", out)
+
+    def test_a_name_no_finding_carries_says_so(self):
+        rep = machine.Report()
+        rep.add("FAIL", "disk.cache", "one line about it", [], measure=1)
+        self.assertIn("no finding called nothing.here",
+                      machine.explain_report(rep, "this repository", {}, "nothing.here", None))
+
+    def test_the_change_column_reads_the_measure_of_an_earlier_pass(self):
+        rep = machine.Report()
+        rep.add("FAIL", "disk.cache", "one line about it", [], measure=2)
+        lines = machine.listing(rep.items, [], machine.load_fixes(), {"disk.cache": 1})
+        self.assertIn("change", lines[0])
+        self.assertRegex(lines[1], r"\+1")
+        self.assertRegex(machine.listing(rep.items, [], {}, {})[1], r" new ")
 
 
 if __name__ == "__main__":

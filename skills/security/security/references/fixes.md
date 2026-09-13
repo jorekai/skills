@@ -1,6 +1,6 @@
 # Fixes by check id
 
-One row per check id a shipped tool emits: what the finding means, the risk class it runs under, and the measure that grades it later with the unit that measure is written in. `scripts/check.sh` compares the unit here against the unit the script reports for that id, so a row graded in another unit is graded against nothing.
+One row per check id a shipped tool emits: what the finding means, the risk class it runs under, the rung of the ladder it sits on, and the measure that grades it later with the unit that measure is written in. The rung is what orders a report: a scanner ranks its findings by this column, so the first line of a report and the first item of `jorekai-security:and-now` are the same piece of work. `scripts/check.sh` compares the unit here against the unit the script reports for that id, so a row graded in another unit is graded against nothing.
 
 The gates in [risk-classes.md](risk-classes.md) stand above every class here. Gate 1 covers `cred.*`, gate 2 covers every fix that touches authentication, authorization, sessions, cryptography, or the rights a token carries.
 
@@ -8,40 +8,40 @@ The namespaces `dep`, `cred`, `build` and `vuln` belong to this theme. `secret` 
 
 ## Secrets
 
-| Check | What it means | Class | Measure (unit) |
-|---|---|---|---|
-| `cred.tracked` | A credential value stands in a file the repository tracks, so every clone has it | `ask` | Credentials in tracked files (`count`) |
-| `cred.history` | A credential is reachable through the history, even where the file is gone today | `ask` | Credentials reachable in the history (`count`) |
-| `cred.unrotated` | A credential this pass found carries no rotation date, so nobody has replaced it | `ask` | Findings without a rotation date (`count`) |
+| Check | What it means | Class | Rung | Measure (unit) |
+|---|---|---|---|---|
+| `cred.tracked` | A credential value stands in a file the repository tracks, so every clone has it | `ask` | 1 | Credentials in tracked files (`count`) |
+| `cred.history` | A credential is reachable through the history, even where the file is gone today | `ask` | 1 | Credentials reachable in the history (`count`) |
+| `cred.unrotated` | A credential this pass found carries no rotation date, so nobody has replaced it | `ask` | 1 | Findings without a rotation date (`count`) |
 
 ## Pipeline
 
-| Check | What it means | Class | Measure (unit) |
-|---|---|---|---|
-| `build.untrusted-checkout` | A workflow that runs with the repository's own rights checks out code from a fork | `ask` | Privileged workflows that check out fork code (`count`) |
-| `build.script-injection` | A shell step puts a context value straight into the command line it runs | `ask` | Shell steps that interpolate a context value (`count`) |
-| `build.token-broad` | A workflow carries no explicit rights, so its token gets whatever the default is | `confirm` | Workflows without a `permissions` block (`count`) |
-| `build.action-unpinned` | A third-party action is bound to a tag, and a tag moves | `confirm` | Third-party actions without a commit sha (`count`) |
+| Check | What it means | Class | Rung | Measure (unit) |
+|---|---|---|---|---|
+| `build.untrusted-checkout` | A workflow that runs with the repository's own rights checks out code from a fork | `ask` | 2 | Privileged workflows that check out fork code (`count`) |
+| `build.script-injection` | A shell step puts a context value straight into the command line it runs | `ask` | 2 | Shell steps that interpolate a context value (`count`) |
+| `build.token-broad` | A workflow carries no explicit rights, so its token gets whatever the default is | `confirm` | 2 | Workflows without a `permissions` block (`count`) |
+| `build.action-unpinned` | A third-party action is bound to a tag, and a tag moves | `confirm` | 2 | Third-party actions without a commit sha (`count`) |
 
 ## Deps
 
-| Check | What it means | Class | Measure (unit) |
-|---|---|---|---|
-| `dep.known-exploited` | An installed version carries an advisory whose identifier stands in the catalogue of exploited flaws | `ask` | Dependencies with an exploited advisory (`count`) |
-| `dep.fix-available` | An installed version carries an advisory, and a version that closes it is published | `confirm` | Dependencies with a published fix (`count`) |
-| `dep.vulnerable` | An installed version carries an advisory and no published fix | `ask` | Dependencies with no published fix (`count`) |
-| `dep.unresolved` | A manifest has no lock file beside it, so nothing says which versions are installed | `confirm` | Manifests without a lock file (`count`) |
+| Check | What it means | Class | Rung | Measure (unit) |
+|---|---|---|---|---|
+| `dep.known-exploited` | An installed version carries an advisory whose identifier stands in the catalogue of exploited flaws | `ask` | 3 | Dependencies with an exploited advisory (`count`) |
+| `dep.fix-available` | An installed version carries an advisory, and a version that closes it is published | `confirm` | 3 | Dependencies with a published fix (`count`) |
+| `dep.vulnerable` | An installed version carries an advisory and no published fix | `ask` | 5 | Dependencies with no published fix (`count`) |
+| `dep.unresolved` | A manifest has no lock file beside it, so nothing says which versions are installed | `confirm` | 6 | Manifests without a lock file (`count`) |
 
 ## Review
 
-| Check | What it means | Class | Measure (unit) |
-|---|---|---|---|
-| `vuln.injection` | Attacker-controlled input reaches an interpreter, a query, or a shell without being bound | `ask` | Open rules of this class (`count`) |
-| `vuln.authz` | A handler is missing the authorization check its neighbours carry | `ask` | Open rules of this class (`count`) |
-| `vuln.deserialize` | Untrusted data reaches a deserializer that can build objects or code | `ask` | Open rules of this class (`count`) |
-| `vuln.ssrf` | The caller decides the host or the protocol of an outgoing request | `ask` | Open rules of this class (`count`) |
-| `vuln.crypto` | Home-made cryptography, a broken algorithm, or a certificate check that was switched off | `ask` | Open rules of this class (`count`) |
-| `vuln.exposure` | A secret or a personal detail reaches a log line or a response body | `confirm` | Open rules of this class (`count`) |
+| Check | What it means | Class | Rung | Measure (unit) |
+|---|---|---|---|---|
+| `vuln.injection` | Attacker-controlled input reaches an interpreter, a query, or a shell without being bound | `ask` | 4 | Open rules of this class (`count`) |
+| `vuln.authz` | A handler is missing the authorization check its neighbours carry | `ask` | 4 | Open rules of this class (`count`) |
+| `vuln.deserialize` | Untrusted data reaches a deserializer that can build objects or code | `ask` | 4 | Open rules of this class (`count`) |
+| `vuln.ssrf` | The caller decides the host or the protocol of an outgoing request | `ask` | 4 | Open rules of this class (`count`) |
+| `vuln.crypto` | Home-made cryptography, a broken algorithm, or a certificate check that was switched off | `ask` | 4 | Open rules of this class (`count`) |
+| `vuln.exposure` | A secret or a personal detail reaches a log line or a response body | `confirm` | 5 | Open rules of this class (`count`) |
 
 ## Fixes
 
@@ -147,3 +147,5 @@ The fix is the one the class names, and it is the same everywhere:
 - Keep the value out of the log line: log the identifier, not the object.
 
 Then close the rule: the finding is over when `review.py` counts zero for it, which happens when the sink is gone from every file the rule's glob matches, or the mitigation pattern matches somewhere in that file. The match is file-wide and not line-local, so a mitigation pattern loose enough to hit a comment or an unrelated function closes the rule without the sink having moved. Write it narrow enough that only the real handling matches it.
+
+To close a rule through a code change, read at least one matching file and every other file its path matches. A missing or unreadable file leaves the result unknown (`null`). Check whether it moved or became unreadable, then rerun review. Recording an accepted risk also removes the rule from the count; it does not prove a code fix.

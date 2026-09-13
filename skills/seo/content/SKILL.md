@@ -1,6 +1,6 @@
 ---
 name: content
-description: Write or refresh a page for search: one target query, SERP recon of the top 5, an outline that answers better, a draft with evidence slots, and the on-page checklist (title, H1, slug, meta, FAQ, internal links, alt). Use when asked to write, rewrite, refresh, or optimize an article, landing page, "best X", "X vs Y", "X alternatives", or how-to page.
+description: "Write or refresh a page for one search query. Review the top five results, build an outline, and draft with evidence slots. Check title, H1, slug, meta, FAQ, internal links, and alt text. Use for writing, rewriting, refreshing, or optimizing articles, landing pages, \"best X\", \"X vs Y\", \"X alternatives\", and how-to pages."
 ---
 
 # SEO content

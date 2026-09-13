@@ -1,6 +1,6 @@
 ---
 name: report
-description: Monthly report for this repository, written from the workspace files: what every check cost when the month opened and what it costs now, every action of the month with its verdict and the class it ran under, what is still open in ladder order, and the three things next month starts with.
+description: "Write the monthly security report from the workspace. Compare costs at the start and end of the month. List action results, risk classes, and open issues by priority, then name three next steps."
 disable-model-invocation: true
 argument-hint: "[repository] [YYYY-MM]"
 ---
@@ -43,6 +43,7 @@ Needs the workspace from `jorekai-security:setup`, one audit inside the month, a
 
 - The report states what the files hold. A month with two actions and no movement reads that way; no verdict is upgraded because the month looks thin.
 - A number in the report is a number a script recomputed. Two measures in different families do not compare and are left out rather than converted into a change nobody can check.
+- If a measurement is incomplete, omit its change and explain why. Name the check id and audit in the notes.
 - No value ever reaches this file. A credential is named by its fingerprint and its place, the same way the audit named it, because a report is the document most likely to be pasted somewhere else.
 - An action belongs to the month it was applied in. A week that straddles two months belongs to the month holding most of its days, so no action is counted twice across a year.
 - The report reads the tools of this theme alone. An audit written by another tool is named under what the report does not cover, never counted into it.

@@ -1,6 +1,6 @@
 ---
 name: github
-description: Work waiting on the forge across every repository with a remote: workflow runs that failed on the default branch, pull requests that have sat too long, reviews requested from you, open security alerts, and default branches with no protection. Use when asked what is red, which pull requests are stuck, whether anything waits on a review, or before a release.
+description: "Find failed workflows, stale pull requests, requested reviews, security alerts, and unprotected default branches across repositories with a remote. Use when asked what is failing, which pull requests are stuck, who needs a review, or before a release."
 ---
 
 # Forge

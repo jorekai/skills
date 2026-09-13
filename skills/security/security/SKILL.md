@@ -1,6 +1,6 @@
 ---
 name: security
-description: "Entry point for the security skill set: which sub-skill to reach for, the flows (new repository, weekly sweep, a credential is out), the priority ladder, the two gates in front of every fix, and the fixes table that carries a fix and a measure per check id."
+description: "Choose the next security skill for a new repository, a weekly sweep, or a leaked credential. Explains priorities, safeguards before each fix, and how to measure its result."
 disable-model-invocation: true
 ---
 
@@ -46,7 +46,7 @@ The workspace is separate from the one `jorekai-dx` and `jorekai-ops` share, bec
 | What can take over the build, and what does the build token allow? | `jorekai-security:pipeline` | agent or you |
 | Which installed dependency is known-bad, and which one is known to be exploited? | `jorekai-security:deps` | agent or you |
 | Where does attacker-controlled input reach a dangerous sink? | `jorekai-security:review` | agent or you |
-| Did the fix hold? Settle the rows past their verify date | `jorekai-security:grade` | agent or you |
+| Did the fix hold? Settle measured rows and name what still needs evidence | `jorekai-security:grade` | agent or you |
 | What did the month do to this repository? | `jorekai-security:report` | you |
 
 ## What this theme does not do
@@ -74,15 +74,17 @@ Every measuring script prints the same shape without `--json`, so one reading or
 
 1. The first two lines say what was measured and what it was measured against, so a number can be judged without opening `standards.md`.
 2. The counting line is a bar of four counts, `FAIL`, `WARN`, notes, passed, in that order. A zero is dimmed.
-3. Each finding is one line of three columns: its level, its check id, and what it costs now as one number and one unit. Findings come in level order, and the costliest first inside a level.
-4. Under a finding stand at most five targets with their own share of the cost, then `+N more` when the JSON holds more. Identical notes fold into one line.
-5. The last zone is `next`: one line that starts with a verb, and under it the gate it waits on. Every id is looked up in [references/fixes.md](references/fixes.md) for the fix, the risk class, and the gate.
+3. Each finding is one line of a table: rank, level, check id, cost, the place it names, and the risk class. Findings come in level order, and inside a level in the order of the `Rung` column of [references/fixes.md](references/fixes.md), which is the ladder above.
+4. `--explain RANK` prints the chain behind one line: `what`, `weight` with the gate the id stands under, `means`, `cause` when the pass proved one, `fix`, `undo`, `verify`. `--previous FILE` takes an earlier findings JSON and adds a `change` column of `=`, a signed number, or `new`. A finding with no cost, which is every note, carries its sentence dimmed under its row.
+5. The last zone is `next`: one line that starts with a verb, and under it the gate it waits on and the evidence still missing when a rule could not be checked. An open finding keeps its own line; a rule nobody could read adds a line and takes none away. Every id is looked up in [references/fixes.md](references/fixes.md) for the fix, the risk class, and the gate.
 
 The console report is for the decision, the JSON is for the record. Only the JSON is written to `audits/`.
 
 A note without a measure is not a pass. A scanner that is not installed, a lock file nothing resolved, and a forge this theme does not read all carry no number on purpose, because a zero there would settle a log row with a figure nobody took.
 
-A terminal gets the same report in colour: the level word, the verdict, the check id and the measure carry the colour their role already has. Nothing is coloured that a word does not already say, and a pipe, a redirect and a subagent see plain text. Reason: `decisions/0022`; the layout inside each zone: `decisions/0028`.
+Review records each rule's result in `measure.by`: `1` for open, `0` for closed or accepted risk, `null` for unknown. Keep actions open when their results are unknown. Grade other rules if their own results are known. Monthly reports explain missing measurements (`decisions/0030`).
+
+A terminal gets the same report in colour: the level word, the verdict, the check id and the measure carry the colour their role already has. Nothing is coloured that a word does not already say, and a pipe, a redirect and a subagent see plain text. Reason: `decisions/0022`; the layout inside each zone: `decisions/0028` and `decisions/0031`.
 
 ## Writing the answer
 
@@ -90,7 +92,7 @@ The report is for the terminal; the answer is for the person, and it has one sha
 
 1. One line first: what ran, what it was measured against, and the path of the JSON. The reader can open it, so nothing inside it is repeated in prose.
 2. One table, in ladder order, at most five rows, one row per check id and never one per target. What the table drops is one sentence under it, never a second table.
-3. Every cost is one number and one unit, copied from the finding's `measure` block. A cost written as prose cannot be graded later.
+3. Copy measured costs from the finding's `measure` block, keeping the number and unit. Write `unknown` when a measurement is missing, and say what needs checking. Do not replace it with zero or log it as a measured action.
 4. A finding is named by its location and its path from an entry point, never by a value. A secret, a token, and a personal detail are quoted as their position and their shape.
 5. One line last: the single next action, and the gate it waits on when it touches a credential or a control.
 

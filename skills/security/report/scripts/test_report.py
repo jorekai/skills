@@ -294,8 +294,21 @@ class ConsoleTest(unittest.TestCase):
             root, base = workspace(d)
             r = subprocess.run([sys.executable, SCRIPT, "--root", str(root), "--month", MONTH],
                                capture_output=True, text=True)
-            self.assertIn("no secrets, pipeline, deps, review audit at all", r.stdout)
+            self.assertIn("no audits from secrets, pipeline, deps, review", r.stdout)
             self.assertEqual(r.stdout.count("\nnote  "), 1)
+
+    def test_incomplete_measurements_fold_into_one_line_per_audit(self):
+        """One unread rule makes every class unknown. That is one note per audit, not one per class."""
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            unknown = [measured("vuln.injection", None, "count"), measured("vuln.authz", None, "count")]
+            audit(base, "2026-09-02", "review", unknown)
+            audit(base, "2026-09-20", "review", unknown)
+            r = subprocess.run([sys.executable, SCRIPT, "--root", str(root), "--month", MONTH],
+                               capture_output=True, text=True)
+            self.assertIn("2026-09-02-review.json carries 2 incomplete measurements "
+                          "(vuln.authz, vuln.injection)", r.stdout)
+            self.assertEqual(r.stdout.count("incomplete measurement"), 2)
 
     def test_the_console_report_carries_no_escape_when_nothing_is_a_terminal(self):
         with tempfile.TemporaryDirectory() as d:

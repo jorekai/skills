@@ -1,6 +1,6 @@
 ---
 name: seo
-description: Entry point for the SEO skill set: which sub-skill to reach for, the three flows (new site, weekly loop, drop), the priority ladder, launch checklist, domain naming, tool stack.
+description: "Choose the next SEO skill for a new site, weekly work, or a traffic drop. Explains priorities, the launch checklist, domain naming, and available tools."
 disable-model-invocation: true
 ---
 

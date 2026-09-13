@@ -6,6 +6,7 @@ Usage:
               [--journald-conf FILE] [--journald-dropin-dir DIR] [--rpo-hours N]
               [--restore-test-days N] [--log-share-percent N] [--filesystem-bytes N]
               [--now YYYY-MM-DDTHH:MM:SS] [--json]
+  recovery.py --explain RANK|ID       the chain behind one finding
   recovery.py --measures              the unit every check id is measured in
 
 SPEC is `name=label,source=PATH[,copy=PATH][,copy=PATH][,tested=YYYY-MM-DD]`, one per thing the
@@ -575,7 +576,214 @@ def detail(item):
     return [(str(d.get("target", "")), str(d.get("value", "")) or "yes") for d in item["data"][:5]]
 
 
-ID_WIDTH = 28
+# The namespaces gate 2 covers (decisions/0016): a change under one of these needs two proved
+# ways in, a backup copy, and a rollback timer before it runs. references/risk-classes.md.
+GATE_PREFIXES = ("ssh.", "key.", "fw.", "sudo.", "user.")
+
+
+# The report answers the questions a person asks, in the order they ask them (decisions/0031):
+# what it is and how heavy it weighs stand in the list, the rest waits behind `--explain`. A report
+# that prints the whole chain for every finding is a report nobody finishes.
+FIXES_FILE = Path(__file__).resolve().parents[2] / "ops" / "references" / "fixes.md"
+FIX_ROW = re.compile(r"\|\s*`([a-z]+\.[a-z-]+)`\s*\|([^|]*)\|\s*`([a-z]+)`\s*\|\s*(\d+)\s*\|")
+FIX_HEAD = re.compile(r"^###\s+(.+)")
+FIX_PLANE = re.compile(r"^#\s*([a-z][a-z0-9-]*)\b")
+
+
+def load_fixes(path=None):
+    """Check id to what it means, its risk class, and the planes the table holds a fix for."""
+    try:
+        text = Path(path or FIXES_FILE).read_text(encoding="utf-8")
+    except OSError:
+        return {}
+    rows, ids, fence, first = {}, [], False, False
+    for line in text.splitlines():
+        m = FIX_ROW.match(line)
+        if m:
+            rows[m.group(1)] = {"means": m.group(2).strip(), "class": m.group(3),
+                                "rung": int(m.group(4)), "planes": []}
+            continue
+        h = FIX_HEAD.match(line)
+        if h:
+            ids = [i.strip(" `") for i in h.group(1).split(",")]
+            continue
+        if line.startswith("```"):
+            fence, first = not fence, True
+            continue
+        # Only the first comment of a block names its control plane; the rest explain the commands.
+        if fence and first and line.startswith("#"):
+            first = False
+            m = FIX_PLANE.match(line)
+            for cid in ids if m else []:
+                if cid in rows and m.group(1) not in rows[cid]["planes"]:
+                    rows[cid]["planes"].append(m.group(1))
+    return rows
+
+
+def previous_measures(path):
+    """Every measure of an earlier findings JSON, so a line can carry a direction."""
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    return {i["id"]: (i.get("measure") or {}).get("value") for i in data.get("items", [])}
+
+
+def change_of(item, previous):
+    """The direction since that pass: `=`, a signed number, or `new` for an id it never held."""
+    now = (item.get("measure") or {}).get("value")
+    if now is None:
+        return "-"
+    old = previous.get(item["id"])
+    if old is None:
+        return "new"
+    return "=" if old == now else f"{now - old:+d}"
+
+
+def where_of(item, width=20):
+    """The first place the finding names, and how many more places the JSON holds.
+
+    It reads the same rows the long form prints, so the column and `--explain` never disagree.
+    """
+    rows = detail(item)
+    if not rows:
+        return "-"
+    more = len(item["data"]) - 1
+    text = str(rows[0][0]) + (f" +{more}" if more > 0 else "")
+    return text if len(text) <= width else text[:width - 2] + ".."
+
+def ranked_findings(rep, fixes=None):
+    """Findings and notes in ladder order: the rank is the address `--explain` takes.
+
+    The rung comes from the fixes table, so one order runs through the report, the fixes table and
+    `jorekai-ops:and-now`. Without that file the pass still ranks, by level and cost alone.
+    """
+    fixes = fixes or {}
+    ranked = sorted(rep.items, key=lambda x: (LEVEL_ORDER[x["level"]],
+                                              fixes.get(x["id"], {}).get("rung", 9),
+                                              -((x.get("measure") or {}).get("value") or 0), x["id"]))
+    return ([i for i in ranked if i["level"] in ("FAIL", "WARN")],
+            [i for i in ranked if i["level"] == "INFO"],
+            [i for i in ranked if i["level"] == "PASS"])
+
+
+def columns(head, rows, paints, under=None):
+    """Fixed columns, padded on the plain text, painted after, so colour never moves a column."""
+    under = under or {}
+    widths = [max([len(h)] + [len(r[c]) for r in rows]) for c, h in enumerate(head)]
+    out = [paint("  ".join(h.ljust(w) for h, w in zip(head, widths)).rstrip(), "dim")]
+    indent = " " * (widths[0] + 2 + widths[1] + 2)
+    for n, (row, keys) in enumerate(zip(rows, paints)):
+        # The padding stays outside the escape, or a line with colour and a line without it would
+        # end on a different number of spaces and the report would read differently in a pipe.
+        line = "  ".join((paint(v, k) if k else v) + " " * (w - len(v))
+                         for v, w, k in zip(row, widths, keys))
+        out.append(line.rstrip())
+        if under.get(n):
+            out.append(paint(indent + under[n], "dim"))
+    return out
+
+
+def said(item, width=70):
+    """The sentence a line with no cost carries, because a note's content is its sentence."""
+    text = " ".join(item.get("message", "").split())
+    return text if len(text) <= width else text[:width - 2] + ".."
+
+
+def listing(findings, notes, fixes, previous):
+    """One line per finding: rank, level, check, measure, change, where, class."""
+    head = ["  #", "level", "check", "measure"] + (["change"] if previous is not None else []) \
+        + ["where", "class"]
+    rows, paints, notes_under = [], [], {}
+    for n, i in enumerate(findings + notes, 1):
+        level = "note" if i["level"] == "INFO" else i["level"]
+        row = [f"{n:>3}", level, i["id"], cost(i) or "-"]
+        keys = [None, i["level"], "id", "dim"]
+        if previous is not None:
+            direction = change_of(i, previous)
+            row.append(direction)
+            keys.append({"=": "dim", "-": "dim", "new": "WARN"}.get(direction)
+                        or ("WARN" if direction.startswith("+") else "PASS"))
+        row += [where_of(i), fixes.get(i["id"], {}).get("class", "-")]
+        keys += ["dim", "INFO"]
+        rows.append(row)
+        paints.append(keys)
+        # A finding without a cost has nothing in the column the eye reads, so its sentence goes
+        # under it, dimmed. Every other line stays one line.
+        notes_under[len(rows) - 1] = None if cost(i) else said(i)
+    return columns(head, rows, paints, notes_under)
+
+
+def field(label, lines, width=6, wrap=80):
+    """One field of the chain: the label once, dimmed, its lines wrapped under it."""
+    if not lines:
+        return []
+    pad = " " * (width + 2)
+    flowed = []
+    for line in lines:
+        flowed += textwrap.wrap(line, width=wrap - len(pad), break_long_words=False,
+                                break_on_hyphens=False) or [""]
+    return [f"{paint(label.ljust(width), 'dim')}  {flowed[0]}"] + [pad + l for l in flowed[1:]]
+
+
+def undo_line(cid, klass):
+    """The way back, read from the class the id runs under (references/risk-classes.md)."""
+    if cid.startswith(GATE_PREFIXES):
+        return ("restore the backup copy gate 2 wrote, then prove a fresh connection "
+                "before the rollback timer elapses")
+    if klass == "confirm":
+        return "the dry run names every path it writes, and the copy it writes first is the way back"
+    if klass == "safe":
+        return "the class is safe, so the change reports what it did and setting the old value again is the way back"
+    if klass == "ask":
+        return "the class is ask, so nothing runs from here: copy what you touch before you touch it"
+    return ""
+
+
+def pick(ranked, which):
+    """A finding by its rank in this pass or by its check id, whichever the argument holds."""
+    if which.isdigit() and 1 <= int(which) <= len(ranked):
+        return ranked[int(which) - 1]
+    return next((i for i in ranked if i["id"] == which), None)
+
+
+def explain_report(rep, target, fixes, which, previous):
+    """The chain for one finding: what, weight, means, cause, fix, undo, verify."""
+    findings, notes, _ = ranked_findings(rep, fixes)
+    ranked = findings + notes
+    item = pick(ranked, which)
+    if item is None:
+        return (f"no finding called {which} in this pass. The list prints a rank per finding, "
+                "and --explain takes that rank or the check id.")
+    n, row = ranked.index(item) + 1, fixes.get(item["id"], {})
+    klass = row.get("class", "")
+    out = [f"{paint(item['id'], 'head')}  {paint(f'rank {n} of {len(ranked)}', 'dim')}  "
+           f"{paint('note' if item['level'] == 'INFO' else item['level'], item['level'])}  "
+           f"{paint(target, 'dim')}", ""]
+    out += field("what", [item["message"]])
+    out += block(detail(item), indent=" " * 8)
+
+    weight = [cost(item) or "nothing measurable", item["level"].lower()]
+    if previous is not None:
+        weight.append(f"change {change_of(item, previous)}")
+    if item["id"].startswith(GATE_PREFIXES):
+        weight.append("gate 2 namespace")
+    out += field("weight", [" · ".join(weight)])
+    out += field("means", [row.get("means") or
+                           "no row in the fixes table of jorekai-ops:ops, so nothing explains this id yet"])
+    # A cause is printed only where the pass proved one. A finding that carries no signal carries
+    # no line here, because a guessed cause costs more trust than it saves time.
+    if item.get("cause"):
+        out += field("cause", [item["cause"]])
+
+    fix = [" · ".join(filter(None, [klass or "no class",
+                                    "gate 2" if item["id"].startswith(GATE_PREFIXES) else "",
+                                    "fixes table of jorekai-ops:ops"]))]
+    if row.get("planes"):
+        fix.append("the table holds a block per control plane: " + ", ".join(row["planes"]))
+    out += field("fix", fix)
+    out += field("undo", [undo_line(item["id"], klass)] if undo_line(item["id"], klass) else [])
+    unit = MEASURES.get(item["id"], "count")
+    out += field("verify", [f"{item['id']}  0 {unit}  recomputed by this pass",
+                            "the verify date goes in the log row that carries the change"])
+    return "\n".join(out)
 
 
 def bar(fails, warns, notes, passed):
@@ -586,19 +794,6 @@ def bar(fails, warns, notes, passed):
     return " · ".join(paint(f"{n} {word}", key if n else "dim") for n, word, key in cells)
 
 
-def finding_line(item):
-    """Level, id padded to one width, cost: three columns, so the eye reads down them.
-
-    A note carries no cost, so its id stands unpadded: padding a column that never comes only
-    to strip it again would depend on whether colour wraps the trailing spaces or not.
-    """
-    tag = paint("note" if item["level"] == "INFO" else f"{item['level']:<4}", item["level"])
-    price = cost(item) if item["level"] != "INFO" else ""
-    if not price:
-        return f"{tag}  {paint(item['id'], 'id')}"
-    return f"{tag}  {paint(item['id'].ljust(ID_WIDTH), 'id')}  {paint(price, 'dim')}"
-
-
 def wrapped(label, words, width=80):
     """A dimmed list that wraps at the terminal's width, the label once."""
     lines = textwrap.wrap(", ".join(words), width=width - len(label) - 2, break_on_hyphens=False)
@@ -606,30 +801,23 @@ def wrapped(label, words, width=80):
     return [paint(f"{label}  {lines[0]}", "dim")] + [paint(indent + l, "dim") for l in lines[1:]]
 
 
-def text_report(targets, secrets, rep, target_name, standards):
-    """The console report: what was measured, what needs a decision, what is only a note."""
-    ranked = sorted(rep.items, key=lambda x: (LEVEL_ORDER[x["level"]],
-                                              -((x.get("measure") or {}).get("value") or 0), x["id"]))
-    findings = [i for i in ranked if i["level"] in ("FAIL", "WARN")]
-    notes = [i for i in ranked if i["level"] == "INFO"]
-    passed = [i for i in ranked if i["level"] == "PASS"]
+def text_report(targets, secrets, rep, target_name, standards, fixes=None, previous=None):
+    """The console report: what was measured, then one line per finding, then the next step."""
+    fixes = {} if fixes is None else fixes
+    findings, notes, passed = ranked_findings(rep, fixes)
     fails = sum(1 for i in findings if i["level"] == "FAIL")
     out = [paint(f"recovery  {target_name}  {plural(len(targets), 'backup target')}, "
                  f"{plural(len(secrets), 'secret')}", "head"),
            f"measured against  {standards}", "",
            bar(fails, len(findings) - fails, len(notes), len(passed))]
-    for i in findings + notes:
-        out += ["", finding_line(i), f"      {i['message']}"]
-        out += block(detail(i))
-        if len(i["data"]) > 5:
-            out.append(paint(f"      +{len(i['data']) - 5} more in the JSON", "dim"))
+    if findings or notes:
+        out += [""] + listing(findings, notes, fixes, previous)
     if passed:
         out += [""] + wrapped("passed", sorted({i["id"] for i in passed}))
     if findings:
         out += ["", paint("next", "head") + "  a copy that exists somewhere else comes before a "
                 "secret that is only readable too widely, and both come before the journal, then "
-                "look each id up in the fixes table of jorekai-ops:ops for the fix per control "
-                "plane and the risk class"]
+                "`--explain RANK` for the chain behind a line"]
     else:
         out += ["", paint("next", "head") + "  nothing to act on, measure again when this audit ages out"]
     return "\n".join(out)
@@ -654,6 +842,12 @@ def main(argv=None):
                     help="share of its filesystem the journal may hold")
     ap.add_argument("--filesystem-bytes", type=int, default=0,
                     help="size of the filesystem under the journal, for tests")
+    ap.add_argument("--explain", default="", metavar="RANK|ID",
+                    help="the chain behind one finding: what, weight, means, fix, undo, verify")
+    ap.add_argument("--previous", default="", metavar="FILE",
+                    help="an earlier findings JSON, which adds the change column")
+    ap.add_argument("--fixes", default="", metavar="FILE",
+                    help="the fixes table to read the class and the meaning from")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--now", default=None, metavar="YYYY-MM-DDTHH:MM:SS", help="for tests")
     ap.add_argument("--measures", action="store_true", help="print the unit of every check id")
@@ -678,11 +872,16 @@ def main(argv=None):
                                                  for c in t["local"]]} for t in targets],
                           "secrets": [str(s["recorded"]) for s in secrets],
                           "items": rep.items}, indent=2, ensure_ascii=False))
+    elif a.explain:
+        print(explain_report(rep, target_name, load_fixes(a.fixes or None), a.explain,
+                             previous_measures(a.previous) if a.previous else None))
     else:
         standards = (f"a copy no older than {plural(a.rpo_hours, 'hour')}"
                      f" · a restore test inside {plural(a.restore_test_days, 'day')}"
                      f" · a journal under {a.log_share_percent} percent of its filesystem")
-        print(text_report(targets, secrets, rep, target_name, standards))
+        print(text_report(targets, secrets, rep, target_name, standards,
+                          load_fixes(a.fixes or None),
+                          previous_measures(a.previous) if a.previous else None))
     return 0
 
 

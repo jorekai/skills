@@ -1,6 +1,6 @@
 ---
 name: machine
-description: Local resources of this machine via scripts/machine.py: free space against the floor, cache directories, rebuildable dependency and build trees, available memory, and the storage a container runtime reports as reclaimable. Use when the disk is full, when the machine is slow, when containers eat space, or as the resource half of a sweep.
+description: "Check free disk space against its minimum, caches, rebuildable dependency and build folders, available memory, and reclaimable container storage. Use when the disk is full, the machine is slow, containers take too much space, or during a resource sweep."
 ---
 
 # Machine
@@ -21,7 +21,7 @@ Nothing is removed by this skill's measurement. What may follow is decided by th
    The script paths are relative to this skill's directory. The pass reads sizes off the disk and takes about a minute on a machine with large caches, so run it in the background and do something else. Without roots it still measures the volume, memory, caches, and the container runtime.
    Done when the JSON holds a `counts` block and `disk.low` reports a free figure. An `INFO` on a check means its source is missing on this machine, not that the check passed.
 
-2. **Rank by what is actually blocking.** Free space below the floor outranks everything else here, because nothing else finishes on a full disk. Otherwise take the biggest reclaimable class first: caches, then container storage, then rebuildable trees. Look each id up in [../dx/references/fixes.md](../dx/references/fixes.md). The answer is one table, `check id | cost | targets | fix | class`, at most five rows, one row per check id; the rest of the shape is in the router's `## Writing the answer`.
+2. **Rank by what is actually blocking.** Free space below the floor outranks everything else here, because nothing else finishes on a full disk. Otherwise take the biggest reclaimable class first: caches, then container storage, then rebuildable trees. Look each id up in [../dx/references/fixes.md](../dx/references/fixes.md). The pass ranks by the `Rung` column of that file, and `--explain RANK` prints the chain behind one line: what it means, where it comes from, the fix, the way back, and what closes it. The answer is one table, `check id | cost | targets | fix | class`, at most five rows, one row per check id; the rest of the shape is in the router's `## Writing the answer`.
    Done when the order is by bytes returned per risk taken, not by how untidy something looks.
 
 3. **Act by class.** `safe` runs and reports what came back. `confirm` shows the exact paths and the total first, asks once, then runs. `ask` prints the command and stops. A rebuildable tree inside a repository is removed only when that repository is clean and pushed, which `jorekai-dx:repos` answers.

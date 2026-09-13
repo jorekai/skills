@@ -1,6 +1,6 @@
 ---
 name: repos
-description: State of every local repository on this machine in one pass via scripts/repos.py: untracked credential files no ignore rule covers, uncommitted changes, commits that exist on no remote, branches with no upstream, a detached HEAD, old stashes, merged branches past the retention, lock files older than their manifest, and missing README, ignore file, or checks. Use when asked which repositories hold unsaved work, whether a secret is one commit away from a history, before removing anything on the machine, when a repository will not push, or for a sweep across all projects.
+description: "Check local repositories for exposed credential files, uncommitted or unpushed work, missing upstreams, detached HEADs, old stashes, and merged branches. Also check lock files against manifests, README files, ignore rules, and checks. Use before deleting files, when pushes fail, or when asked about unsaved work, accidental credential commits, or project health."
 ---
 
 # Repositories
@@ -21,7 +21,7 @@ Every check is local. Nothing fetches, nothing pushes, nothing is written into a
    The script paths are relative to this skill's directory. A flag the workspace left blank is absent on purpose: that check does not run on this machine. Every item carries its full list under `data`; the text report shows the first few. Run without `--json` first when you only need to look.
    Done when the JSON holds a `counts` block and the repository count matches what the roots actually contain. A count of zero means the roots are wrong, not that the machine is clean.
 
-2. **Rank the findings, do not list them.** Order by the priority ladder in the router, not by how many repositories a check touched: work at risk first, then what blocks a push, then hygiene. Look each id up in [../dx/references/fixes.md](../dx/references/fixes.md) for the fix, the class, and the measure. The answer is one table, `check id | cost | targets | fix | class`, at most five rows, one row per check id; the rest of the shape is in the router's `## Writing the answer`.
+2. **Rank the findings, do not list them.** Order by the priority ladder in the router, not by how many repositories a check touched: work at risk first, then what blocks a push, then hygiene. Look each id up in [../dx/references/fixes.md](../dx/references/fixes.md) for the fix, the class, and the measure. The pass already ranks by that ladder, because the `Rung` column of that file is the same table, and `--explain RANK` prints the chain behind one line: what it means, where it comes from, the fix, the way back, and what closes it. The answer is one table, `check id | cost | targets | fix | class`, at most five rows, one row per check id; the rest of the shape is in the router's `## Writing the answer`.
 
    The script reports what a repository has; `standards.md` decides what counts. `repo.no-readme`, `repo.no-ignore`, `repo.no-ci`, and `repo.no-remote` are findings only where `readme`, `ignore_file`, `ci`, and `remote` ask for them, and `git.no-upstream` is read against `default_branch`. A blank standard means the script's line is information, not a gap.
    Done when every `FAIL` id has a named fix and an owner, and the rest is one sentence.

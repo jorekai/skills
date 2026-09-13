@@ -358,13 +358,13 @@ class ReportTest(unittest.TestCase):
                 if i["measure"]:
                     self.assertEqual(i["measure"]["unit"], recovery.MEASURES[i["id"]])
 
-    def test_the_counting_line_is_a_bar_and_the_cost_stands_in_its_own_column(self):
+    def test_the_counting_line_is_a_bar_and_every_finding_is_one_line(self):
         with tempfile.TemporaryDirectory() as d:
             r = subprocess.run([sys.executable, SCRIPT, "--root", d, "--now", NOW,
                                 "--backup", "web=web,source=/srv/web"],
                                capture_output=True, text=True)
             self.assertRegex(r.stdout, r"\n\d+ FAIL · \d+ WARN · \d+ notes? · \d+ passed\n")
-            self.assertRegex(r.stdout, r"\nFAIL  backup\.missing {16}1 target without a copy\n")
+            self.assertRegex(r.stdout, r"\n +\d+  FAIL   backup\.missing +1 target without a copy +web +confirm\n")
             self.assertNotIn("(costs", r.stdout)
 
     def test_the_console_report_carries_no_escape_when_nothing_is_a_terminal(self):
@@ -380,6 +380,33 @@ class ReportTest(unittest.TestCase):
             r = subprocess.run([sys.executable, SCRIPT, "--root", d, "--now", NOW],
                                capture_output=True, text=True, env=env)
             self.assertIn("\033[", r.stdout)
+
+
+class ChainTest(unittest.TestCase):
+    """The list answers what and how heavy, `--explain` answers the rest, one finding at a time."""
+
+    def test_the_chain_names_its_fields_in_the_order_a_person_asks_them(self):
+        rep = recovery.Report()
+        rep.add("FAIL", "backup.missing", "one line about it", [], measure=1)
+        out = recovery.explain_report(rep, "this host", recovery.load_fixes(), "1", None)
+        labels = [l.split()[0] for l in out.splitlines() if l and not l.startswith(" ")][1:]
+        self.assertEqual(labels, ["what", "weight", "means", "fix", "undo", "verify"])
+        self.assertIn("A target the standards name has no copy", out)
+        self.assertIn("rank 1 of 1", out)
+
+    def test_a_name_no_finding_carries_says_so(self):
+        rep = recovery.Report()
+        rep.add("FAIL", "backup.missing", "one line about it", [], measure=1)
+        self.assertIn("no finding called nothing.here",
+                      recovery.explain_report(rep, "this host", {}, "nothing.here", None))
+
+    def test_the_change_column_reads_the_measure_of_an_earlier_pass(self):
+        rep = recovery.Report()
+        rep.add("FAIL", "backup.missing", "one line about it", [], measure=2)
+        lines = recovery.listing(rep.items, [], recovery.load_fixes(), {"backup.missing": 1})
+        self.assertIn("change", lines[0])
+        self.assertRegex(lines[1], r"\+1")
+        self.assertRegex(recovery.listing(rep.items, [], {}, {})[1], r" new ")
 
 
 if __name__ == "__main__":

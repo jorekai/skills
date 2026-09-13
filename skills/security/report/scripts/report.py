@@ -209,7 +209,7 @@ def measures(entry):
 
 def movement(found, first, last):
     """What every check id cost when the month opened and what it costs now."""
-    rows, no_audit, opening_only = [], [], []
+    rows, notes, no_audit, opening_only, incomplete = [], [], [], [], {}
     for tool in sorted(found):
         start, end = pick(found[tool], first, last)
         if end is None:
@@ -218,6 +218,13 @@ def movement(found, first, last):
         if start is None:
             opening_only.append(tool)
             continue
+        # One audit, one note. A single unread rule makes every class of that pass unknown, and
+        # a note per class per audit would bury the month under the same sentence.
+        for entry in (start, end):
+            for item in entry["items"]:
+                measure = item.get("measure")
+                if measure and measure.get("value") is None:
+                    incomplete.setdefault(entry["file"], set()).add(item["id"])
         then, now = measures(start), measures(end)
         for cid in sorted(set(then) & set(now)):
             (tv, tu), (nv, nu) = then[cid], now[cid]
@@ -229,7 +236,10 @@ def movement(found, first, last):
                          "change": nb - tb, "family": family, "unit": tu,
                          "from": start["file"], "to": end["file"]})
     rows.sort(key=lambda r: (rung(r["check"]), r["change"]))
-    notes = []
+    for file in sorted(incomplete):
+        ids = sorted(incomplete[file])
+        notes.append(f"{file} carries {plural(len(ids), 'incomplete measurement')} "
+                     f"({', '.join(ids)}), so there is not enough evidence to report a change")
     if no_audit:
         subject, vb = ("it", "measures") if len(no_audit) == 1 else ("they", "measure")
         notes.append(f"no {', '.join(no_audit)} audit inside the month, so nothing {subject} "
@@ -319,7 +329,7 @@ def headline(actions, counts, moved):
     """One sentence with the number that carries the month."""
     if not actions and not moved:
         return "Nothing was logged this month and no audit pair covers it."
-    parts = [f"{plural(len(actions), 'action')} logged, {counts['won']} held"]
+    parts = [f"{plural(len(actions), 'action')} logged, {plural(counts['won'], 'improvement')} verified"]
     # Biggest means biggest, and two checks in different units only compare as a share of what
     # they cost before. The table stays in ladder order; this one sentence does not.
     falls = sorted((r for r in moved if r["change"] < 0), key=share)
@@ -389,9 +399,7 @@ def collect(base_dir, first, last):
                      "and are not read here")
     missing = [tool for tool in TOOLS if tool not in found]
     if missing:
-        subject, vb = ("it", "measures") if len(missing) == 1 else ("they", "measure")
-        notes.append(f"no {', '.join(missing)} audit at all, so nothing {subject} {vb} has ever "
-                     "been in a report")
+        notes.append(f"no audits from {', '.join(missing)}. Run those checks to include their findings")
     actions, still_open, verdicts, weeks = log_rows(base_dir, first, last)
     counts = counted(actions, verdicts)
     return {"movement": moved, "notes": notes, "actions": actions, "open": still_open,

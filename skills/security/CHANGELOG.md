@@ -2,6 +2,17 @@
 
 One entry per `jorekai-security` version. The version at the top equals `version` in `skills/security/.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 0.3.0 (2026-09-13)
+
+- Changed: Every measuring pass prints one line per finding: rank, level, check id, cost, the place it names, and the risk class. `--explain RANK` prints the chain behind one line, with the gate the id stands under, and `--previous FILE` adds a `change` column read from an earlier findings JSON. A note carries its sentence under its row.
+- Added: A `Rung` column in the fixes table, copied from the ladder in `jorekai-security:and-now`. The pass ranks by it, and `scripts/check_rungs.py` fails when the two disagree.
+
+## 0.2.1 (2026-09-13)
+
+- Changed: Review records values per rule and leaves missing or unread paths unmeasured. Grading keeps those rows open; monthly reports name incomplete measures. An open finding keeps its fix and its gate in the `next` zone, with the unread path as one line under them; identical notes about an incomplete audit fold into one line per audit naming every check id.
+- Changed: Shorten skill descriptions and explain missing evidence in the instructions, diagnostics, and monthly report.
+- Added: Workflow tests covering setup, review, logging, grading, and the monthly report.
+
 ## 0.2.0 (2026-09-11)
 
 - Changed: `jorekai-security:secrets`, `jorekai-security:deps`, `jorekai-security:pipeline`, and `jorekai-security:review` print the counting line as a bar of `FAIL`, `WARN`, notes, passed; the cost of a finding stands in its own column after the check id instead of in parentheses; the `next` zone carries the gate on its own line where one applies; the passed list wraps. `jorekai-security:grade` prints a bar of `due`, `won`, `returned`, `no-change` and one line per row of the verdict, the row id, the check id, and `then`/`now` in their own columns. `jorekai-security:report` prints a bar of `won`, `no-change`, `returned`, `open`, and identical notes about a missing audit fold into one line naming every tool. `jorekai-security:and-now` prints each `now` step with the skill name as its own aligned column, and `then` as one line. Reason: `decisions/0028`. The router's `## Reading a report` names the bar and the columns.

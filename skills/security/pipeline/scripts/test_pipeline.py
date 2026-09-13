@@ -252,13 +252,13 @@ class ContractTest(unittest.TestCase):
             self.assertIn("measured against", r.stdout)
             self.assertIn("\nnext  ", r.stdout)
 
-    def test_the_counting_line_is_a_bar_and_the_cost_stands_in_its_own_column(self):
+    def test_the_counting_line_is_a_bar_and_every_finding_is_one_line(self):
         with tempfile.TemporaryDirectory() as d:
             workflows(d, a="on: [push]\njobs:\n  b:\n    steps:\n      - uses: owner/act@v1\n")
             r = subprocess.run([sys.executable, SCRIPT, "--root", d, "--now", NOW],
                                capture_output=True, text=True)
             self.assertRegex(r.stdout, r"\n\d+ FAIL · \d+ WARN · \d+ notes? · \d+ passed\n")
-            self.assertRegex(r.stdout, r"\nWARN  build\.token-broad {13}1 workflow\n")
+            self.assertRegex(r.stdout, r"\n +\d+  WARN +build\.token-broad +1 +workflow")
             self.assertNotIn("(costs", r.stdout)
 
     def test_the_report_carries_no_escape_when_nothing_is_a_terminal(self):
@@ -274,6 +274,33 @@ class ContractTest(unittest.TestCase):
             r = subprocess.run([sys.executable, SCRIPT, "--root", d, "--now", NOW],
                                capture_output=True, text=True, env=env)
             self.assertIn("\033[", r.stdout)
+
+
+class ChainTest(unittest.TestCase):
+    """The list answers what and how heavy, `--explain` answers the rest, one finding at a time."""
+
+    def test_the_chain_names_its_fields_in_the_order_a_person_asks_them(self):
+        rep = pipeline.Report()
+        rep.add("FAIL", "build.token-broad", "one line about it", [], measure=1)
+        out = pipeline.explain_report(rep, "this repository", pipeline.load_fixes(), "1", None)
+        labels = [l.split()[0] for l in out.splitlines() if l and not l.startswith(" ")][1:]
+        self.assertEqual(labels, ["what", "weight", "means", "fix", "undo", "verify"])
+        self.assertIn("A workflow carries no explicit rights,", out)
+        self.assertIn("rank 1 of 1", out)
+
+    def test_a_name_no_finding_carries_says_so(self):
+        rep = pipeline.Report()
+        rep.add("FAIL", "build.token-broad", "one line about it", [], measure=1)
+        self.assertIn("no finding called nothing.here",
+                      pipeline.explain_report(rep, "this repository", {}, "nothing.here", None))
+
+    def test_the_change_column_reads_the_measure_of_an_earlier_pass(self):
+        rep = pipeline.Report()
+        rep.add("FAIL", "build.token-broad", "one line about it", [], measure=2)
+        lines = pipeline.listing(rep.items, [], pipeline.load_fixes(), {"build.token-broad": 1})
+        self.assertIn("change", lines[0])
+        self.assertRegex(lines[1], r"\+1")
+        self.assertRegex(pipeline.listing(rep.items, [], {}, {})[1], r" new ")
 
 
 if __name__ == "__main__":

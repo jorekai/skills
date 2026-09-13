@@ -1,6 +1,6 @@
 ---
 name: friction
-description: What the command history says costs time, via scripts/friction.py: command shapes that repeat, pairs run one after the other, shapes that fail, retry loops, and the slowest totals. Every line is redacted before it is counted. Writes proposals, not actions.
+description: "What the command history says costs time, via scripts/friction.py: command shapes that repeat, pairs run one after the other, shapes that fail, retry loops, and the slowest totals. Every line is redacted before it is counted. Writes proposals, not actions."
 disable-model-invocation: true
 argument-hint: "[days]"
 ---
@@ -23,7 +23,7 @@ This skill reads history and writes proposals. It changes nothing on the machine
    The script paths are relative to this skill's directory. The `friction` line holds every history source the machine config records and the threshold from `standards.md`; a source that is recorded but missing on disk is skipped, not an error. Without `--json` the report prints shapes only, never a command line.
    Done when the report names a command count above zero. Zero means the paths are wrong, not that the machine is quiet.
 
-2. **Pick at most three, by time cost.** A shape that runs eighty times and takes two seconds costs less than one that runs six times and takes four minutes. A retry loop costs more than either, because the person is waiting and guessing. Ignore what is merely frequent.
+2. **Pick at most three, by time cost.** A shape that runs eighty times and takes two seconds costs less than one that runs six times and takes four minutes. A retry loop costs more than either, because the person is waiting and guessing. Ignore what is merely frequent. `--explain RANK` prints the chain behind one line, and `--previous FILE` reads an earlier findings JSON so a shape that grew is told from one that held.
    Done when each pick has a number behind it: runs, failure rate, or total seconds.
 
 3. **Turn each pick into a proposal, not an action.** Write `proposals/<slug>.md` with the finding, the number, what would replace it, and what would have to be true for it to be worth the change. A proposal becomes a log row only once it has a measure the same pass recomputes: the same shape's runs, failure rate, or seconds in the next window. The answer is one table, `shape | cost | what would replace it | what must be true`, one row per proposal and at most three; the rest of the shape is in the router's `## Writing the answer`.

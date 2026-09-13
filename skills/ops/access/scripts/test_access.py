@@ -234,15 +234,113 @@ class ContractTest(unittest.TestCase):
             self.assertIn("measured against", r.stdout)
             self.assertIn("\nnext  ", r.stdout)
 
-    def test_the_counting_line_is_a_bar_and_the_cost_stands_in_its_own_column(self):
+    def test_the_counting_line_is_a_bar_and_every_finding_is_one_line(self):
         with tempfile.TemporaryDirectory() as d:
             root = build(d, sshd="PermitRootLogin yes\n")
             r = subprocess.run([sys.executable, SCRIPT, "--root", str(root)],
                                capture_output=True, text=True)
             self.assertRegex(r.stdout, r"\n\d+ FAIL · \d+ WARN · \d+ notes? · \d+ passed\n")
-            self.assertRegex(r.stdout, r"\nFAIL  ssh\.root-login {16}1 open way in\n")
+            self.assertRegex(r.stdout, r"\n  #  level  check +measure +where +class\n")
+            self.assertRegex(r.stdout, r"\n +\d+  FAIL   ssh\.root-login +1 open way in +sshd +ask\n")
             self.assertNotIn("(costs", r.stdout)
             self.assertIn("\n      gate: ssh.* in the fixes table of jorekai-ops:ops\n", r.stdout)
+
+    def test_the_rank_follows_the_rung_in_the_fixes_table_not_the_size_of_the_cost(self):
+        """access.single-path sits on rung 1, so it leads a report whose costs are larger."""
+        with tempfile.TemporaryDirectory() as d:
+            root = build(d, sshd="PermitRootLogin yes\nPasswordAuthentication yes\n")
+            r = subprocess.run([sys.executable, SCRIPT, "--root", str(root)],
+                               capture_output=True, text=True)
+            ranked = re.findall(r"\n +(\d+)  \w+ +([a-z]+\.[a-z-]+)", r.stdout)
+            self.assertEqual(ranked[0][1], "access.single-path")
+            self.assertEqual([n for n, _ in ranked], [str(i) for i in range(1, len(ranked) + 1)])
+
+    def test_the_class_column_falls_back_to_a_dash_when_the_fixes_table_is_not_there(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = build(d, sshd="PermitRootLogin yes\n")
+            r = subprocess.run([sys.executable, SCRIPT, "--root", str(root),
+                                "--fixes", str(Path(d) / "no-such-file.md")],
+                               capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertRegex(r.stdout, r"\n +\d+  FAIL   ssh\.root-login +1 open way in +sshd +-\n")
+
+
+class ExplainTest(unittest.TestCase):
+    """`--explain` answers the questions the list leaves open, for one finding at a time."""
+
+    def report(self, root, *extra):
+        r = subprocess.run([sys.executable, SCRIPT, "--root", str(root), *extra],
+                           capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return r.stdout
+
+    def test_the_chain_names_its_fields_in_the_order_a_person_asks_them(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = build(d, sshd="PermitRootLogin yes\n")
+            out = self.report(root, "--explain", "ssh.root-login")
+            labels = [l.split()[0] for l in out.splitlines() if l and not l.startswith(" ")][1:]
+            self.assertEqual(labels, ["what", "weight", "means", "fix", "undo", "verify"])
+            self.assertIn("rank ", out.splitlines()[0])
+
+    def test_a_rank_and_an_id_reach_the_same_finding(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = build(d, sshd="PermitRootLogin yes\n")
+            by_id = self.report(root, "--explain", "ssh.root-login")
+            rank = re.search(r"\n +(\d+)  FAIL   ssh\.root-login", self.report(root)).group(1)
+            self.assertEqual(self.report(root, "--explain", rank), by_id)
+
+    def test_the_meaning_and_the_class_come_from_the_fixes_table(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = build(d, sshd="PermitRootLogin yes\n")
+            out = self.report(root, "--explain", "ssh.root-login")
+            self.assertIn("means   Root can log in over ssh directly", out)
+            self.assertRegex(out, r"\nfix     ask · gate 2 · fixes table of jorekai-ops:ops")
+            self.assertIn("undo    restore the backup copy gate 2 wrote", out)
+
+    def test_a_name_no_finding_carries_says_so_and_still_exits_zero(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = build(d, sshd="PermitRootLogin no\n")
+            out = self.report(root, "--explain", "ssh.nonsense")
+            self.assertIn("no finding called ssh.nonsense", out)
+
+    def test_a_cause_is_printed_only_when_the_pass_proved_one(self):
+        """A guessed cause costs more trust than it saves time, so no signal means no line."""
+        rep = access.Report()
+        rep.add("FAIL", "ssh.root-login", "root can log in", [], measure=1)
+        out = access.explain_report(rep, "host", access.load_fixes(), "1", None)
+        self.assertNotIn("cause", out)
+        rep.items[0]["cause"] = "the panel wrote it back at the last update"
+        out = access.explain_report(rep, "host", access.load_fixes(), "1", None)
+        self.assertIn("cause   the panel wrote it back", out)
+
+
+class ChangeColumnTest(unittest.TestCase):
+    """The direction since an earlier pass, which is the first thing a person asks of a number."""
+
+    def previous(self, directory, **measures):
+        path = Path(directory) / "previous.json"
+        items = [{"id": cid, "level": "FAIL", "measure": {"value": v, "unit": "count", "by": {}}}
+                 for cid, v in measures.items()]
+        path.write_text(json.dumps({"tool": "access", "items": items}), encoding="utf-8")
+        return str(path)
+
+    def test_a_measure_that_held_reads_as_equal_and_one_that_grew_carries_its_sign(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = build(d, sshd="PermitRootLogin yes\nPasswordAuthentication yes\n")
+            prev = self.previous(d, **{"ssh.root-login": 1, "ssh.password-auth": 1})
+            r = subprocess.run([sys.executable, SCRIPT, "--root", str(root), "--previous", prev],
+                               capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertRegex(r.stdout, r"\n  #  level  check +measure +change +where +class\n")
+            self.assertRegex(r.stdout, r"ssh\.root-login +1 open way in +=")
+            self.assertRegex(r.stdout, r"ssh\.password-auth +2 settings +\+1")
+
+    def test_an_id_the_earlier_pass_never_held_reads_as_new(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = build(d, sshd="PermitRootLogin yes\n")
+            r = subprocess.run([sys.executable, SCRIPT, "--root", str(root),
+                                "--previous", self.previous(d)], capture_output=True, text=True)
+            self.assertRegex(r.stdout, r"ssh\.root-login +1 open way in +new")
 
     def test_the_next_step_names_the_gate_only_while_the_gate_is_shut(self):
         """A passing check must never be the next step, or the ladder points at nothing."""

@@ -2,6 +2,15 @@
 
 One entry per `jorekai-ops` version. The version at the top equals `version` in `skills/ops/.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 0.8.0 (2026-09-13)
+
+- Changed: Every measuring pass prints one line per finding: rank, level, check id, cost, the place it names, and the risk class. `--explain RANK` prints the chain behind one line, including the control planes the fixes table holds a block for, and `--previous FILE` adds a `change` column read from an earlier findings JSON.
+- Added: A `Rung` column in the fixes table, copied from the ladder in `jorekai-ops:and-now`. The pass ranks by it, and `scripts/check_rungs.py` fails when the two disagree.
+
+## 0.7.1 (2026-09-13)
+
+- Changed: Shorten the router and report descriptions, quote the report description, and clarify its router entry.
+
 ## 0.7.0 (2026-09-11)
 
 - Changed: `access.py`, `availability.py`, `exposure.py`, `recovery.py`, `status.py`, `grade.py`, and `report.py` lay out their console report the same way now: the counting line is a bar of counts, a finding's cost stands in its own column, `now` in `status.py` is two aligned columns, and repeated notes in `report.py` fold into one line. Reason: `decisions/0028`.

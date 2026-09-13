@@ -309,12 +309,16 @@ class CellTest(unittest.TestCase):
 class ReportTest(unittest.TestCase):
     """The console report is what a person reads before deciding, so its shape is a contract."""
 
-    def report(self):
+    def filled(self):
         rep = repos.Report()
         rep.add("FAIL", "git.dirty", "1 repository with uncommitted changes",
                 [{"repo": "/x/one", "value": 25}], measure=1, by={"/x/one": 25})
         rep.add("PASS", "repo.no-readme", "no repository matches repo.no-readme", measure=0)
-        return repos.text_report([{"path": "/x/one"}], rep, ["/x"], "merged branches over 30 days")
+        return rep
+
+    def report(self):
+        return repos.text_report([{"path": "/x/one"}], self.filled(), ["/x"],
+                                 "merged branches over 30 days")
 
     def test_the_header_says_what_was_scanned_and_against_what(self):
         text = self.report()
@@ -323,14 +327,16 @@ class ReportTest(unittest.TestCase):
 
     def test_a_finding_names_its_cost_and_what_the_number_in_a_row_counts(self):
         text = self.report()
-        self.assertIn("FAIL  " + "git.dirty".ljust(repos.ID_WIDTH) + "  1 repository", text)
+        self.assertRegex(text, r"\n +\d+  FAIL   git\.dirty +1 repository")
         self.assertNotIn("(costs", text)
-        self.assertIn("25 changed paths", text)
+        # What one target costs stands in the long form, where the whole chain for that line is.
+        self.assertIn("25 changed paths",
+                      repos.explain_report(self.filled(), "/x", repos.load_fixes(), "1", None))
 
-    def test_the_counting_line_is_a_bar_and_the_cost_stands_in_its_own_column(self):
+    def test_the_counting_line_is_a_bar_and_every_finding_is_one_line(self):
         text = self.report()
         self.assertRegex(text, r"\n\d+ FAIL · \d+ WARN · \d+ notes? · \d+ passed\n")
-        self.assertIn("\nFAIL  " + "git.dirty".ljust(repos.ID_WIDTH) + "  1 repository\n", text)
+        self.assertRegex(text, r"\n +\d+  FAIL   git\.dirty +1 repository +")
         self.assertNotIn("(costs", text)
 
     def test_passed_checks_are_listed_once_and_never_as_findings(self):
@@ -346,8 +352,8 @@ class ReportTest(unittest.TestCase):
         rep = repos.Report()
         rep.add("WARN", "git.stash-old", "1 repository with a stash older than the retention",
                 [{"repo": "/x/one", "value": 2}], measure=1, by={"/x/one": 2})
-        text = repos.text_report([{"path": "/x/one"}], rep, ["/x"], "stashes over 30 days")
-        self.assertIn("2 stash entries", text)
+        self.assertIn("2 stash entries",
+                      repos.explain_report(rep, "/x", repos.load_fixes(), "1", None))
 
 
 class ColourTest(unittest.TestCase):
@@ -378,6 +384,33 @@ class ColourTest(unittest.TestCase):
             painted = self.run_report(root, {"FORCE_COLOR": "1"})
             self.assertIn("\033", painted)
             self.assertEqual(re.sub(r"\033\[[0-9;]*m", "", painted), plain)
+
+
+class ChainTest(unittest.TestCase):
+    """The list answers what and how heavy, `--explain` answers the rest, one finding at a time."""
+
+    def test_the_chain_names_its_fields_in_the_order_a_person_asks_them(self):
+        rep = repos.Report()
+        rep.add("FAIL", "git.dirty", "one line about it", [], measure=1)
+        out = repos.explain_report(rep, "this repository", repos.load_fixes(), "1", None)
+        labels = [l.split()[0] for l in out.splitlines() if l and not l.startswith(" ")][1:]
+        self.assertEqual(labels, ["what", "weight", "means", "fix", "undo", "verify"])
+        self.assertIn("The working tree holds changes that", out)
+        self.assertIn("rank 1 of 1", out)
+
+    def test_a_name_no_finding_carries_says_so(self):
+        rep = repos.Report()
+        rep.add("FAIL", "git.dirty", "one line about it", [], measure=1)
+        self.assertIn("no finding called nothing.here",
+                      repos.explain_report(rep, "this repository", {}, "nothing.here", None))
+
+    def test_the_change_column_reads_the_measure_of_an_earlier_pass(self):
+        rep = repos.Report()
+        rep.add("FAIL", "git.dirty", "one line about it", [], measure=2)
+        lines = repos.listing(rep.items, [], repos.load_fixes(), {"git.dirty": 1})
+        self.assertIn("change", lines[0])
+        self.assertRegex(lines[1], r"\+1")
+        self.assertRegex(repos.listing(rep.items, [], {}, {})[1], r" new ")
 
 
 if __name__ == "__main__":

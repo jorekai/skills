@@ -1,6 +1,6 @@
 ---
 name: dx
-description: Entry point for the developer experience skill set: which sub-skill to reach for, the flows (new machine, weekly sweep, something hurts), the priority ladder, and the risk classes that sit in front of every destructive action.
+description: "Choose the next developer experience skill for a new machine, a weekly sweep, or a problem. Explains priorities and the risk classes for destructive actions."
 disable-model-invocation: true
 ---
 
@@ -66,13 +66,13 @@ Every measuring script prints the same shape without `--json`, so one reading or
 
 1. The first two lines say what was measured and what it was measured against, so a number can be judged without opening `standards.md`.
 2. The counting line is a bar of four counts, `FAIL`, `WARN`, notes, passed, in that order. A zero is dimmed.
-3. Each finding is one line of three columns: its level, its check id, and what it costs now as one number and one unit. Findings come in level order, and the costliest first inside a level.
-4. Under a finding stand at most five targets with their own share of the cost, then `+N more` when the JSON holds more. Identical notes fold into one line.
+3. Each finding is one line of a table: rank, level, check id, cost, the place it names, and the risk class. Findings come in level order, and inside a level in the order of the `Rung` column of [references/fixes.md](references/fixes.md), which is the ladder above.
+4. `--explain RANK` prints the chain behind one line: `what`, `weight`, `means`, `cause` when the pass proved one, `fix`, `undo`, `verify`. `--previous FILE` takes an earlier findings JSON and adds a `change` column of `=`, a signed number, or `new`. A finding with no cost carries its sentence dimmed under its row.
 5. The last zone is `next`: one line that starts with a verb, and under it the gate it waits on. Every id is looked up in [references/fixes.md](references/fixes.md) for the fix and the risk class.
 
 The console report is for the decision, the JSON is for the record. Only the JSON is written to `audits/`.
 
-A terminal gets the same report in colour: the level word, the verdict, the check id and the measure carry the colour their role already has. Nothing is coloured that a word does not already say, and a pipe, a redirect and a subagent see plain text. Reason: `decisions/0022`; the layout inside each zone: `decisions/0028`.
+A terminal gets the same report in colour: the level word, the verdict, the check id and the measure carry the colour their role already has. Nothing is coloured that a word does not already say, and a pipe, a redirect and a subagent see plain text. Reason: `decisions/0022`; the layout inside each zone: `decisions/0028` and `decisions/0031`.
 
 ## Writing the answer
 

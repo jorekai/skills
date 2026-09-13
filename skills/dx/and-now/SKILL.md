@@ -1,6 +1,6 @@
 ---
 name: and-now
-description: Where a machine stands in the developer experience loop and what comes next, read from the workspace files alone via scripts/status.py: rows past their verify date, open findings from the newest audit, open log rows, rows naming a check id no tool measures, proposals without a decision, and unfinished setup.
+description: "Show where this machine stands in the developer experience loop and what to do next. Read the workspace for overdue reviews, open findings and actions, checks with no measuring tool, undecided proposals, and unfinished setup."
 disable-model-invocation: true
 argument-hint: "[machine]"
 ---

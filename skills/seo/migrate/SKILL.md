@@ -1,6 +1,6 @@
 ---
 name: migrate
-description: Move a domain, a host, or a URL structure without losing what ranks: inventory of the old URLs, a redirect map old to new, the owner's console steps, then verification of every row with scripts/audit.py --redirects and a full audit of the new site. Use when a site changes domain or subdomain, moves to HTTPS or a new host, renames or restructures URLs, replaces its CMS, or merges into another site.
+description: "Plan and verify a domain, host, or URL migration. Inventory old URLs, map redirects, provide the owner's console steps, check every redirect, and audit the new site. Use for domain or subdomain changes, HTTPS moves, new hosts, renamed or restructured URLs, CMS replacements, or site mergers."
 ---
 
 # Migration

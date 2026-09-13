@@ -1,6 +1,6 @@
 ---
 name: links
-description: Earn links to a target page and draft the outreach: internal links first, then unlinked brand mentions, pages that Google and AI assistants (ChatGPT, Claude, Perplexity, Gemini) cite for the keyword, roundups, directories, guest posts. Use when asked for backlinks, link building, outreach, internal linking, or getting cited by AI search.
+description: "Find link opportunities for a target page and draft outreach. Start with internal links, then unlinked brand mentions and pages cited by Google or AI search for the keyword. Also consider roundups, directories, and guest posts. Use for backlinks, link building, outreach, internal linking, or getting cited by AI search."
 ---
 
 # Links

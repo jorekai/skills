@@ -1,6 +1,6 @@
 ---
 name: setup
-description: Set up the developer experience workspace: one private repository holding config, standards, and a folder per machine (audits, log, proposals), plus the pointer that tells later sessions where it is. Run once per machine, again when a machine is added.
+description: "Create a private developer experience workspace with configuration, standards, and one folder per machine for audits, logs, and proposals. Add a pointer so later sessions can find it. Run for each new machine."
 disable-model-invocation: true
 argument-hint: "[machine]"
 ---
