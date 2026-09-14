@@ -1,0 +1,20 @@
+{
+  "name": "@app/ports",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./db": "./src/db/index.ts",
+    "./storage": "./src/storage/index.ts",
+    "./jobs": "./src/jobs/index.ts",
+    "./host": "./src/host/index.ts",
+    "./auth": "./src/auth/index.ts",
+    "./mail": "./src/mail/index.ts",
+    "./analytics": "./src/analytics/index.ts",
+    "./errors": "./src/errors/index.ts"
+  },
+  "dependencies": {
+    "@app/config": "workspace:*",
+    "@app/env": "workspace:*"
+  }
+}

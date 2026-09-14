@@ -1,0 +1,25 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "noEmit": true
+  },
+  "include": ["vitest.config.ts", "playwright.config.ts", "scripts/stack-yaml.d.mts"],
+  "references": [
+    {
+      "path": "packages/config"
+    },
+    {
+      "path": "packages/env"
+    },
+    {
+      "path": "packages/ui"
+    },
+    {
+      "path": "packages/ports"
+    }
+  ]
+}

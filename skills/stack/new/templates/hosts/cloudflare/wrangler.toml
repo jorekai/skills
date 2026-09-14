@@ -1,0 +1,16 @@
+# The worker configuration for {{NAME}} on the second target. The jobs port declares the crons;
+# the db port reads the pooled connection string the binding below hands the worker.
+name = "{{NAME}}"
+main = ".open-next/worker.js"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[triggers]
+crons = ["0 3 * * *"]
+
+[[hyperdrive]]
+binding = "DB"
+id = "(set in the secret store)"
+
+[vars]
+JOBS_URL = "https://{{NAME}}.workers.dev"

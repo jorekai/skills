@@ -1,0 +1,27 @@
+# The required check. The hook runs the same gate over the staged files; this runs it over
+# everything, and the branch protection is what turns it into a lock.
+name: gate
+on: [push, pull_request]
+permissions:
+  contents: read
+env:
+  GITLEAKS_VERSION: "8.30.1"
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version-file: .nvmrc
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - name: The secret scanner the secrets guard runs
+        run: |
+          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar -xz -C /usr/local/bin gitleaks
+          gitleaks version
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm check

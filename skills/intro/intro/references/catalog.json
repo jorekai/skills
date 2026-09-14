@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-13",
+  "generated": "2026-09-14",
   "marketplace": {
     "name": "jorekai",
     "add": "claude plugin marketplace add jorekai/skills"
@@ -116,11 +116,11 @@
     {
       "theme": "intro",
       "plugin": "jorekai-intro",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "covers": "The map of this collection: the themes, their loops, and which one you need.",
       "install": "claude plugin install jorekai-intro@jorekai",
       "listed": true,
-      "thesis": "One question comes before every other one here: what do you have in front of you, a site, the machine you work on, or a host that serves. The answer names one theme, and the theme names the command that starts its loop.",
+      "thesis": "One question comes before every other one here: what do you have in front of you, a site, the machine you work on, a host that serves, a repository with holes, or a monorepo to create. The answer names one theme, and the theme names the command that starts its loop.",
       "router": "jorekai-intro:intro",
       "entry": "/jorekai-intro:intro",
       "skills": [
@@ -480,6 +480,108 @@
           "reach_for_it_when": "Promote a page",
           "hands_back": "`piece | platform | first line | where the link sits`, the texts under the table",
           "scripts": []
+        }
+      ],
+      "planned": []
+    },
+    {
+      "theme": "stack",
+      "plugin": "jorekai-stack",
+      "version": "0.1.0",
+      "covers": "Stack loop for a monorepo an agent cannot reach past: setup, choose, new, guards, drift, grade, report, and-now.",
+      "install": "claude plugin install jorekai-stack@jorekai",
+      "listed": true,
+      "thesis": "One loop drives everything: declare the repository, generate the guards, measure whether they still stand and whether anybody walked around them, repeat. This theme is the first in the collection that creates something: a monorepo in which an agent cannot reach past a guard, because every guard is wired so that switching it off is a review by a person and not a commit.",
+      "router": "jorekai-stack:stack",
+      "entry": "/jorekai-stack:setup",
+      "skills": [
+        {
+          "skill": "jorekai-stack:stack",
+          "invoked_by": "you",
+          "description": "Choose the next stack skill for a new monorepo, an existing repository to adopt, or a weekly pass over the guards. Explains the declaration, the escapes, the ladder, and how a fix is measured.",
+          "reach_for_it_when": "",
+          "hands_back": "",
+          "scripts": []
+        },
+        {
+          "skill": "jorekai-stack:and-now",
+          "invoked_by": "you",
+          "description": "Where a repository stands in the stack loop and what comes next, read from the workspace files alone via scripts/status.py: rows past their verify date, open findings from the newest audit, rows naming an id this theme does not own, human steps and open decisions from the snapshot of the declaration, and unfinished setup.",
+          "reach_for_it_when": "Where does this repository stand, what comes next?",
+          "hands_back": "no table. The script's stage, at most three open items in ladder order, the next verify date.",
+          "scripts": [
+            "status.py"
+          ]
+        },
+        {
+          "skill": "jorekai-stack:setup",
+          "invoked_by": "you",
+          "description": "Take a repository into the stack workspace: create its folder, record where the checkout lives and whether the repository exists yet, choose the profile the declaration starts from, and write the pointer so a later session finds the workspace.",
+          "reach_for_it_when": "Take a repository into the workspace, with a profile",
+          "hands_back": "no table. The folder it wrote, the profile that was chosen, and the pointer block.",
+          "scripts": [
+            "scaffold.py"
+          ]
+        },
+        {
+          "skill": "jorekai-stack:choose",
+          "invoked_by": "you",
+          "description": "Interview the owner about the shape of the product, the OSS level, the target, the bars, the open decisions and the owner, then write stack.yaml with the eight adapters the two axes resolve to.",
+          "reach_for_it_when": "Which OSS level, which target, which adapter per port, which bars?",
+          "hands_back": "no table. The path of `stack.yaml`, the two axes, the eight adapters, and the caveat when there is one.",
+          "scripts": [
+            "declare.py"
+          ]
+        },
+        {
+          "skill": "jorekai-stack:new",
+          "invoked_by": "you",
+          "description": "Generate the monorepo a declaration describes: the tree from the official generator, the guards over it, one adapter per port, and a gate that is green before any account exists. Adopt a repository that exists with --adopt. Ends on the green gate and the seven proofs that it turns red.",
+          "reach_for_it_when": "Generate the tree and the guards, wire the ports, or adopt a repository that exists",
+          "hands_back": "`path | action | reason`, the plan before anything is written; after the write, no table: the generator command, the paths written, and the gate's exit code.",
+          "scripts": [
+            "lay.py"
+          ]
+        },
+        {
+          "skill": "jorekai-stack:guards",
+          "invoked_by": "agent or you",
+          "description": "Do the guards of a generated repository still stand, and did anybody walk around one, in one pass via scripts/guards.py: suppressions no waiver names, waivers past their date, a gate nothing enforces on the server, contract files without an owner, declared guards with no command or no workflow, switched-off configuration, bars that stand nowhere, rule classes without a test, and the coverage, assertion, gate-time and dead-code bars. Use when a gate went red and a suppression is proposed, after a merge, for the weekly pass, or when asked whether the guards still stand or whether anything got past one.",
+          "reach_for_it_when": "Do the guards still stand, and did anybody walk around one?",
+          "hands_back": "`check id | cost | where | fix | class`",
+          "scripts": [
+            "guards.py"
+          ]
+        },
+        {
+          "skill": "jorekai-stack:drift",
+          "invoked_by": "agent or you",
+          "description": "Whether the tree still matches its declaration, in one pass via scripts/drift.py: a declaration missing a section or pointing at nothing, a generated file changed by hand, a package the declaration does not name, an open decision past its date, a lock that does not resolve a workspace manifest, a pinning place that contradicts the declared runtime, an import over a forbidden edge, two packages importing each other, an import past an entry point, a vendor module outside its adapter, a port missing a part, and a port whose adapter is not the one the axes resolve to. Use after a dependency or lock change, after adding a package or an import across packages, when an adapter or a generated file was edited, as the weekly pass, or when asked whether the tree still matches the declaration.",
+          "reach_for_it_when": "Does the tree still match the declaration: boundaries, adapters, lock, generated files?",
+          "hands_back": "`check id | cost | where | fix | class`",
+          "scripts": [
+            "drift.py"
+          ]
+        },
+        {
+          "skill": "jorekai-stack:grade",
+          "invoked_by": "agent or you",
+          "description": "Check whether a logged stack fix held, using the newest audit from the pass that found it: won, no-change, or returned, written into the log. Use when a verify date is due or overdue, during the weekly pass, or when asked whether a guard fix, a waiver removal, or a boundary change worked.",
+          "reach_for_it_when": "Did the fix hold? Settle measured rows and name what still needs evidence",
+          "hands_back": "`row | then | now | verdict | next`",
+          "scripts": [
+            "grade.py"
+          ]
+        },
+        {
+          "skill": "jorekai-stack:report",
+          "invoked_by": "you",
+          "description": "Write the monthly stack report from the workspace. Compare costs at the start and end of the month. List action results, risk classes, and open issues by ladder rung, then name three next steps.",
+          "reach_for_it_when": "What did the month do to this repository?",
+          "hands_back": "no table. The path of the report, its headline, and the four counts.",
+          "scripts": [
+            "report.py"
+          ]
         }
       ],
       "planned": []

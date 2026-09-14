@@ -1,0 +1,5 @@
+interface:
+  display_name: "Stack"
+  short_description: "Router for the stack skill set"
+policy:
+  allow_implicit_invocation: false

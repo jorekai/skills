@@ -1,0 +1,11 @@
+# /etc/systemd/system/app-jobs.timer: starts app-jobs.service on the schedule below. Enable with
+# `systemctl enable --now app-jobs.timer`; a missed run is caught up after a reboot.
+[Unit]
+Description={{NAME}} nightly job timer
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

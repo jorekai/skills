@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": ".tsout"
+  },
+  "include": ["src"],
+  "references": [
+    {
+      "path": "../config"
+    },
+    {
+      "path": "../env"
+    }
+  ]
+}

@@ -1,0 +1,337 @@
+#!/usr/bin/env python3
+"""Offline tests for report.py: the month window, what moved, what was done, what stays open.
+
+Run: python3 skills/stack/report/scripts/test_report.py
+Builds a workspace in a temporary directory: audits as JSON, log weeks as markdown. Nothing is
+measured, so no repository is read.
+"""
+import datetime as dt
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import report  # noqa: E402
+
+SCRIPT = os.path.abspath(report.__file__)
+SLUG = "example-repo"
+MONTH = "2026-09"
+LOG_HEAD = """# 2026-W37 (2026-09-07 to 2026-09-13)
+
+Repository: example-repo
+
+## Outcomes of earlier actions
+
+| id | Check | Target | Applied | Then | Now | Verdict |
+|---|---|---|---|---|---|---|
+{outcomes}
+
+## Actions
+
+| id | Check | Target | Action | Class | Then | Status | Applied | Verify after | Outcome |
+|---|---|---|---|---|---|---|---|---|---|
+{actions}
+"""
+
+
+def workspace(d):
+    root = Path(d) / "stack"
+    base = root / "repos" / SLUG
+    (base / "audits").mkdir(parents=True)
+    (base / "log" / "stack").mkdir(parents=True)
+    (base / "config.md").write_text("- role: stack\n", encoding="utf-8")
+    return root, base
+
+
+def audit(base, date, tool, items):
+    path = base / "audits" / f"{date}-{tool}.json"
+    path.write_text(json.dumps({"tool": tool, "items": items}), encoding="utf-8")
+    return path
+
+
+def measured(cid, value, unit="count"):
+    return {"id": cid, "level": "WARN", "message": "x", "data": [],
+            "measure": {"value": value, "unit": unit, "by": {}}}
+
+
+def log(base, actions=(), outcomes=(), name="2026-W37.md"):
+    (base / "log" / "stack" / name).write_text(
+        LOG_HEAD.format(actions="\n".join(actions), outcomes="\n".join(outcomes)),
+        encoding="utf-8")
+
+
+def action(row_id, check, status="applied", applied="2026-09-08", target="a.ts:3", verify="2026-09-22"):
+    return (f"| {row_id} | {check} | {target} | fixed it | confirm | 3 count | {status} "
+            f"| {applied} | {verify} |  |")
+
+
+def run(root, extra=()):
+    args = [sys.executable, SCRIPT, "--root", str(root), SLUG, "--month", MONTH, "--json"]
+    r = subprocess.run(args + list(extra), capture_output=True, text=True)
+    assert r.returncode == 0, r.stdout + r.stderr
+    return json.loads(r.stdout)["repos"][SLUG]
+
+
+class WindowTest(unittest.TestCase):
+    def test_a_month_gives_its_first_and_last_day(self):
+        self.assertEqual(report.month_bounds("2026-02"), (dt.date(2026, 2, 1), dt.date(2026, 2, 28)))
+
+    def test_a_month_that_is_not_one_is_refused(self):
+        with self.assertRaises(SystemExit):
+            report.month_bounds("september")
+
+    def test_a_week_file_gives_the_days_it_covers(self):
+        start, end = report.week_bounds("2026-W37")
+        self.assertEqual(start.isoformat(), "2026-09-07")
+        self.assertEqual(end.isoformat(), "2026-09-13")
+
+    def test_a_file_that_is_not_a_week_is_no_window(self):
+        self.assertIsNone(report.week_bounds("notes"))
+
+
+class LadderTest(unittest.TestCase):
+    def test_the_ladder_holds_the_thirty_ids_of_this_theme(self):
+        self.assertEqual(len(report.RUNG), 30)
+        self.assertEqual(report.rung("decl.absent"), 1)
+        self.assertEqual(report.rung("decl.undecided"), 8)
+        self.assertEqual(report.rung("cred.tracked"), 9)
+
+
+class ActionTest(unittest.TestCase):
+    def test_an_action_belongs_to_the_month_it_was_applied_in(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            log(base, actions=[action("2026-W37-01", "escape.type"),
+                               action("2026-W37-02", "dead.export", applied="2026-08-30")])
+            out = run(root)
+            self.assertEqual([r["id"] for r in out["actions"]], ["2026-W37-01"])
+
+    def test_a_week_that_straddles_two_months_counts_where_most_of_its_days_are(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            log(base, actions=[action("2026-W36-01", "escape.type", applied="")], name="2026-W36.md")
+            self.assertEqual([r["id"] for r in run(root)["actions"]], ["2026-W36-01"])
+            log(base, actions=[action("2026-W40-01", "escape.type", applied="")], name="2026-W40.md")
+            self.assertEqual(sorted(r["id"] for r in run(root)["actions"]), ["2026-W36-01"])
+
+    def test_a_verdict_written_by_the_grade_skill_is_counted(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            log(base, actions=[action("2026-W37-01", "escape.type", status="won"),
+                               action("2026-W37-02", "dead.export", status="returned")])
+            counts = run(root)["counts"]
+            self.assertEqual((counts["won"], counts["returned"]), (1, 1))
+
+    def test_a_verdict_that_only_stands_in_the_outcomes_table_is_read_there(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            log(base, actions=[action("2026-W37-01", "escape.type", status="verify")],
+                outcomes=["| 2026-W37-01 | escape.type | a.ts:3 | 2026-09-08 | 3 count | 0 count | won |"])
+            out = run(root)
+            self.assertEqual(out["counts"]["won"], 1)
+            self.assertEqual(out["open"], [])
+
+    def test_an_open_action_is_listed_whatever_month_it_comes_from(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            log(base, actions=[action("2026-W30-01", "guard.slow", status="todo", applied="")],
+                name="2026-W30.md")
+            self.assertEqual([r["id"] for r in run(root)["open"]], ["2026-W30-01"])
+
+    def test_the_open_rows_come_in_ladder_order_and_the_first_three_are_the_next_steps(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            log(base, actions=[action("2026-W37-01", "dead.export", status="todo"),
+                               action("2026-W37-02", "escape.unowned", status="todo"),
+                               action("2026-W37-03", "lock.runtime", status="todo"),
+                               action("2026-W37-04", "decl.absent", status="todo")])
+            out = run(root)
+            self.assertEqual([r["check"] for r in out["open"]][:3],
+                             ["decl.absent", "escape.unowned", "lock.runtime"])
+
+    def test_a_row_nobody_has_carried_out_does_not_read_as_measuring(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            log(base, actions=[action("2026-W37-01", "escape.type", status="todo"),
+                               action("2026-W37-02", "dead.export", status="applied")])
+            r = subprocess.run([sys.executable, SCRIPT, "--root", str(root), SLUG,
+                                "--month", MONTH], capture_output=True, text=True)
+            self.assertIn("not done yet", r.stdout)
+            self.assertIn("still measuring", r.stdout)
+
+
+class MovementTest(unittest.TestCase):
+    def test_a_cost_that_fell_between_two_audits_is_the_movement(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            audit(base, "2026-08-30", "guards", [measured("escape.type", 4)])
+            audit(base, "2026-09-20", "guards", [measured("escape.type", 1)])
+            moved = run(root)["movement"]
+            self.assertEqual(moved[0]["check"], "escape.type")
+            self.assertEqual((moved[0]["then"], moved[0]["now"]), ("4 count", "1 count"))
+            self.assertLess(moved[0]["change"], 0)
+
+    def test_a_shortfall_in_percent_moves_like_a_count(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            audit(base, "2026-08-30", "guards", [measured("guard.coverage", 12, "percent")])
+            audit(base, "2026-09-20", "guards", [measured("guard.coverage", 4, "percent")])
+            moved = run(root)["movement"]
+            self.assertEqual((moved[0]["then"], moved[0]["now"]), ("12 percent", "4 percent"))
+
+    def test_two_units_of_different_families_are_left_out(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            audit(base, "2026-08-30", "guards", [measured("guard.slow", 40, "seconds")])
+            audit(base, "2026-09-20", "guards", [measured("guard.slow", 3, "count")])
+            self.assertEqual(run(root)["movement"], [])
+
+    def test_a_month_with_no_audit_inside_it_says_so(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            audit(base, "2026-08-30", "guards", [measured("escape.type", 4)])
+            out = run(root)
+            self.assertEqual(out["movement"], [])
+            self.assertTrue(any("no guards audit inside the month" in n for n in out["notes"]))
+
+    def test_one_audit_and_nothing_before_it_opens_the_next_report(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            audit(base, "2026-09-20", "drift", [measured("boundary.crossed", 4)])
+            out = run(root)
+            self.assertEqual(out["movement"], [])
+            self.assertTrue(any("none before it" in n for n in out["notes"]))
+
+    def test_the_movement_comes_in_ladder_order(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            audit(base, "2026-08-30", "guards", [measured("dead.export", 4), measured("escape.type", 4)])
+            audit(base, "2026-09-20", "guards", [measured("dead.export", 0), measured("escape.type", 3)])
+            self.assertEqual([r["check"] for r in run(root)["movement"]], ["escape.type", "dead.export"])
+
+    def test_the_headline_names_the_biggest_fall(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            audit(base, "2026-08-30", "guards", [measured("escape.type", 4)])
+            audit(base, "2026-09-20", "guards", [measured("escape.type", 1)])
+            self.assertIn("escape.type", run(root)["headline"])
+
+    def test_an_audit_of_another_theme_is_not_read_into_this_report(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            audit(base, "2026-08-30", "secrets", [measured("cred.tracked", 4)])
+            audit(base, "2026-09-20", "secrets", [measured("cred.tracked", 1)])
+            out = run(root)
+            self.assertEqual(out["movement"], [])
+            self.assertTrue(any("another theme" in n for n in out["notes"]))
+
+
+class WriteTest(unittest.TestCase):
+    def test_the_written_report_holds_no_placeholder(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            audit(base, "2026-08-30", "guards", [measured("escape.type", 4)])
+            audit(base, "2026-09-20", "guards", [measured("escape.type", 1)])
+            log(base, actions=[action("2026-W37-01", "escape.type", status="won")])
+            out = run(root, extra=["--write"])
+            path = Path(out["written"])
+            self.assertTrue(path.is_file())
+            self.assertIn("reports/stack/2026-09.md", str(path))
+            text = path.read_text(encoding="utf-8")
+            self.assertNotIn("{{", text)
+            self.assertIn("2026-W37-01", text)
+            self.assertIn("| confirm |", text)
+            self.assertIn("escape.type", text)
+
+    def test_a_month_with_nothing_in_it_still_writes_a_report(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            out = run(root, extra=["--write"])
+            text = Path(out["written"]).read_text(encoding="utf-8")
+            self.assertNotIn("{{", text)
+            self.assertIn("Nothing was logged this month", text)
+
+    def test_a_repo_name_that_is_a_path_is_refused(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, _ = workspace(d)
+            r = subprocess.run([sys.executable, SCRIPT, "--root", str(root), "../etc",
+                                "--month", MONTH], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 1)
+
+    def test_a_workspace_that_is_not_there_is_named(self):
+        with tempfile.TemporaryDirectory() as d:
+            r = subprocess.run([sys.executable, SCRIPT, "--root", str(Path(d) / "nope"),
+                                "--month", MONTH], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 2)
+            self.assertIn("no workspace", r.stdout)
+            self.assertIn("jorekai-stack:setup", r.stdout)
+
+    def test_the_last_line_names_the_file_once_it_was_written(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            r = subprocess.run([sys.executable, SCRIPT, "--root", str(root), SLUG,
+                                "--month", MONTH, "--write"], capture_output=True, text=True)
+            self.assertIn(MONTH + ".md", r.stdout.rsplit("next", 1)[-1])
+
+
+class ConsoleTest(unittest.TestCase):
+    def test_the_counting_line_is_a_bar_of_the_four_verdict_counts(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            log(base, actions=[action("2026-W37-01", "escape.type", status="won")])
+            r = subprocess.run([sys.executable, SCRIPT, "--root", str(root), "--month", MONTH],
+                               capture_output=True, text=True)
+            self.assertIn("1 won · 0 no-change · 0 returned · 0 open", r.stdout)
+
+    def test_identical_notes_fold_into_one_line_naming_every_tool(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            r = subprocess.run([sys.executable, SCRIPT, "--root", str(root), "--month", MONTH],
+                               capture_output=True, text=True)
+            self.assertIn("no audits from guards, drift", r.stdout)
+            self.assertEqual(r.stdout.count("\nnote  "), 1)
+
+    def test_incomplete_measurements_fold_into_one_line_per_audit(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            unknown = [measured("guard.coverage", None, "percent"), measured("dead.dep", None)]
+            audit(base, "2026-09-02", "guards", unknown)
+            audit(base, "2026-09-20", "guards", unknown)
+            r = subprocess.run([sys.executable, SCRIPT, "--root", str(root), "--month", MONTH],
+                               capture_output=True, text=True)
+            self.assertIn("2026-09-02-guards.json carries 2 incomplete measurements "
+                          "(dead.dep, guard.coverage)", r.stdout)
+            self.assertEqual(r.stdout.count("incomplete measurement"), 2)
+
+    def test_the_console_report_carries_no_escape_when_nothing_is_a_terminal(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            log(base, actions=[action("2026-W37-01", "escape.type")])
+            r = subprocess.run([sys.executable, SCRIPT, "--root", str(root), "--month", MONTH],
+                               capture_output=True, text=True)
+            self.assertNotIn("\033[", r.stdout)
+
+    def test_a_terminal_gets_the_same_report_in_colour(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            log(base, actions=[action("2026-W37-01", "escape.type")])
+            env = dict(os.environ, FORCE_COLOR="1")
+            env.pop("NO_COLOR", None)
+            r = subprocess.run([sys.executable, SCRIPT, "--root", str(root), "--month", MONTH],
+                               capture_output=True, text=True, env=env)
+            self.assertIn("\033[", r.stdout)
+
+    def test_the_month_defaults_to_the_one_that_ended(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, _ = workspace(d)
+            r = subprocess.run([sys.executable, SCRIPT, "--root", str(root), "--today",
+                                "2026-10-03"], capture_output=True, text=True)
+            self.assertIn("2026-09", r.stdout)
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=1)

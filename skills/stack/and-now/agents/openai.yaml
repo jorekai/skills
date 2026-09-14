@@ -1,0 +1,5 @@
+interface:
+  display_name: "Stack and now?"
+  short_description: "Where this repository stands in the stack loop and what comes next"
+policy:
+  allow_implicit_invocation: false

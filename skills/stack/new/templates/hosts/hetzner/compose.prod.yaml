@@ -1,0 +1,42 @@
+# The production stack for {{NAME}} on a host the project rents: the app container beside the
+# three services compose.yaml runs locally. Every credential comes from /srv/app/.env, which is
+# written from the secret store and never committed.
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: /srv/app/.env
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - db
+      - storage
+      - mail
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    env_file: /srv/app/.env
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+  storage:
+    image: minio/minio
+    restart: unless-stopped
+    command: server /data
+    env_file: /srv/app/.env
+    volumes:
+      - storage-data:/data
+
+  mail:
+    image: axllent/mailpit
+    restart: unless-stopped
+
+volumes:
+  db-data:
+  storage-data:

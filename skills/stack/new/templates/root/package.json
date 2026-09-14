@@ -1,0 +1,26 @@
+{
+  "name": "{{NAME}}",
+  "private": true,
+  "packageManager": "{{PACKAGE_MANAGER}}",
+  "engines": {
+    "node": ">={{NODE}}"
+  },
+  "scripts": {
+    "check": "bash scripts/gate.sh",
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm --filter web build",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9",
+    "@playwright/test": "^1",
+    "@vitest/coverage-v8": "^3",
+    "eslint": "^9",
+    "knip": "^5",
+    "lefthook": "^1",
+    "prettier": "^3",
+    "typescript": "^5",
+    "typescript-eslint": "^8",
+    "vitest": "^3"
+  }
+}

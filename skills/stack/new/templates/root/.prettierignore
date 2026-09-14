@@ -1,0 +1,9 @@
+node_modules
+.next
+dist
+.tsout
+coverage
+.stack
+pnpm-lock.yaml
+CODEOWNERS
+*.tsbuildinfo

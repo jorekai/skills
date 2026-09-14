@@ -1,0 +1,3 @@
+interface:
+  display_name: "Stack drift"
+  short_description: "Does the tree still match its declaration: boundaries, adapters, lock, generated files"

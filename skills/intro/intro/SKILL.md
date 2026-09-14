@@ -7,7 +7,7 @@ argument-hint: "[theme]"
 
 # Intro
 
-One question comes before every other one here: **what do you have in front of you, a site, the machine you work on, or a host that serves**. The answer names one theme, and the theme names the command that starts its loop.
+One question comes before every other one here: **what do you have in front of you, a site, the machine you work on, a host that serves, a repository with holes, or a monorepo to create**. The answer names one theme, and the theme names the command that starts its loop.
 
 ## The map
 
@@ -22,6 +22,8 @@ The map says what exists. It cannot say what is installed on this machine, so th
 | A site that should be found in search | `jorekai-seo:seo` |
 | The machine you work on | `jorekai-dx:dx` |
 | A host that serves | `jorekai-ops:ops` |
+| A code repository and its holes | `jorekai-security:security` |
+| A monorepo to create, or one whose guards should hold against an agent | `jorekai-stack:stack` |
 
 ## Steps
 
@@ -35,7 +37,7 @@ The map says what exists. It cannot say what is installed on this machine, so th
    Done when every theme, its version, and its skill count stand in the report.
 
 2. **Name the branch.** One subject from the table above, or all of them. Take it from what the user has already said; ask once when nothing in the conversation says it.
-   Done when one branch is named, or all three are.
+   Done when one branch is named, or all of them are.
 
 3. **Render the map.** A published page when this session can publish one, filled from [templates/page.html](templates/page.html); the tables in the answer when it cannot. Both carry the same rows in the same order, so the plain one loses nothing: `Theme | Skill | Invoked by | Hands back | Reach for it when`.
    Done when the user holds a link, or the tables.

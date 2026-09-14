@@ -6,6 +6,8 @@ Every measure counts what the finding costs, so lower is better and zero means t
 
 The classes are defined in [risk-classes.md](risk-classes.md). Above all of them: nothing destructive runs against a repository holding uncommitted or unpushed work.
 
+Three borders run against `jorekai-stack`, which measures one repository's contract from inside it. `repo.no-ci` asks whether anything at all runs on push; `guard.unwired` there asks whether the declared guard runs. `repo.lock-drift` compares two timestamps; `lock.incomplete` there checks whether the lock resolves every workspace manifest. `agent.*` asks whether a session finds its way in every project on this machine; `decl.*` there asks whether the contract of one repository holds. A log row carrying `guard.*`, `lock.*` or `decl.*` is that theme's business.
+
 ## Repositories
 
 | Check | What it means | Fix | Class | Rung | Measure |

@@ -1,0 +1,119 @@
+# stack.yaml: the declaration of this repository.
+#
+# Every guard reads this file as its bar, and every pass of jorekai-stack measures the tree
+# against it. It stands under CODEOWNERS: an agent that edits a number here opens a review.
+# The reader is a subset of the format: maps, lists, scalars, one document, no anchors.
+
+name: {{NAME}}
+declared: {{DECLARED}}
+oss_level: {{OSS_LEVEL}}
+target: {{TARGET}}
+oss_caveat: "{{OSS_CAVEAT}}"
+
+runtime:
+  node: "{{NODE}}"
+  package_manager: "{{PACKAGE_MANAGER}}"
+  generator: "{{GENERATOR}}"
+
+# One adapter per port, resolved from the two axes. A port that runs another adapter on purpose
+# keeps the name here and adds the reason under `port_exceptions`.
+ports:
+  db: {{DB}}
+  storage: {{STORAGE}}
+  jobs: {{JOBS}}
+  host: {{HOST}}
+  auth: {{AUTH}}
+  mail: {{MAIL}}
+  analytics: {{ANALYTICS}}
+  errors: {{ERRORS}}
+
+port_exceptions: []
+
+# The bars. Every number here stands in exactly one configuration file, and that file reads it
+# from here; jorekai-stack:guards checks that nothing lowers it elsewhere.
+gates:
+  coverage_lines: {{COVERAGE_LINES}}
+  coverage_branches: {{COVERAGE_BRANCHES}}
+  max_function_lines: {{MAX_FUNCTION_LINES}}
+  max_file_lines: {{MAX_FILE_LINES}}
+  max_complexity: {{MAX_COMPLEXITY}}
+  max_params: {{MAX_PARAMS}}
+  dead_exports_max: {{DEAD_EXPORTS_MAX}}
+  dead_files_max: {{DEAD_FILES_MAX}}
+  dead_deps_max: {{DEAD_DEPS_MAX}}
+  gate_max_seconds: {{GATE_MAX_SECONDS}}
+
+# Every guard the gate runs, in the order it runs them, each with the command it runs. A guard
+# with no command counts as missing; a guard no workflow runs counts as unwired.
+guards:
+  format: "pnpm exec prettier --check ."
+  lint: "pnpm exec eslint ."
+  rules: "node rules/run.mjs"
+  waivers: "node scripts/waivers.mjs"
+  typecheck: "pnpm exec tsc -b"
+  unit: "pnpm exec vitest run --coverage"
+  dead: "node scripts/dead.mjs"
+  drift: "node scripts/drift.mjs"
+  secrets: "gitleaks git . --no-banner --redact"
+  browser: "pnpm exec playwright test"
+
+# The gate is a required check on the default branch, confirmed on the date after the `@`. An
+# entry without a date does not count.
+enforcement:
+  - gate
+
+# Every package, with the packages it may import. An import over an edge not named here is red.
+workspaces:
+  apps/web: [packages/config, packages/env, packages/ports, packages/ui]
+  packages/ui: [packages/config]
+  packages/ports: [packages/config, packages/env]
+  packages/env: [packages/config]
+  packages/config: []
+
+# The rule classes the engine enforces. Each has a file rules/<id>.rule.mjs and a test
+# rules/<id>.test.mjs; a rule without a test is not run.
+rules:
+  - no-raw-env
+  - no-vendor-outside-adapter
+  - no-cross-boundary
+  - no-untimed-fetch
+  - no-floating-promise
+  - no-test-without-assertion
+
+# A suppression that stays. Each entry names its kind (type, lint, test, boundary), the file and
+# the line, a reason, a date it expires, and the person who owns it. A missing field voids it.
+waivers: []
+
+# What is written down and not built. One line each: what, the recommendation, the date it is
+# decided by. A line past its date is a finding.
+open_decisions:
+  - what: admin view
+    recommend: a route group behind the auth port, no separate app
+    until: {{DECIDE_BY}}
+  - what: blog
+    recommend: content collection in the web app, no CMS
+    until: {{DECIDE_BY}}
+  - what: docs
+    recommend: a docs route in the web app, same layout
+    until: {{DECIDE_BY}}
+  - what: onboarding
+    recommend: a checklist in the database, one row per user
+    until: {{DECIDE_BY}}
+  - what: legal pages
+    recommend: static routes, content in the repository
+    until: {{DECIDE_BY}}
+  - what: notifications
+    recommend: the mail port first, in-app later
+    until: {{DECIDE_BY}}
+  - what: contact form
+    recommend: a route that calls the mail port, no third-party form
+    until: {{DECIDE_BY}}
+
+# What only a person can do, with the date it was done. An undated line is still open.
+human_steps:
+  - what: create the accounts the wired adapters need and put their keys in the secret store
+    done: ""
+  - what: make the gate a required check on the default branch
+    done: ""
+  - what: replace the placeholder owner in CODEOWNERS with a person
+    done: ""

@@ -1,0 +1,5 @@
+interface:
+  display_name: "Stack report"
+  short_description: "What the month did to this repository's guards"
+policy:
+  allow_implicit_invocation: false

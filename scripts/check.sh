@@ -29,7 +29,8 @@ while IFS= read -r f; do hit "link tracked: $f"; done < <(echo "$files" | grep -
 # Style (STYLE.md, "Forbidden"): em dashes, arrows, filler words, emoji. STYLE.md names them and is exempt.
 style=$(echo "$files" | grep -v "^STYLE.md$")
 while IFS= read -r line; do hit "dash: $line"; done < <(echo "$style" | xargs grep -n "—" 2>/dev/null)
-while IFS= read -r line; do hit "arrow: $line"; done < <(echo "$style" | grep -vE '\.(py|sh|json|yaml|yml)$' | xargs grep -nE "→|[[:space:]]->[[:space:]]|[[:space:]]=>[[:space:]]" 2>/dev/null | grep -vE '^[^:]+:[0-9]+:\s*[A-Za-z0-9_"\[\]]+ *(-->|-\.|==)' )
+# Code is exempt from the arrow rule by extension (decisions/0032): an arrow function is not prose.
+while IFS= read -r line; do hit "arrow: $line"; done < <(echo "$style" | grep -vE '\.(py|sh|json|yaml|yml|ts|tsx|js|jsx|mjs|cjs)$' | xargs grep -nE "→|[[:space:]]->[[:space:]]|[[:space:]]=>[[:space:]]" 2>/dev/null | grep -vE '^[^:]+:[0-9]+:\s*[A-Za-z0-9_"\[\]]+ *(-->|-\.|==)' )
 while IFS= read -r line; do hit "en dash: $line"; done < <(echo "$style" | xargs perl -CSD -ne '
   $c = $_; $c =~ s/[\d}]\s*\x{2013}\s*[\d{]//g;
   $c =~ s/(?:Crawled|Discovered) \x{2013} currently not indexed//g;
@@ -116,6 +117,20 @@ for fixes in $(git ls-files 'skills/*/*/references/fixes.md'); do
   done < <(git ls-files "skills/$theme/*/scripts/*.py" | grep -v '/test_' \
              | xargs grep -ohE "\"($ns)\.[a-z][a-z-]*\"" 2>/dev/null | tr -d '"' | sort -u)
 done
+
+# A check id namespace belongs to exactly one theme (decisions/0015). The loop above is scoped per
+# theme, so two routers could both claim `port.*` and the gate would stay green; this one reads
+# every router's fixes table at once and fails on a namespace that stands in two of them.
+owners=$(for fixes in $(git ls-files 'skills/*/*/references/fixes.md'); do
+  theme=$(echo "$fixes" | cut -d/ -f2)
+  [[ "$fixes" == "skills/$theme/$theme/references/fixes.md" ]] || continue
+  grep -ohE '^\| `[a-z]+\.[a-z][a-z-]*`' "$fixes" | sed "s/.*\`\([a-z]*\)\..*/\1 $theme/" | sort -u
+done | sort -u)
+while IFS= read -r ns; do
+  [[ -n "$ns" ]] || continue
+  themes=$(grep "^$ns " <<<"$owners" | cut -d' ' -f2 | paste -sd',' -)
+  hit "namespace: $ns.* stands in the fixes tables of $themes, a check id belongs to one theme"
+done < <(cut -d' ' -f1 <<<"$owners" | sort | uniq -d)
 
 # Every unit a script measures in is the unit its fixes row names, written as (`unit`) at the end
 # of the measure column. A row graded against a number in another unit is graded against nothing.
@@ -250,6 +265,32 @@ t python3 skills/security/grade/scripts/grade.py --help
 t python3 skills/security/grade/scripts/grade.py --namespaces
 t python3 skills/security/report/scripts/test_report.py
 t python3 skills/security/report/scripts/report.py --help
+t python3 skills/stack/setup/scripts/test_scaffold.py
+t python3 skills/stack/choose/scripts/test_declare.py
+t python3 skills/stack/new/scripts/test_lay.py
+t python3 skills/stack/guards/scripts/test_guards.py
+t python3 skills/stack/drift/scripts/test_drift.py
+t python3 skills/stack/and-now/scripts/test_status.py
+t python3 skills/stack/grade/scripts/test_grade.py
+t python3 skills/stack/grade/scripts/test_loop.py
+t python3 skills/stack/report/scripts/test_report.py
+t python3 skills/stack/setup/scripts/scaffold.py --root "$(mktemp -d)/stack" example-repo
+t python3 skills/stack/setup/scripts/scaffold.py --help
+t python3 skills/stack/choose/scripts/declare.py --help
+t python3 skills/stack/choose/scripts/declare.py --root "$(mktemp -d)" --oss pragmatic --target vercel
+t python3 skills/stack/new/scripts/lay.py --help
+t python3 skills/stack/guards/scripts/guards.py --help
+t python3 skills/stack/drift/scripts/drift.py --help
+# A --measures that dies lets the unit check above pass in silence, so each one is its own line.
+t python3 skills/stack/guards/scripts/guards.py --measures
+t python3 skills/stack/drift/scripts/drift.py --measures
+t python3 skills/stack/and-now/scripts/status.py --help
+t python3 skills/stack/grade/scripts/grade.py --help
+t python3 skills/stack/grade/scripts/grade.py --namespaces
+t python3 skills/stack/report/scripts/report.py --help
+t bash -n skills/stack/new/templates/root/scripts/gate.sh
+t bash -n skills/stack/new/templates/wizard/wizard.sh
+t bash -n skills/stack/new/templates/wizard/stages.sh
 t python3 skills/intro/intro/scripts/test_catalog.py
 t python3 skills/intro/intro/scripts/catalog.py --help
 # The map is generated, never typed: a skill added, renamed or removed anywhere fails here

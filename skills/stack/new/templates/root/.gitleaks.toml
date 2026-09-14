@@ -1,0 +1,9 @@
+# The secret scanner reads this file from the root. The manifest of generated files holds one
+# hash per file, and a hash reads like a key to a scanner; nothing else is allowed past it.
+title = "gate"
+
+[extend]
+useDefault = true
+
+[allowlist]
+paths = ['''\.stack/generated\.json$''']

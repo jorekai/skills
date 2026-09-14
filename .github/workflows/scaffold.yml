@@ -1,0 +1,106 @@
+# The weekly proof of jorekai-stack:new, with the network: the real generator, a real install,
+# and the real gate, for every pair of the two axes. scripts/check.sh stays offline and knows
+# nothing of this; it proves the templates, this proves that the world still matches them.
+name: scaffold
+on:
+  schedule:
+    - cron: "17 5 * * 1"
+  push:
+    paths:
+      - "skills/stack/**"
+      - ".github/workflows/scaffold.yml"
+  pull_request:
+    paths:
+      - "skills/stack/**"
+      - ".github/workflows/scaffold.yml"
+permissions:
+  contents: read
+jobs:
+  scaffold:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        oss: [minimal, pragmatic, full]
+        target: [vercel, cloudflare, fly, hetzner, railway]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7
+        with:
+          node-version: "22"
+      - run: corepack enable
+      - name: Install the secret scanner the gate runs
+        run: |
+          set -euo pipefail
+          curl -sSL -o /tmp/gitleaks.tar.gz \
+            https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          sudo install /tmp/gitleaks /usr/local/bin/gitleaks
+          gitleaks version
+      - name: Declare, lay out, generate, wire, install
+        env:
+          OSS: ${{ matrix.oss }}
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          demo=/tmp/demo
+          python3 skills/stack/choose/scripts/declare.py --root "$demo" --oss "$OSS" --target "$TARGET" --name demo
+          python3 skills/stack/new/scripts/lay.py --root "$demo" --plan
+          python3 skills/stack/new/scripts/lay.py --root "$demo"
+          # The generator command comes from --flags, so a flag that moves fails here and nowhere else.
+          python3 skills/stack/new/scripts/lay.py --root "$demo" --flags > /tmp/flags.txt
+          cat /tmp/flags.txt
+          cd "$demo"
+          bash -c "$(grep -m1 'create-next-app' /tmp/flags.txt | sed 's/^[^:]*: *//')"
+          cd "$GITHUB_WORKSPACE"
+          python3 skills/stack/new/scripts/lay.py --root "$demo"
+          python3 skills/stack/new/scripts/lay.py --root "$demo" --wire
+          cd "$demo"
+          git init -q && git add -A && git -c user.name=ci -c user.email=ci@example.com commit -qm "scaffold"
+          pnpm install
+          pnpm exec playwright install --with-deps chromium
+      - name: The gate is green offline, with no key set
+        run: |
+          set -euo pipefail
+          cd /tmp/demo
+          bash scripts/gate.sh
+          python3 "$GITHUB_WORKSPACE/skills/stack/new/scripts/lay.py" --root /tmp/demo --check
+      - name: A fresh clone is green too
+        run: |
+          set -euo pipefail
+          git clone -q /tmp/demo /tmp/demo2
+          cd /tmp/demo2 && pnpm install --frozen-lockfile && bash scripts/gate.sh
+      - name: The seven counter-proofs turn the gate red, each with file, line and the allowed state
+        run: |
+          set -euo pipefail
+          cd /tmp/demo
+          red() {  # $1 the name, $2 the pattern the failure must print; the tree is reset after
+            if bash scripts/gate.sh > /tmp/gate.out 2>&1; then
+              echo "counter-proof failed: $1 left the gate green"; cat /tmp/gate.out; exit 1
+            fi
+            grep -qE "$2" /tmp/gate.out || { echo "counter-proof $1: the message does not name $2"; cat /tmp/gate.out; exit 1; }
+            git checkout -q -- . && git clean -qfd
+            echo "red as expected: $1"
+          }
+          printf 'export const x = (1 as any) as number;\n' >> packages/ui/src/index.ts
+          red "as any" "escape\.type|packages/ui/src/index\.ts"
+          printf 'import { it } from "vitest";\nit.skip("later", () => {});\n' > packages/ui/src/skipped.test.ts
+          red "it.skip" "escape\.test|skipped\.test\.ts"
+          printf '// eslint-disable-next-line\nexport const y = 1;\n' >> packages/ui/src/index.ts
+          red "eslint-disable" "escape\.lint|packages/ui/src/index\.ts"
+          printf '\n# edited by hand\n' >> scripts/gate.sh
+          red "a generated file edited" "drift|scripts/gate\.sh"
+          printf 'export const raw = process.env.HOME;\n' >> packages/ui/src/index.ts
+          red "process.env outside env" "no-raw-env|packages/ui/src/index\.ts"
+          { printf 'export function long(): number {\n  let n = 0;\n'; for i in $(seq 1 70); do printf '  n += %s;\n' "$i"; done; printf '  return n;\n}\n'; } >> packages/ui/src/index.ts
+          red "a function over the line bar" "max-lines-per-function|packages/ui/src/index\.ts"
+          printf 'export const nobodyImportsThis = 1;\n' > packages/ui/src/unused.ts
+          red "an unused export" "dead|unused\.ts"
+      - name: The two passes read the tree
+        run: |
+          set -euo pipefail
+          python3 skills/stack/guards/scripts/guards.py --root /tmp/demo
+          python3 skills/stack/drift/scripts/drift.py --root /tmp/demo

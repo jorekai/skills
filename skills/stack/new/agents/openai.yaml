@@ -1,0 +1,5 @@
+interface:
+  display_name: "Stack new"
+  short_description: "Generate the declared monorepo with its guards, or adopt one that exists"
+policy:
+  allow_implicit_invocation: false

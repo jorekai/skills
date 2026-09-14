@@ -1,0 +1,18 @@
+# Every contract file has an owner who is not the agent. An agent that edits one of these opens
+# a review; the owner merges it. Replace the placeholder with a person: until then every line
+# here counts as unowned.
+stack.yaml {{OWNER}}
+CODEOWNERS {{OWNER}}
+.gitleaks.toml {{OWNER}}
+/rules/ {{OWNER}}
+/scripts/gate.sh {{OWNER}}
+/scripts/waivers.mjs {{OWNER}}
+/scripts/dead.mjs {{OWNER}}
+/scripts/drift.mjs {{OWNER}}
+/scripts/stack-yaml.mjs {{OWNER}}
+/lefthook.yml {{OWNER}}
+/.github/workflows/ {{OWNER}}
+/tsconfig.base.json {{OWNER}}
+/eslint.config.mjs {{OWNER}}
+/vitest.config.ts {{OWNER}}
+/knip.json {{OWNER}}

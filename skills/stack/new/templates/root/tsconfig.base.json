@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "forceConsistentCasingInFileNames": true,
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "paths": {
+      "@app/config": ["./packages/config/src/index.ts"],
+      "@app/env": ["./packages/env/src/index.ts"],
+      "@app/ui": ["./packages/ui/src/index.ts"],
+      "@app/ports/*": ["./packages/ports/src/*/index.ts"]
+    },
+    "skipLibCheck": true
+  }
+}

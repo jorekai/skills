@@ -1,0 +1,11 @@
+# /etc/systemd/system/app-jobs.service: one run of the nightly job of {{NAME}}. The timer of the
+# same name starts it; the bearer comes from the environment file under /srv/app.
+[Unit]
+Description={{NAME}} nightly job
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/srv/app/.env
+ExecStart=/usr/bin/curl -fsS -X POST -H "Authorization: Bearer ${JOBS_KEY}" http://127.0.0.1:3000/api/jobs/nightly

@@ -2,6 +2,10 @@
 
 One entry per `jorekai-intro` version. The version at the top equals `version` in `skills/intro/.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 0.1.11 (2026-09-14)
+
+- Changed: the snapshot carries the sixth theme, `jorekai-stack` 0.1.0, its nine skills, and the marketplace entry that lists it. The `## Which theme` table names the fourth and the fifth theme, which it did not before.
+
 ## 0.1.10 (2026-09-13)
 
 - Changed: The map carries the versions the three measuring plugins reached with the ranked report.

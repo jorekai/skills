@@ -9,18 +9,19 @@ claude plugin install jorekai-seo@jorekai      # search work on a site
 claude plugin install jorekai-dx@jorekai       # the machine you work on
 claude plugin install jorekai-ops@jorekai      # a host that serves
 claude plugin install jorekai-security@jorekai # a code repository and its holes
+claude plugin install jorekai-stack@jorekai    # a monorepo an agent cannot reach past
 ```
 
-Install one, two, or all five; they share nothing at run time. Start with `/jorekai-intro:intro`, which draws the collection and names the one command to run next. Then `/jorekai-seo:setup` in the repository of a site, `/jorekai-dx:setup` for this machine, `/jorekai-ops:setup` for a host that serves, or `/jorekai-security:setup` for a repository whose holes you want measured. Codex users link the same folders with `scripts/link.sh` (see "Use in a project").
+Install one, two, or all six; they share nothing at run time. Start with `/jorekai-intro:intro`, which draws the collection and names the one command to run next. Then `/jorekai-seo:setup` in the repository of a site, `/jorekai-dx:setup` for this machine, `/jorekai-ops:setup` for a host that serves, `/jorekai-security:setup` for a repository whose holes you want measured, or `/jorekai-stack:setup` for a monorepo you are about to create or to adopt. Codex users link the same folders with `scripts/link.sh` (see "Use in a project").
 
-Skills live under `skills/<theme>/<skill>/`. Each skill is a directory with `SKILL.md`, and optionally `references/` (knowledge loaded only when needed), `scripts/` (deterministic helpers, Python stdlib or bash only), `templates/` (files a skill writes into a project), and `agents/openai.yaml` (Codex metadata). Writing rules for every file: `STYLE.md`. Reasons behind the rules: `decisions/`. Versions: one changelog per plugin, `CHANGELOG.md` for `jorekai-seo`, and `skills/<theme>/CHANGELOG.md` for `jorekai-dx`, `jorekai-ops`, `jorekai-security`, and `jorekai-intro`. Gate before every commit: `scripts/check.sh`. Contributions: `CONTRIBUTING.md`. License: MIT.
+Skills live under `skills/<theme>/<skill>/`. Each skill is a directory with `SKILL.md`, and optionally `references/` (knowledge loaded only when needed), `scripts/` (deterministic helpers, Python stdlib or bash only), `templates/` (files a skill writes into a project), and `agents/openai.yaml` (Codex metadata). Writing rules for every file: `STYLE.md`. Reasons behind the rules: `decisions/`. Versions: one changelog per plugin, `CHANGELOG.md` for `jorekai-seo`, and `skills/<theme>/CHANGELOG.md` for `jorekai-dx`, `jorekai-ops`, `jorekai-security`, `jorekai-stack`, and `jorekai-intro`. Gate before every commit: `scripts/check.sh`. Contributions: `CONTRIBUTING.md`. License: MIT.
 
 ## Structure
 
 - One user-invoked router per theme (for example `/jorekai-seo:seo`) names the sub-skills, the flows, and the priorities. No context cost until it is called.
 - User-invoked skills (`disable-model-invocation: true` plus `policy.allow_implicit_invocation: false` in `agents/openai.yaml`) orchestrate; model-invoked skills with a sharp `description` (one trigger per branch) hold the reusable discipline. Steps end on a completion criterion; reference material sits behind pointers.
 - No tool marketing in steps: tools appear only in `references/tools.md` and are interchangeable.
-- State lives with its subject, never in the skill. The SEO skills read and write `docs/seo/<domain>/` in the site's repository (config, strategy, glossary, weekly log, briefs, drafts, exports, reports). The DX and ops skills read and write one private workspace repository, because their subject is a machine and not one project. They share it: one folder per machine, one log folder per theme. The security skills keep a second private workspace of their own, one folder per repository, because a repository is worked on from several machines and outlives all of them (`decisions/0025`). Either way the collection itself holds templates and scripts only.
+- State lives with its subject, never in the skill. The SEO skills read and write `docs/seo/<domain>/` in the site's repository (config, strategy, glossary, weekly log, briefs, drafts, exports, reports). The DX and ops skills read and write one private workspace repository, because their subject is a machine and not one project. They share it: one folder per machine, one log folder per theme. The security skills keep a second private workspace of their own, one folder per repository, because a repository is worked on from several machines and outlives all of them (`decisions/0025`). The stack skills keep a third, because the accounts and provider decisions of a repository are not for everyone who may see its holes; the declaration itself, `stack.yaml`, lives in the generated repository because the project's tooling reads it (`decisions/0035`). Either way the collection itself holds templates and scripts only.
 - Every change leaves a row in a weekly log with a measure and a verify date, and the commit that carries it out ends with a trailer naming the row. Every theme learns from the log, not from memory.
 
 ## Themes
@@ -31,6 +32,7 @@ Skills live under `skills/<theme>/<skill>/`. Each skill is a directory with `SKI
 | `skills/dx/` | `jorekai-dx` | `/jorekai-dx:dx` | One machine to work on: the workspace, the weekly sweep, and what to do next |
 | `skills/ops/` | `jorekai-ops` | `/jorekai-ops:ops` | One host that serves: who can reach it, what runs on it, what may change, and whether the change held |
 | `skills/security/` | `jorekai-security` | `/jorekai-security:security` | One code repository and its holes: what leaked, what can take over the build, what is installed that is known-bad, and where input reaches a dangerous sink |
+| `skills/stack/` | `jorekai-stack` | `/jorekai-stack:stack` | One monorepo an agent cannot reach past: the declaration, the guards it generates, the escapes it counts, and whether the tree still matches |
 | `skills/intro/` | `jorekai-intro` | `/jorekai-intro:intro` | The collection itself: every theme with its loop, every skill with who starts it and what it hands back |
 
 ## The map
@@ -385,6 +387,83 @@ Theme `skills/security/`. You call user-invoked skills yourself (`/jorekai-secur
 | `jorekai-security:grade` | model | `scripts/grade.py [slug]`: compare due actions with the latest audit. Leave actions open when evidence is missing. `--write` saves verdicts; `--namespaces` lists the tool for each check group. |
 | `jorekai-security:report` | user | `scripts/report.py [slug] --month`: summarize the audits and action log, explaining missing measurements. `--write` saves `reports/security/YYYY-MM.md` using `templates/report.md`. |
 
+## The stack loop, start to end
+
+The sixth theme is the first that creates something. Setup once per repository, then a choice of two axes written as a declaration, then a generator lays the guards over the official app generator's tree. The weekly pass asks two questions the other themes never ask: do the guards still stand, and did anybody walk around one.
+
+The design rests on four sentences. A suppression is red unless a waiver names it with file, line, reason, owner and a date. The agent grants itself nothing, because `stack.yaml` and every contract file stand under `CODEOWNERS`, so a waiver or a raised bar is a review. The server is the truth: a local hook is comfort, the required check on the default branch is the lock, and `escape.unenforced` measures the gap. And a project's own bans are first class: one rule file per ban with an id, a message naming the allowed state, and a test that proves it fires. Reasons: `decisions/0036`, `decisions/0037`.
+
+```mermaid
+flowchart TD
+    subgraph E["Setup, once per repository"]
+        S1["/jorekai-stack:setup<br/>workspace, profile, pointer"]
+        S2["/jorekai-stack:choose<br/>OSS level, target, adapters, bars: stack.yaml"]
+        S3["/jorekai-stack:new<br/>generator, guards, ports wired, gate green offline"]
+        S4["The seven counter-proofs<br/>as any, it.skip, eslint-disable, a hand edit,<br/>process.env, a long function, an unused export: all red"]
+        S1 --> S2 --> S3 --> S4
+    end
+
+    subgraph W["Weekly, ten minutes"]
+        W1["jorekai-stack:and-now<br/>stage, open items in ladder order, human steps, next verify date"]
+        W2["jorekai-stack:guards<br/>escapes without a waiver, guards that do not run,<br/>bars not reached, dead code over the bar"]
+        W3["jorekai-stack:drift<br/>declaration, lock, boundaries, adapters, generated files"]
+        W4["Rank by the priority ladder<br/>1. the declaration is right<br/>2. the lock cannot be walked around<br/>3. nobody went through the back door"]
+        W5["Act by class, contract files through review<br/>the code, or a waiver a person merges, never the flag"]
+        W6["scaffold.py --append-row<br/>check id, class, one measure, verify date"]
+        W7["jorekai-stack:grade<br/>recompute the measure of every due row,<br/>write won, no-change, or returned"]
+        W8["jorekai-stack:report<br/>the month from the audits and the log,<br/>reports/stack/YYYY-MM.md"]
+        W1 --> W2 --> W3 --> W4 --> W5 --> W6 --> W7
+        W7 -. "next week" .-> W1
+        W7 -. "once a month" .-> W8
+    end
+
+    S4 --> W2
+    W1 -- "no audit, or one that aged out" --> W2
+```
+
+### What each stack skill delivers
+
+What a skill hands back has a shape too: one line of context, one table in ladder order of at most five rows, one line with the next action. The columns per skill stand in the router under `## Writing the answer` (`decisions/0023`).
+
+| Step | Skill | Output | Why here |
+|---|---|---|---|
+| Set up | `jorekai-stack:setup` | The repository in a private workspace of this theme's own: `path`, `origin_kind`, `default_branch`, `state`, and the profile in `standards.md`; a snapshot of `stack.yaml` once it exists | The declaration lives in the repository and the findings in the workspace, and the split is what keeps accounts apart from holes. |
+| Declare | `jorekai-stack:choose` | `stack.yaml`: the two axes, the eight adapters they resolve to, the ten bars of the profile, the six rule ids, the seven open decisions with dates, the human steps | Every guard reads this file as its bar. Written once, under `CODEOWNERS`, so a number moves only through review. |
+| Generate | `jorekai-stack:new` | The tree from the official generator with the guards over it: the one gate command, the rule engine with six rules and their tests, the hooks, the workflow, the env schema, the offline adapter of every port, the wired adapter the axes chose, the manifest of the files it owns; `--adopt` for a repository that exists, `--check` for the files it owns | The gate is green before any account exists, because every port falls back to memory while its keys are empty. The generator owns its files, so a hand edit is a finding. |
+| Orient | `jorekai-stack:and-now` | Stage, rows past their verify date, failing ids in ladder order, human steps still open, open decisions past their date, the next verify date | The state of a repository lives in files. One command answers "and now?" without reading the repository and without the network. |
+| Count the escapes | `jorekai-stack:guards` | Suppressions without a waiver and waivers past their date, guards the server does not enforce, contract files nobody owns, guards that do not run or that their own configuration disables, bars nothing carries, rules without a test, coverage and time under the bar, dead code over it; full JSON in `audits/` | A guard an agent can switch off is decoration. This pass counts what was switched off and who walked around it. |
+| Hold the shape | `jorekai-stack:drift` | A missing or unmatched declaration, a lock that resolves not every manifest, pinning places that disagree, imports over a forbidden edge, cycles, deep imports, vendor modules outside their adapter, ports missing a part or running the wrong adapter, generated files changed by hand, undeclared packages, decisions past their date; full JSON in `audits/` | Each of these costs more every day, because the next file is written like the one beside it. |
+| Settle | `jorekai-stack:grade` | One verdict per log row past its verify date, recomputed from the newest audit of the tool that found it: `won`, `no-change`, or `returned`, written into the log beside the action | A row without a verdict is a claim nobody checked. `returned` under `escape.*` means a suppression came back, which is a merge that brought it or a new one. |
+| Report | `jorekai-stack:report` | `reports/stack/YYYY-MM.md`: the same shape as the other monthly reports, written from the audits and the log alone | The owner of a repository asks what the month changed. Nothing is measured again for the answer, and no key value ever reaches the file. |
+
+### The stack log
+
+`repos/<slug>/log/stack/2026-W37.md`, one file per week, one folder per theme, in a private workspace of this theme's own. The row format is the DX one: an id, the check id that found it, the risk class it ran under, the measure it started from (`Then`), a status, and a verify date. The trailer on a commit that carries an action out is `Stack-Log: <row id>`.
+
+Two units differ from `count`: `guard.coverage` is written in `percent` and `guard.slow` in `seconds`. A measure the pass could not take, because the gate never wrote its artefact, is `null` and keeps the row open (`decisions/0030`).
+
+### The gate above the classes
+
+Every change to a contract file, which is `stack.yaml`, `CODEOWNERS`, the rules, the gate script, the hooks, the workflows and the configurations that carry a bar, is a branch under review by a person who is not the agent. The failure mode is not a loud break, it is a bar that quietly moved. Details: `skills/stack/stack/references/risk-classes.md` and `references/contracts.md`.
+
+## Stack skills
+
+Theme `skills/stack/`. You call user-invoked skills yourself (`/jorekai-stack:<name>` in Claude Code, `$stack-<name>` in Codex); the agent reaches for the measuring skills when the task fits.
+
+| Skill | Invoked by | Deterministic part |
+|---|---|---|
+| `jorekai-stack:stack` | user | Router: the four sentences, workspace, flows, priority ladder, what the theme does not do, `references/fixes.md` (check id, class, rung, measure, fix), `references/declaration.md`, `references/ports.md`, `references/contracts.md`, `references/rules.md`, `references/tiers.md`, `references/risk-classes.md`, `references/tools.md`, `references/sources.md` |
+| `jorekai-stack:setup` | user | `scripts/scaffold.py`: create the repository folder, `--check` (missing files and sections), `--flags` (the arguments each pass takes), `--snapshot` (copy the repository's `stack.yaml` into the workspace), `--log`, `--append-row`, `--due` |
+| `jorekai-stack:choose` | user | `scripts/declare.py`: resolve the two axes to eight adapters and write `stack.yaml` from `templates/stack.yaml`; `--show` for one pair, `--matrix` for all fifteen; `references/question-bank.md` is the interview tree |
+| `jorekai-stack:new` | user | `scripts/lay.py`: `--flags` (the generator command from `references/generators.md`), `--plan`, the lay-out from `templates/`, `--wire` (the adapters the axes chose, the host files, the wizard), `--check` (the manifest of owned files and the four parts of every port), `--disown`, `--adopt` |
+| `jorekai-stack:and-now` | user | `scripts/status.py [slug]`: stage and next steps from the workspace files and the snapshot of the declaration, no repository read and no network |
+| `jorekai-stack:guards` | model | `scripts/guards.py`: seventeen checks over the declaration, the source files, `CODEOWNERS`, the workflows, the configurations, and what the gate left under `.stack/` and `coverage/`; nothing is run, and a missing artefact is `null` |
+| `jorekai-stack:drift` | model | `scripts/drift.py`: thirteen checks over the declaration, the lock, every import, the ports, and the manifest of generated files; a declaration the reader cannot follow is reported as unread, never as clean |
+| `jorekai-stack:grade` | model | `scripts/grade.py [slug]`: compare due actions with the latest audit of the tool that owns the id. Leave actions open when the measure is `null`. `--write` saves verdicts; `--namespaces` lists the tool for each check group. |
+| `jorekai-stack:report` | user | `scripts/report.py [slug] --month`: summarize the audits and the action log. `--write` saves `reports/stack/YYYY-MM.md` using `templates/report.md`. |
+
+The weekly workflow `.github/workflows/scaffold.yml` runs the real generator, a real install and the real gate for every pair of the two axes, then the seven counter-proofs. `scripts/check.sh` stays offline and proves the templates; the workflow proves that the world still matches them.
+
 ## Use in a project
 
 The collection is a Claude Code plugin (`.claude-plugin/plugin.json`, marketplace `jorekai` in `.claude-plugin/marketplace.json`). Installed once at user scope, every skill is available in every repo as `/jorekai-<theme>:<name>`, with autocomplete after `/jorekai-`:
@@ -395,9 +474,11 @@ claude plugin install jorekai-intro@jorekai
 claude plugin install jorekai-seo@jorekai
 claude plugin install jorekai-dx@jorekai
 claude plugin install jorekai-ops@jorekai
+claude plugin install jorekai-security@jorekai
+claude plugin install jorekai-stack@jorekai
 ```
 
-Then `/jorekai-intro:intro` for the map, `/jorekai-seo:setup` and the router `/jorekai-seo:seo`, `/jorekai-dx:setup` and `/jorekai-dx:dx`, or `/jorekai-ops:setup` and `/jorekai-ops:ops`. The install is a copy under `~/.claude/plugins/cache/jorekai/`, not a link: after editing a theme, bump `version` in that plugin's manifest, run `claude plugin marketplace update jorekai` and `claude plugin update <plugin>@jorekai`, then start a new session.
+Then `/jorekai-intro:intro` for the map, `/jorekai-seo:setup` and the router `/jorekai-seo:seo`, `/jorekai-dx:setup` and `/jorekai-dx:dx`, `/jorekai-ops:setup` and `/jorekai-ops:ops`, `/jorekai-security:setup` and `/jorekai-security:security`, or `/jorekai-stack:setup` and `/jorekai-stack:stack`. The install is a copy under `~/.claude/plugins/cache/jorekai/`, not a link: after editing a theme, bump `version` in that plugin's manifest, run `claude plugin marketplace update jorekai` and `claude plugin update <plugin>@jorekai`, then start a new session.
 
 Codex reads `<repo>/.agents/skills/<name>/`; the link script fills that folder:
 

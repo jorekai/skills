@@ -1,0 +1,29 @@
+{
+  "workspaces": {
+    ".": {
+      "entry": [
+        "scripts/*.mjs",
+        "rules/*.mjs",
+        "eslint.config.mjs",
+        "vitest.config.ts",
+        "playwright.config.ts"
+      ],
+      "project": ["scripts/**/*.mjs", "rules/**/*.mjs"]
+    },
+    "apps/web": {
+      "entry": [
+        "src/app/**/page.tsx",
+        "src/app/**/layout.tsx",
+        "src/app/**/route.ts",
+        "e2e/**/*.spec.ts",
+        "next.config.ts"
+      ],
+      "project": ["src/**/*.{ts,tsx}", "e2e/**/*.ts"]
+    },
+    "packages/*": {
+      "entry": ["src/index.ts", "src/*/index.ts", "src/**/*.test.ts"],
+      "project": ["src/**/*.ts"]
+    }
+  },
+  "ignoreDependencies": ["lefthook", "prettier", "eslint-config-next"]
+}

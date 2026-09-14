@@ -1,0 +1,5 @@
+interface:
+  display_name: "Stack setup"
+  short_description: "Take a repository into the stack workspace and choose its profile"
+policy:
+  allow_implicit_invocation: false

@@ -6,6 +6,8 @@ The gates in [risk-classes.md](risk-classes.md) stand above every class here. Ga
 
 The namespaces `dep`, `cred`, `build` and `vuln` belong to this theme. `secret` belongs to `jorekai-ops` and describes a credential on a host; `repo` and `alert` belong to `jorekai-dx`. A log row carrying one of those is another theme's business, and `jorekai-security:grade` says so rather than guessing.
 
+Two borders run against `jorekai-stack`, which wires the pipeline checker, the secret scanner and the advisory lookup into a generated gate and measures whether they run and cannot be walked around, while this theme grades what they find. `dep.unresolved` asks whether a lock file exists; `lock.incomplete` there asks whether it is complete. `dep.*` asks whether a dependency is vulnerable; `dead.dep` there asks whether it is used at all.
+
 ## Secrets
 
 | Check | What it means | Class | Rung | Measure (unit) |

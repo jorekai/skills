@@ -1,0 +1,5 @@
+interface:
+  display_name: "Stack choose"
+  short_description: "Settle the two axes and the bars, and write stack.yaml"
+policy:
+  allow_implicit_invocation: false

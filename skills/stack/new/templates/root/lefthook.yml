@@ -1,0 +1,6 @@
+# The hook is fast feedback over the staged files. It is not the lock: a flag walks past it,
+# and the workflow that runs the same gate over everything is the required check.
+pre-commit:
+  commands:
+    gate:
+      run: bash scripts/gate.sh --staged

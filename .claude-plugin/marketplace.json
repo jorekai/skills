@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Skills by Nils Jorek: one plugin per theme, jorekai-<theme>.",
-    "version": "1.10.0"
+    "version": "1.11.0"
   },
   "plugins": [
     {
@@ -41,6 +41,13 @@
       "name": "jorekai-security",
       "description": "Security loop for a code repository: setup, secrets, pipeline, deps, review, grade, report, and-now.",
       "source": "./skills/security",
+      "category": "productivity",
+      "license": "MIT"
+    },
+    {
+      "name": "jorekai-stack",
+      "description": "Stack loop for a monorepo an agent cannot reach past: setup, choose, new, guards, drift, grade, report, and-now.",
+      "source": "./skills/stack",
       "category": "productivity",
       "license": "MIT"
     }
