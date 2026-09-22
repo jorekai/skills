@@ -14,15 +14,27 @@ function base(): string {
   return env.JOBS_URL.replace(/\/$/, "");
 }
 
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+// The four cron fields this adapter reads, each with the value a missing field carries.
+function fields(cron: string): { minute: string; hour: string; day: string; weekday: string } {
+  const parts = cron.split(/\s+/);
+  return {
+    minute: parts[0] || "0",
+    hour: parts[1] || "*",
+    day: parts[2] || "*",
+    weekday: parts[4] || "*",
+  };
+}
+
 // systemd's calendar form: `*-*-* HH:MM:00` for a daily cron, `*-*-* *:MM:00` for an hourly one,
 // and the weekday or day of month in front where the cron fixes one.
 function onCalendar(cron: string): string {
-  const [minute = "0", hour = "*", dayOfMonth = "*", , dayOfWeek = "*"] = cron.split(/\s+/);
-  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const weekday = dayOfWeek === "*" ? "" : `${days[Number(dayOfWeek) % 7] ?? "Mon"} `;
-  const day = dayOfMonth === "*" ? "*" : dayOfMonth.padStart(2, "0");
+  const { minute, hour, day, weekday } = fields(cron);
+  const prefix = weekday === "*" ? "" : `${DAYS[Number(weekday) % 7] ?? "Mon"} `;
+  const dd = day === "*" ? "*" : day.padStart(2, "0");
   const hh = hour === "*" ? "*" : hour.padStart(2, "0");
-  return `${weekday}*-*-${day} ${hh}:${minute.padStart(2, "0")}:00`;
+  return `${prefix}*-*-${dd} ${hh}:${minute.padStart(2, "0")}:00`;
 }
 
 async function trigger(name: string): Promise<void> {

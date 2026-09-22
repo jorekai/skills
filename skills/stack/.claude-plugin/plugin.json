@@ -1,7 +1,7 @@
 {
   "name": "jorekai-stack",
   "description": "Stack loop for a monorepo an agent cannot reach past: setup, choose, new, guards, drift, grade, report, and-now.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": {
     "name": "Nils Jorek",
     "url": "https://github.com/jorekai"

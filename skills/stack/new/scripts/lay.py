@@ -88,6 +88,11 @@ VENDOR_OF = {"db/neon-http": ["@neondatabase/serverless"], "db/pool": ["pg"],
 VENDOR_DEPS = {"@neondatabase/serverless": "^1", "pg": "^8", "@vercel/blob": "^1",
                "@aws-sdk/client-s3": "^3", "@clerk/backend": "^2", "better-auth": "^1",
                "nodemailer": "^7", "@sentry/node": "^10"}
+# A vendor module that ships no types of its own: the package that carries them, as a dev
+# dependency. Without it the typecheck reads the module as `any`, which every strict lint rule
+# then reports, so the gate is red on a tree nobody touched.
+VENDOR_TYPES = {"pg": "@types/pg", "nodemailer": "@types/nodemailer"}
+TYPE_DEPS = {"@types/pg": "^8", "@types/nodemailer": "^7"}
 # The app generator, as data. A second one is a second entry here and a row in
 # references/generators.md, never a second template tree.
 GENERATORS = {
@@ -575,6 +580,7 @@ def wire(root, decl, owner, today):
     adapters = resolve(level, target)
     manifest = read_manifest(root)
     deps = {}
+    types = {}
     for port in PORTS:
         adapter = adapters[port]
         src = TEMPLATES / "ports" / port / (adapter + ADAPTER_SUFFIX)
@@ -595,12 +601,17 @@ def wire(root, decl, owner, today):
             remember(manifest, f"{PORT_DIR}/{port}/wired.ts", dest_dir / "wired.ts")
         for module in VENDOR_OF.get(f"{port}/{adapter}", []):
             deps[module] = VENDOR_DEPS[module]
+            if module in VENDOR_TYPES:
+                types[VENDOR_TYPES[module]] = TYPE_DEPS[VENDOR_TYPES[module]]
         print(f"{paint('wired', 'PASS')}  {port}  {adapter}")
     pkg_path = root / "packages" / "ports" / "package.json"
     pkg = read_json(pkg_path) if pkg_path.is_file() else None
     if isinstance(pkg, dict):
         pkg.setdefault("dependencies", {}).update(deps)
         pkg["dependencies"] = dict(sorted(pkg["dependencies"].items()))
+        if types:
+            pkg.setdefault("devDependencies", {}).update(types)
+            pkg["devDependencies"] = dict(sorted(pkg["devDependencies"].items()))
         pkg_path.write_text(json.dumps(pkg, indent=2) + "\n", encoding="utf-8")
         remember(manifest, "packages/ports/package.json", pkg_path)
         print(f"{paint('declared', 'PASS')}  {', '.join(sorted(deps)) or 'no vendor module'} in packages/ports/package.json")

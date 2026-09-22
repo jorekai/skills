@@ -18,13 +18,13 @@ const hit = 'import { db } from "@app/ports/db";\n';
 const pass = 'import { TIMEOUT_MS } from "@app/config";\nimport { cn } from "./cn";\n';
 
 test("no-cross-boundary hits an import over an edge the declaration does not name", () => {
-  const found = apply(rule, hit, path, ctx);
+  const found = apply(rule, { text: hit, path }, ctx);
   assert.equal(found.length, 1);
   assert.match(found[0].message, /allowed from this workspace: packages\/config/);
 });
 
 test("no-cross-boundary passes an allowed edge and an import inside the workspace", () => {
-  assert.equal(apply(rule, pass, path, ctx).length, 0);
+  assert.equal(apply(rule, { text: pass, path }, ctx).length, 0);
 });
 
 test("no-cross-boundary honours a boundary waiver that names the line and is in date", () => {
@@ -34,7 +34,7 @@ test("no-cross-boundary honours a boundary waiver that names the line and is in 
       { kind: "boundary", file: path, line: 1, reason: "r", until: "2026-12-31", owner: "o" },
     ],
   };
-  assert.equal(apply(rule, hit, path, waived).length, 0);
+  assert.equal(apply(rule, { text: hit, path }, waived).length, 0);
   const expired = { ...waived, waivers: [{ ...waived.waivers[0], until: "2026-01-01" }] };
-  assert.equal(apply(rule, hit, path, expired).length, 1);
+  assert.equal(apply(rule, { text: hit, path }, expired).length, 1);
 });

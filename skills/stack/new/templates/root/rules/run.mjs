@@ -13,6 +13,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { readStack } from "../scripts/stack-yaml.mjs";
+import { span } from "./span.mjs";
 
 const SKIP = new Set([
   ".git",
@@ -76,40 +77,6 @@ function lineOf(text, index) {
   return text.slice(0, index).split("\n").length;
 }
 
-// The span of the bracket that opens at or after `from`: the matching close, counting nesting
-// and skipping string literals the simple way.
-function span(text, from) {
-  const open = text.slice(from).search(/[({[]/);
-  if (open < 0) return [from, text.length];
-  const start = from + open;
-  const pairs = { "(": ")", "{": "}", "[": "]" };
-  const stack = [pairs[text[start]]];
-  let quote = "";
-  for (let i = start + 1; i < text.length; i += 1) {
-    const c = text[i];
-    if (quote) {
-      [i, quote] = inQuote(c, i, quote);
-      continue;
-    }
-    quote = isQuote(c) ? c : "";
-    if (quote) continue;
-    if (pairs[c]) stack.push(pairs[c]);
-    else if (c === stack[stack.length - 1]) stack.pop();
-    if (!stack.length) return [start, i + 1];
-  }
-  return [start, text.length];
-}
-
-// Inside a string literal: the index after this character, and whether the literal is still open.
-function inQuote(c, i, quote) {
-  if (c === "\\") return [i + 1, quote];
-  return [i, c === quote ? "" : quote];
-}
-
-function isQuote(c) {
-  return c === '"' || c === "'" || c === "`";
-}
-
 function fill(message, hit) {
   return message
     .replace("{file}", hit.file)
@@ -136,18 +103,19 @@ function targetWorkspace(spec, path, ctx) {
   return "";
 }
 
-function applyLine(rule, text, path) {
+function applyLine(rule, source) {
   const out = [];
-  text.split("\n").forEach((line, i) => {
+  source.text.split("\n").forEach((line, i) => {
     const m = rule.match.exec(line);
     if (!m) return;
     if (rule.allow && rule.allow.test(line)) return;
-    out.push({ file: path, line: i + 1, id: rule.id, found: m[0].trim() });
+    out.push({ file: source.path, line: i + 1, id: rule.id, found: m[0].trim() });
   });
   return out;
 }
 
-function applyBlock(rule, text, path) {
+function applyBlock(rule, source) {
+  const { text, path } = source;
   const out = [];
   const open = new RegExp(
     rule.open.source,
@@ -165,7 +133,8 @@ function applyBlock(rule, text, path) {
   return out;
 }
 
-function applyEdge(rule, text, path, ctx) {
+function applyEdge(rule, source, ctx) {
+  const { text, path } = source;
   const out = [];
   const own = ownWorkspace(path, ctx.workspaces);
   if (!own) return out;
@@ -206,16 +175,17 @@ function waived(hit, rule, ctx) {
   );
 }
 
-// One rule over one file. `ctx` carries workspaces, package names, waivers and today.
-export function apply(rule, text, path, ctx = {}) {
-  if (!matchesFiles(rule, path)) return [];
+// One rule over one file. `source` is `{ text, path }`; `ctx` carries workspaces, package names,
+// waivers and today.
+export function apply(rule, source, ctx = {}) {
+  if (!matchesFiles(rule, source.path)) return [];
   const hits =
     rule.kind === "line"
-      ? applyLine(rule, text, path)
+      ? applyLine(rule, source)
       : rule.kind === "block"
-        ? applyBlock(rule, text, path)
+        ? applyBlock(rule, source)
         : rule.kind === "edge"
-          ? applyEdge(rule, text, path, ctx)
+          ? applyEdge(rule, source, ctx)
           : [];
   return hits
     .filter((h) => !waived(h, rule, ctx))
@@ -286,7 +256,7 @@ function scan(root, paths, ctx) {
     if (!existsSync(join(root, path))) continue;
     const text = readFileSync(join(root, path), "utf8");
     for (const rule of ctx.rules) {
-      for (const h of apply(rule, text, path, ctx)) {
+      for (const h of apply(rule, { text, path }, ctx)) {
         hits += 1;
         say(`${h.file}:${h.line}  ${h.id}  ${h.message}`);
       }
@@ -310,6 +280,19 @@ function gaps(refused, declared, rules) {
   return refused.length + missing.length;
 }
 
+// What every rule reads while it runs: the boundaries, the package names, the waivers, and the
+// rules the declaration names, which is a subset of the rules that proved themselves.
+function context(root, stack, rules) {
+  const declared = stack.rules ?? [];
+  const workspaces = stack.workspaces ?? {};
+  return {
+    workspaces,
+    names: packageNames(root, workspaces),
+    waivers: stack.waivers ?? [],
+    rules: rules.filter((r) => declared.includes(r.id)),
+  };
+}
+
 async function main(argv) {
   const root = process.cwd();
   const { rules, refused } = await loadRules(join(root, "rules"));
@@ -320,17 +303,11 @@ async function main(argv) {
     return;
   }
   const stack = readStack(root);
-  const declared = stack.rules || [];
-  const ctx = {
-    workspaces: stack.workspaces || {},
-    names: packageNames(root, stack.workspaces || {}),
-    waivers: stack.waivers || [],
-    rules: rules.filter((r) => declared.includes(r.id)),
-  };
+  const ctx = context(root, stack, rules);
   const files = argv.filter((a) => !a.startsWith("--"));
   const paths = files.length ? files : [...walk(root, root)];
   const hits = scan(root, paths, ctx);
-  if (hits + gaps(refused, declared, rules)) process.exit(1);
+  if (hits + gaps(refused, stack.rules ?? [], rules)) process.exit(1);
   say(`ok  rules  ${rules.length} rule(s) over ${paths.length} file(s)`);
 }
 

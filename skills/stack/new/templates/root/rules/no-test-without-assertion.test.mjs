@@ -8,12 +8,12 @@ const hit = 'it("joins class names", () => {\n  cn("a", "b");\n});\n';
 const pass = 'it("joins class names", () => {\n  expect(cn("a", "b")).toBe("a b");\n});\n';
 
 test("no-test-without-assertion hits a block with no assertion", () => {
-  const found = apply(rule, hit, path);
+  const found = apply(rule, { text: hit, path });
   assert.equal(found.length, 1);
   assert.match(found[0].message, /allowed: at least one expect\(\)/);
 });
 
 test("no-test-without-assertion passes a block that asserts, and a file that is not a test", () => {
-  assert.equal(apply(rule, pass, path).length, 0);
-  assert.equal(apply(rule, hit, "packages/ui/src/index.ts").length, 0);
+  assert.equal(apply(rule, { text: pass, path }).length, 0);
+  assert.equal(apply(rule, { text: hit, path: "packages/ui/src/index.ts" }).length, 0);
 });

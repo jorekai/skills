@@ -487,7 +487,7 @@
     {
       "theme": "stack",
       "plugin": "jorekai-stack",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "covers": "Stack loop for a monorepo an agent cannot reach past: setup, choose, new, guards, drift, grade, report, and-now.",
       "install": "claude plugin install jorekai-stack@jorekai",
       "listed": true,

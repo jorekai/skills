@@ -9,12 +9,12 @@ const pass =
   'import { withTimeout } from "@app/config";\nconst r = await fetch(url, {\n  method: "POST",\n  signal: withTimeout(),\n});\n';
 
 test("no-untimed-fetch hits a call with no signal in its arguments", () => {
-  const found = apply(rule, hit, path);
+  const found = apply(rule, { text: hit, path });
   assert.equal(found.length, 1);
   assert.equal(found[0].line, 1);
   assert.match(found[0].message, /allowed: fetch\(url, \{ signal: withTimeout\(\) \}\)/);
 });
 
 test("no-untimed-fetch passes a call that carries a signal", () => {
-  assert.equal(apply(rule, pass, path).length, 0);
+  assert.equal(apply(rule, { text: pass, path }).length, 0);
 });

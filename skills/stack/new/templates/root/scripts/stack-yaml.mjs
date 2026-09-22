@@ -57,21 +57,26 @@ function scalar(text) {
 
 const DEPTH = { "[": 1, "{": 1, "]": -1, "}": -1 };
 
+// One character of the scan, against the state it carries: the quote it is inside, and how deep
+// in brackets it stands. Returns nothing; the state is what moves.
+function flowStep(state, c) {
+  if (state.quote) {
+    if (c === state.quote) state.quote = "";
+    return;
+  }
+  if (c === "'" || c === '"') state.quote = c;
+  state.depth += DEPTH[c] ?? 0;
+}
+
 // The top-level items of a flow collection, split on the commas outside brackets and quotes.
 function splitFlow(inner) {
   const parts = [];
-  let depth = 0;
+  const state = { depth: 0, quote: "" };
   let current = "";
-  let quote = "";
   for (const c of inner) {
-    if (quote) {
-      current += c;
-      if (c === quote) quote = "";
-      continue;
-    }
-    if (c === "'" || c === '"') quote = c;
-    depth += DEPTH[c] ?? 0;
-    if (c === "," && depth === 0) {
+    const quoted = state.quote !== "";
+    flowStep(state, c);
+    if (!quoted && c === "," && state.depth === 0) {
       parts.push(current);
       current = "";
       continue;
@@ -96,20 +101,23 @@ function flow(text) {
 const KEY = /^((?:"[^"]*")|(?:'[^']*')|(?:[^:#]+?))\s*:(?:\s+(.*))?$/;
 const BLOCK = /^[|>][+-]?\d*$/;
 
+// What the reader is not: a tab, a second document, an anchor, an alias, a merge key. Each one
+// throws here rather than parsing into something the declaration does not mean.
+function refuse(lead, body) {
+  if (lead.includes("\t")) throw new Unsupported("a tab in the indentation");
+  if (body === "---" || body === "...") throw new Unsupported("more than one document");
+  if (/^[&*]/.test(body) || /:\s+[&*]\w/.test(body) || body.startsWith("<<:")) {
+    throw new Unsupported("an anchor, an alias, or a merge key");
+  }
+}
+
 function tokenize(text) {
   const out = [];
   for (const raw of text.split(/\r?\n/)) {
-    const lead = raw.slice(0, raw.length - raw.trimStart().length);
-    if (lead.includes("\t")) throw new Unsupported("a tab in the indentation");
     const stripped = stripComment(raw);
-    if (!stripped.trim()) continue;
-    if (stripped.trim() === "---" || stripped.trim() === "...") {
-      throw new Unsupported("more than one document");
-    }
     const body = stripped.trim();
-    if (/^[&*]/.test(body) || /:\s+[&*]\w/.test(body) || body.startsWith("<<:")) {
-      throw new Unsupported("an anchor, an alias, or a merge key");
-    }
+    refuse(raw.slice(0, raw.length - raw.trimStart().length), body);
+    if (!body) continue;
     out.push({ indent: stripped.length - stripped.trimStart().length, body, raw: raw.trim() });
   }
   return out;
@@ -130,6 +138,22 @@ function parseBlock(lines, pos, indent) {
   return parseMap(lines, pos, indent);
 }
 
+// The block under a line that carries no value of its own, or nothing when none follows.
+function blockUnder(lines, pos, indent) {
+  if (pos < lines.length && lines[pos].indent > indent) {
+    return parseBlock(lines, pos, lines[pos].indent);
+  }
+  return [null, pos];
+}
+
+// A dash whose rest is the first key of a map: every line under it belongs to that map.
+function seqMap(lines, pos, head) {
+  let take = 0;
+  while (pos + take < lines.length && lines[pos + take].indent >= head.indent) take += 1;
+  const [value] = parseMap([head, ...lines.slice(pos, pos + take)], 0, head.indent);
+  return [value, pos + take];
+}
+
 function parseSeq(lines, pos, indent) {
   const out = [];
   while (pos < lines.length && lines[pos].indent === indent && lines[pos].body.startsWith("-")) {
@@ -139,22 +163,15 @@ function parseSeq(lines, pos, indent) {
     const inner = ind + 1 + m[1].length;
     pos += 1;
     if (!rest) {
-      if (pos < lines.length && lines[pos].indent > ind) {
-        const [value, next] = parseBlock(lines, pos, lines[pos].indent);
-        out.push(value);
-        pos = next;
-      } else {
-        out.push(null);
-      }
+      const [value, next] = blockUnder(lines, pos, ind);
+      out.push(value);
+      pos = next;
       continue;
     }
     if (KEY.test(rest)) {
-      let take = 0;
-      while (pos + take < lines.length && lines[pos + take].indent >= inner) take += 1;
-      const sub = [{ indent: inner, body: rest, raw: rest }, ...lines.slice(pos, pos + take)];
-      const [value] = parseMap(sub, 0, inner);
-      pos += take;
+      const [value, next] = seqMap(lines, pos, { indent: inner, body: rest, raw: rest });
       out.push(value);
+      pos = next;
       continue;
     }
     out.push(scalar(rest));
@@ -181,13 +198,9 @@ function parseMap(lines, pos, indent) {
       out[key] = scalar(rest);
       continue;
     }
-    if (pos < lines.length && lines[pos].indent > ind) {
-      const [value, next] = parseBlock(lines, pos, lines[pos].indent);
-      out[key] = value;
-      pos = next;
-    } else {
-      out[key] = null;
-    }
+    const [value, next] = blockUnder(lines, pos, ind);
+    out[key] = value;
+    pos = next;
   }
   return [out, pos];
 }

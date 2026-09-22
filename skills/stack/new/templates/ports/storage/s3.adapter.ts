@@ -10,6 +10,18 @@ import {
 import { env } from "@app/env";
 import type { Storage } from "./contract";
 
+// The two halves of STORAGE_KEY, refused when either is empty.
+function credentials(): [string, string] {
+  if (!env.STORAGE_URL || !env.STORAGE_KEY) {
+    throw new Error("STORAGE_URL or STORAGE_KEY is empty: the s3 adapter needs both");
+  }
+  const [id, secret] = env.STORAGE_KEY.split(":");
+  if (!id || !secret) {
+    throw new Error("STORAGE_URL reads s3://<bucket>@<endpoint> and STORAGE_KEY <id>:<secret>");
+  }
+  return [id, secret];
+}
+
 function target(): {
   bucket: string;
   endpoint: string;
@@ -17,12 +29,9 @@ function target(): {
   id: string;
   secret: string;
 } {
-  if (!env.STORAGE_URL || !env.STORAGE_KEY) {
-    throw new Error("STORAGE_URL or STORAGE_KEY is empty: the s3 adapter needs both");
-  }
-  const match = /^s3:\/\/([^@]+)@([^?]+)(?:\?region=([^&]+))?$/.exec(env.STORAGE_URL);
-  const [id, secret] = env.STORAGE_KEY.split(":");
-  if (!match || !match[1] || !match[2] || !id || !secret) {
+  const [id, secret] = credentials();
+  const match = /^s3:\/\/([^@]+)@([^?]+)(?:\?region=([^&]+))?$/.exec(env.STORAGE_URL ?? "");
+  if (!match || !match[1] || !match[2]) {
     throw new Error("STORAGE_URL reads s3://<bucket>@<endpoint> and STORAGE_KEY <id>:<secret>");
   }
   const host = match[2];

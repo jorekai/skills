@@ -21,29 +21,36 @@ function compare(root, files, disowned) {
   return { changed, missing };
 }
 
+// The manifest as the two things this pass reads from it: the owned files with their hashes, and
+// the paths a person took over.
+function read(path) {
+  const manifest = JSON.parse(readFileSync(path, "utf8"));
+  return { files: manifest.files ?? {}, disowned: new Set(manifest.disowned ?? []) };
+}
+
+function say(line) {
+  process.stdout.write(line);
+}
+
 function main() {
   const root = process.cwd();
   const path = join(root, ".stack", "generated.json");
   if (!existsSync(path)) {
-    process.stdout.write(
+    say(
       "failed  drift  no .stack/generated.json; allowed: the manifest jorekai-stack:new writes\n",
     );
     process.exit(1);
   }
-  const manifest = JSON.parse(readFileSync(path, "utf8"));
-  const disowned = new Set(manifest.disowned || []);
-  const { changed, missing } = compare(root, manifest.files || {}, disowned);
+  const { files, disowned } = read(path);
+  const { changed, missing } = compare(root, files, disowned);
   for (const f of changed) {
-    process.stdout.write(
-      `${f}  decl.generated  changed by hand; allowed: regenerate it, or --disown it\n`,
-    );
+    say(`${f}  decl.generated  changed by hand; allowed: regenerate it, or --disown it\n`);
   }
   for (const f of missing) {
-    process.stdout.write(`${f}  decl.generated  missing; allowed: regenerate it, or --disown it\n`);
+    say(`${f}  decl.generated  missing; allowed: regenerate it, or --disown it\n`);
   }
   if (changed.length || missing.length) process.exit(1);
-  const n = Object.keys(manifest.files || {}).length - disowned.size;
-  process.stdout.write(`ok  drift  ${n} generated file(s) unchanged\n`);
+  say(`ok  drift  ${Object.keys(files).length - disowned.size} generated file(s) unchanged\n`);
 }
 
 main();

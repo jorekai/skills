@@ -8,12 +8,12 @@ const hit = "const url = process.env.DB_URL;\n";
 const pass = 'import { env } from "@app/env";\nconst url = env.DB_URL;\n';
 
 test("no-raw-env hits a raw read of the environment", () => {
-  const found = apply(rule, hit, path);
+  const found = apply(rule, { text: hit, path });
   assert.equal(found.length, 1);
   assert.match(found[0].message, /allowed: import \{ env \} from "@app\/env"/);
 });
 
 test("no-raw-env passes the import from the schema, and packages/env itself", () => {
-  assert.equal(apply(rule, pass, path).length, 0);
-  assert.equal(apply(rule, hit, "packages/env/src/index.ts").length, 0);
+  assert.equal(apply(rule, { text: pass, path }).length, 0);
+  assert.equal(apply(rule, { text: hit, path: "packages/env/src/index.ts" }).length, 0);
 });

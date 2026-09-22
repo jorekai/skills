@@ -23,6 +23,17 @@ jobs:
       matrix:
         oss: [minimal, pragmatic, full]
         target: [vercel, cloudflare, fly, hetzner, railway]
+        profile: [standard]
+        # The bars of `strict` are the ones the generated tooling itself has to stay under, and
+        # they are tighter than anything the other fifteen jobs measure. Two pairs carry them:
+        # one whose `db` port resolves to `pool`, and one whose `mail` port resolves to `smtp`.
+        include:
+          - oss: pragmatic
+            target: hetzner
+            profile: strict
+          - oss: full
+            target: cloudflare
+            profile: strict
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7
@@ -44,23 +55,35 @@ jobs:
         env:
           OSS: ${{ matrix.oss }}
           TARGET: ${{ matrix.target }}
+          PROFILE: ${{ matrix.profile }}
         run: |
           set -euo pipefail
           demo=/tmp/demo
-          python3 skills/stack/choose/scripts/declare.py --root "$demo" --oss "$OSS" --target "$TARGET" --name demo
+          python3 skills/stack/choose/scripts/declare.py --root "$demo" --oss "$OSS" --target "$TARGET" --profile "$PROFILE" --name demo
           python3 skills/stack/new/scripts/lay.py --root "$demo" --plan
           python3 skills/stack/new/scripts/lay.py --root "$demo"
-          # The generator command comes from --flags, so a flag that moves fails here and nowhere else.
+          # The generator command comes from --flags, so a flag that moves fails here and nowhere
+          # else. The first line that names the generator is `generator:`, so the command is read
+          # by its own key and never by the tool it happens to name.
           python3 skills/stack/new/scripts/lay.py --root "$demo" --flags > /tmp/flags.txt
           cat /tmp/flags.txt
           cd "$demo"
-          bash -c "$(grep -m1 'create-next-app' /tmp/flags.txt | sed 's/^[^:]*: *//')"
+          bash -c "$(grep -m1 '^command:' /tmp/flags.txt | sed 's/^command: *//')"
           cd "$GITHUB_WORKSPACE"
           python3 skills/stack/new/scripts/lay.py --root "$demo"
           python3 skills/stack/new/scripts/lay.py --root "$demo" --wire
           cd "$demo"
-          git init -q && git add -A && git -c user.name=ci -c user.email=ci@example.com commit -qm "scaffold"
+          # The install comes before the commit, so the lock file is in the tree the next step
+          # clones. A clone without one cannot install what this one installed, which is the
+          # whole point of asking whether a fresh clone is green.
           pnpm install
+          git init -q && git add -A && git -c user.name=ci -c user.email=ci@example.com commit -qm "scaffold"
+          if [[ -n "$(git status --porcelain)" ]]; then
+            echo "the commit left something behind, so the clone will not carry it:"; git status --short; exit 1
+          fi
+          # Tracked, not merely present: an untracked lock file reaches no clone, and the
+          # `git clean` inside every counter-proof below would delete it.
+          git ls-files --error-unmatch pnpm-lock.yaml >/dev/null
           pnpm exec playwright install --with-deps chromium
       - name: The gate is green offline, with no key set
         run: |

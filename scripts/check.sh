@@ -288,6 +288,14 @@ t python3 skills/stack/and-now/scripts/status.py --help
 t python3 skills/stack/grade/scripts/grade.py --help
 t python3 skills/stack/grade/scripts/grade.py --namespaces
 t python3 skills/stack/report/scripts/report.py --help
+# A rule without a test is not run (decisions/0037), and the rule engine the generator ships is
+# the one place a project teaches an agent a boundary of its own. Its tests need node, which
+# nothing else in this gate needs, so a machine without it says so rather than passing blind.
+if command -v node >/dev/null; then
+  t bash -c 'cd skills/stack/new/templates/root && node --test rules/*.test.mjs'
+else
+  echo "warning: node not installed, the generated rule tests were skipped" >&2
+fi
 t bash -n skills/stack/new/templates/root/scripts/gate.sh
 t bash -n skills/stack/new/templates/wizard/wizard.sh
 t bash -n skills/stack/new/templates/wizard/stages.sh
