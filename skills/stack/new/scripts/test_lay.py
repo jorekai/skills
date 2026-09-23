@@ -5,6 +5,7 @@ Run: python3 skills/stack/new/scripts/test_lay.py
 Every test lays a repository out in a temporary directory from the declaration template of the
 choose skill. No generator runs, no network; the app directory is a fake manifest.
 """
+import importlib.util
 import json
 import os
 import re
@@ -231,6 +232,58 @@ class AdoptTest(unittest.TestCase):
             self.assertIn("coverage_branches: 31", text)
 
 
+def sibling_module(rel_path, name):
+    """Import another skill's script by path, for the adapter-table invariant (decisions/0033):
+    the table is duplicated in choose, new and drift on purpose, and a test compares all three."""
+    spec = importlib.util.spec_from_file_location(name, SKILLS / rel_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def table_from_ports_md(start, end, columns):
+    """The adapter table between two headings of ports.md, keyed like BY_TARGET and BY_LEVEL."""
+    text = (REFERENCES / "ports.md").read_text(encoding="utf-8")
+    body = text.split(start, 1)[1].split(end, 1)[0]
+    out = {}
+    for line in body.splitlines():
+        if not line.strip().startswith("|") or "---" in line:
+            continue
+        cells = re.findall(r"`([a-z0-9.-]+)`", line)
+        if len(cells) == len(columns) + 1:
+            port, *values = cells
+            out[port] = dict(zip(columns, values))
+    return out
+
+
+class AdapterTableTest(unittest.TestCase):
+    """decisions/0033: an adapter name is a file name, and the table that maps an axis value to
+    one is duplicated in jorekai-stack:choose, jorekai-stack:new and jorekai-stack:drift on
+    purpose, each staying standalone. A test compares the three to references/ports.md, both
+    ways, so a row that moves in one and not the others is caught here."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.declare = sibling_module("stack/choose/scripts/declare.py", "declare_for_adapter_test")
+        cls.drift = sibling_module("stack/drift/scripts/drift.py", "drift_for_adapter_test")
+
+    def test_the_three_scripts_carry_the_same_by_target_and_by_level_tables(self):
+        self.assertEqual(lay.BY_TARGET, self.declare.BY_TARGET)
+        self.assertEqual(lay.BY_TARGET, self.drift.BY_TARGET)
+        self.assertEqual(lay.BY_LEVEL, self.declare.BY_LEVEL)
+        self.assertEqual(lay.BY_LEVEL, self.drift.BY_LEVEL)
+
+    def test_the_tables_agree_with_references_ports_md_both_ways(self):
+        by_target = table_from_ports_md("## Ports decided by the target",
+                                        "## Ports decided by the OSS level", lay.TARGETS)
+        by_level = table_from_ports_md("## Ports decided by the OSS level",
+                                       "## The offline adapter", lay.LEVELS)
+        self.assertEqual(set(by_target), set(lay.BY_TARGET))
+        self.assertEqual(by_target, lay.BY_TARGET)
+        self.assertEqual(set(by_level), set(lay.BY_LEVEL))
+        self.assertEqual(by_level, lay.BY_LEVEL)
+
+
 def adapters_in_tables():
     out = set()
     for port, table in lay.BY_TARGET.items():
@@ -294,6 +347,15 @@ class InvariantTest(unittest.TestCase):
         self.assertGreater(len(listed), 5)
         for path in listed:
             self.assertRegex(owners, r"(?m)^/?" + re.escape(path.rstrip("/")) + r"/? ", path)
+
+    def test_the_coverage_glob_and_the_import_alias_match_the_src_dir_layout(self):
+        # The generator runs with --src-dir (GENERATORS above), so the app's code lives under
+        # apps/*/src/app, not apps/*/app, and "@/*" resolves under apps/web/src.
+        vitest = (TEMPLATES / "root" / "vitest.config.ts").read_text(encoding="utf-8")
+        self.assertIn('"apps/*/src/app/**"', vitest)
+        self.assertNotIn('"apps/*/app/**"', vitest)
+        tsconfig = (TEMPLATES / "apps" / "web" / "tsconfig.json").read_text(encoding="utf-8")
+        self.assertIn('"@/*": ["./src/*"]', tsconfig)
 
     def test_every_rule_has_a_test_and_the_declaration_names_exactly_those(self):
         rules = {p.name[:-len(".rule.mjs")] for p in (TEMPLATES / "root" / "rules").glob("*.rule.mjs")}

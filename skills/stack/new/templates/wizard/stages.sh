@@ -47,7 +47,7 @@ fi
 
 stage "Branch protection: the gate as the required check"
 step "On the forge, protect the default branch with the check named gate as required, or run:"
-note "gh api -X PUT repos/<owner>/<repo>/branches/<default>/protection -f 'required_status_checks[strict]=true' -f 'required_status_checks[contexts][]=gate' -F 'enforce_admins=true' -f 'required_pull_request_reviews[required_approving_review_count]=1'"
+note "gh api -X PUT repos/<owner>/<repo>/branches/<default>/protection -f 'required_status_checks[strict]=true' -f 'required_status_checks[contexts][]=gate' -F 'enforce_admins=true' -f 'required_pull_request_reviews[required_approving_review_count]=1' -f 'required_pull_request_reviews[require_code_owner_reviews]=true'"
 step "Then add the date to stack.yaml under enforcement: gate@$(today)"
 if confirm "Is the gate a required check on the default branch?"; then
   record "BRANCH_PROTECTION" "$(today)"

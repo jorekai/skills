@@ -2,6 +2,14 @@
 
 One entry per `jorekai-stack` version. The version at the top equals `version` in `skills/stack/.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 0.2.0 (2026-09-23)
+
+- Changed: `escape.unenforced` no longer trusts a date in `stack.yaml`. Without a captured branch protection it stays unknown; with one it also fails when an administrator can merge past the checks or when code owner review is not required. `setup --flags` names the capture, and the protection command in the wizard and the fixes table now requires code owner review.
+- Fixed: `guards` and `drift` skip a symlink that points outside the repository and report one inside it at its own path.
+- Fixed: the generated coverage glob and the `@/*` alias match the `src/` layout the app generator produces, and the gate verifies the secret scanner's archive against its published checksum before use.
+- Changed: `jorekai-stack:choose` refuses an unknown generator or package manager. A test now compares the adapter tables of `choose`, `new` and `drift` with `references/ports.md` both ways, as `decisions/0033` promised. The docs no longer claim the pipeline checker and the advisory lookup run inside the gate.
+- Fixed: `and-now`, `grade`, `report` and `setup --due` name a log row they cannot read instead of dropping it.
+
 ## 0.1.1 (2026-09-22)
 
 - Fixed: `jorekai-stack:new` now declares `@types/pg` beside `pg` and `@types/nodemailer` beside `nodemailer`, as dev dependencies of `packages/ports`. Neither vendor module ships a type declaration of its own, so the typecheck read it as `any` and every strict rule above it reported the adapter: the first gate was red on a tree nobody had touched, for every pair whose `db` port resolves to `pool` or `hyperdrive`, and for all five `full` pairs, which carry `mail=smtp`. Proved by hand on six axis pairs that together cover all twenty-four adapters, two of them under the `strict` profile.

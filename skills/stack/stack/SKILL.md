@@ -61,7 +61,7 @@ A repository is this theme's business when its `config.md` says `role: stack`. N
 
 ## What this theme does not do
 
-- It does not grade what the wired guards find. The pipeline checker, the secret scanner and the advisory lookup are wired into the gate and measured by `jorekai-security` as `build.*`, `cred.*` and `dep.*`. This theme measures that they are wired and cannot be walked around; that theme measures what they catch. No check is counted twice (`decisions/0015`).
+- It does not grade what a wired guard finds. The secret scanner is wired into the gate, and `jorekai-security` measures what it catches as `cred.*`. The pipeline checker and the advisory lookup are not wired into this gate; `jorekai-security` runs `build.*` and `dep.*` as skills of its own, over the same repository. This theme measures that a wired guard cannot be walked around; that theme measures what a wired or a separately run guard finds. No check is counted twice (`decisions/0015`).
 - It does not measure the machine or the session. Whether anything runs on push is `repo.no-ci` in `jorekai-dx`; whether the declared guard runs there is `guard.unwired` here. The five borders stand in [references/fixes.md](references/fixes.md).
 - It builds depth 3 as declaration lines, not as code: seven things with a recommendation and a date, and `decl.undecided` counts the ones past it.
 - It has no ratchet for suppressions. A suppression is named or it is red. Dead code alone has a bar, because its stock in an old repository is too large for a list of names, and the bar stands under `CODEOWNERS`.

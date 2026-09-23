@@ -101,6 +101,14 @@ def cost(out, cid):
     return item(out, cid)["measure"]["value"]
 
 
+def full_protection(*contexts):
+    """A captured branch protection with every guard proved: the contexts, admin bypass off, and
+    code owner review required."""
+    return json.dumps({"required_status_checks": {"contexts": list(contexts)},
+                        "enforce_admins": {"enabled": True},
+                        "required_pull_request_reviews": {"require_code_owner_reviews": True}})
+
+
 def with_waiver(root, kind, file, line, reason="the driver types it as any", until="2026-12-01",
                 owner="a-person"):
     p = Path(root) / "stack.yaml"
@@ -120,8 +128,9 @@ class CleanTreeTest(unittest.TestCase):
                         "guard.missing", "guard.disabled", "guard.unwired", "guard.unbarred",
                         "guard.rulegap", "guard.assertionless"):
                 self.assertEqual(cost(out, cid), 0, cid)
-            # The template's enforcement entry carries no date yet, so the gate counts as unenforced.
-            self.assertEqual(cost(out, "escape.unenforced"), 1)
+            # Without a captured protection, a date alone proves nothing: the check is unknown.
+            note = item(out, "escape.unenforced", "INFO")
+            self.assertIsNone(note["measure"]["value"])
             for cid in ("guard.coverage", "guard.slow", "dead.export", "dead.file", "dead.dep"):
                 note = item(out, cid, "INFO")
                 self.assertIsNone(note["measure"]["value"])
@@ -221,14 +230,30 @@ class EscapeTest(unittest.TestCase):
 
 
 class EnforcementTest(unittest.TestCase):
-    def test_an_undated_entry_counts_and_a_dated_one_does_not(self):
+    """A date alone in stack.yaml is self-attested, never proof: only a captured protection can
+    settle escape.unenforced (the CRITICAL fix), and it now reads enforce_admins and
+    require_code_owner_reviews from that capture too."""
+
+    def test_without_a_captured_protection_the_check_is_unknown_not_a_pass(self):
         with tempfile.TemporaryDirectory() as d:
             tree(d)
-            self.assertEqual(cost(run(d), "escape.unenforced"), 1)
             p = Path(d) / "stack.yaml"
             p.write_text(p.read_text(encoding="utf-8").replace("  - gate\n", "  - gate@2026-09-01\n"),
                          encoding="utf-8")
-            self.assertEqual(cost(run(d), "escape.unenforced"), 0)
+            out = run(d)
+            note = item(out, "escape.unenforced", "INFO")
+            self.assertIsNone(note["measure"]["value"])
+            self.assertIn("not proof", note["message"])
+
+    def test_an_undated_entry_counts_and_a_dated_one_with_a_full_capture_does_not(self):
+        with tempfile.TemporaryDirectory() as d:
+            tree(d)
+            prot = write(d, "prot.json", full_protection("gate"))
+            self.assertEqual(cost(run(d, "--protection-file", str(prot)), "escape.unenforced"), 1)
+            p = Path(d) / "stack.yaml"
+            p.write_text(p.read_text(encoding="utf-8").replace("  - gate\n", "  - gate@2026-09-01\n"),
+                         encoding="utf-8")
+            self.assertEqual(cost(run(d, "--protection-file", str(prot)), "escape.unenforced"), 0)
 
     def test_a_captured_protection_without_the_context_counts(self):
         with tempfile.TemporaryDirectory() as d:
@@ -236,19 +261,69 @@ class EnforcementTest(unittest.TestCase):
             p = Path(d) / "stack.yaml"
             p.write_text(p.read_text(encoding="utf-8").replace("  - gate\n", "  - gate@2026-09-01\n"),
                          encoding="utf-8")
-            prot = write(d, "prot.json", json.dumps({"required_status_checks": {"contexts": ["lint"]}}))
+            prot = write(d, "prot.json", full_protection("lint"))
             self.assertEqual(cost(run(d, "--protection-file", str(prot)), "escape.unenforced"), 1)
-            prot.write_text(json.dumps({"required_status_checks": {"contexts": ["gate"]}}), encoding="utf-8")
+            prot.write_text(full_protection("gate"), encoding="utf-8")
             self.assertEqual(cost(run(d, "--protection-file", str(prot)), "escape.unenforced"), 0)
+
+    def test_admin_bypass_on_and_no_required_codeowner_review_each_count_once(self):
+        with tempfile.TemporaryDirectory() as d:
+            tree(d)
+            p = Path(d) / "stack.yaml"
+            p.write_text(p.read_text(encoding="utf-8").replace("  - gate\n", "  - gate@2026-09-01\n"),
+                         encoding="utf-8")
+            prot = write(d, "prot.json", json.dumps(
+                {"required_status_checks": {"contexts": ["gate"]},
+                 "enforce_admins": {"enabled": False},
+                 "required_pull_request_reviews": {"require_code_owner_reviews": False}}))
+            out = run(d, "--protection-file", str(prot))
+            self.assertEqual(cost(out, "escape.unenforced"), 2)
+            found = {r["target"] for r in item(out, "escape.unenforced")["data"]}
+            self.assertEqual(found, {"enforce_admins", "require_code_owner_reviews"})
 
     def test_a_missing_enforcement_section_counts_the_gate(self):
         with tempfile.TemporaryDirectory() as d:
             tree(d)
             p = Path(d) / "stack.yaml"
             p.write_text(p.read_text(encoding="utf-8").replace("enforcement:\n  - gate\n", ""), encoding="utf-8")
-            out = run(d)
+            prot = write(d, "prot.json", full_protection("gate"))
+            out = run(d, "--protection-file", str(prot))
             self.assertEqual(cost(out, "escape.unenforced"), 1)
             self.assertEqual(item(out, "escape.unenforced")["data"][0]["target"], "gate")
+
+
+class SymlinkTest(unittest.TestCase):
+    """A symlink is walked, and its real target decides whether it is read at all."""
+
+    def test_a_symlink_escaping_the_root_is_skipped_not_read(self):
+        with tempfile.TemporaryDirectory() as outside, tempfile.TemporaryDirectory() as d:
+            secret = Path(outside) / "secret.ts"
+            secret.write_text("export const x = 1 as any;\n", encoding="utf-8")
+            tree(d)
+            link = Path(d) / "packages" / "ui" / "src" / "escaped.ts"
+            try:
+                link.symlink_to(secret)
+            except OSError:
+                self.skipTest("symlinks are not available on this filesystem")
+            out = run(d)
+            self.assertEqual(cost(out, "escape.type"), 0)
+            self.assertNotIn("escaped.ts", json.dumps(out))
+
+    def test_a_symlink_inside_the_root_is_named_at_the_place_it_stands(self):
+        with tempfile.TemporaryDirectory() as d:
+            tree(d)
+            target = Path(d) / "packages" / "ui" / "src" / "legacy.ts"
+            target.write_text("const a = 1;\nconst b = a as any;\nexport { b };\n", encoding="utf-8")
+            link = Path(d) / "packages" / "ui" / "src" / "alias.ts"
+            try:
+                link.symlink_to(target)
+            except OSError:
+                self.skipTest("symlinks are not available on this filesystem")
+            out = run(d)
+            targets = {r["target"] for r in item(out, "escape.type")["data"]}
+            self.assertIn("packages/ui/src/legacy.ts:2", targets)
+            self.assertIn("packages/ui/src/alias.ts:2", targets)
+            self.assertEqual(cost(out, "escape.type"), 2)
 
 
 class OwnerTest(unittest.TestCase):

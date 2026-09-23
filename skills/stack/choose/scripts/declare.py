@@ -15,7 +15,7 @@ caveat: `full` on vercel or cloudflare cannot run three servers there, and the f
 
 The profile sets the ten bars. The file is written from templates/stack.yaml with every
 placeholder substituted, and an existing file is never overwritten without --force.
-Stdlib only. Exit 1 when the file exists and --force is missing, 2 on an unknown axis value.
+Stdlib only. Exit 1 when the file exists and --force is missing, and on an unknown axis value, generator, or package manager.
 """
 import argparse
 import datetime as dt
@@ -52,6 +52,10 @@ DECLARATION = "stack.yaml"
 LEVELS = ("minimal", "pragmatic", "full")
 TARGETS = ("vercel", "cloudflare", "fly", "hetzner", "railway")
 PORTS = ("db", "storage", "jobs", "host", "auth", "mail", "analytics", "errors")
+# The one app generator jorekai-stack:new ships a template tree for (references/generators.md of
+# that skill) and the one package manager its readers know (references/tools.md of the router).
+GENERATORS = ("create-next-app",)
+PACKAGE_MANAGERS = ("pnpm",)
 # The adapter table of references/ports.md in the router, held as data. Duplicated in the new and
 # drift skills on purpose: each skill stays standalone, and a test compares the three copies.
 BY_TARGET = {
@@ -98,6 +102,21 @@ def resolve(level, target):
         ports["storage"] = FULL_STORAGE
     caveat = CAVEAT if level == "full" and target in NO_SERVER_TARGETS else ""
     return ports, caveat
+
+
+def known_generator(name):
+    """`lay.py` silently falls back to `create-next-app` on a name it does not know; refused here
+    instead, the same way an unknown axis value is (references/generators.md of jorekai-stack:new)."""
+    if name not in GENERATORS:
+        sys.exit(f"not a generator: {name!r}, one of {', '.join(GENERATORS)}")
+
+
+def known_package_manager(text):
+    """`<name>@<version>`; `lay.py` and `drift.py` read only the name jorekai-stack reads today."""
+    name, _, version = str(text or "").partition("@")
+    if name not in PACKAGE_MANAGERS or not version or not version[:1].isdigit():
+        sys.exit(f"not a package manager: {text!r}, one of "
+                 + ", ".join(f"{p}@<version>" for p in PACKAGE_MANAGERS))
 
 
 def matrix():
@@ -176,6 +195,8 @@ def main(argv=None):
     root = Path(a.root).expanduser()
     a.name = a.name or root.resolve().name
     ports, caveat = resolve(a.oss, a.target)
+    known_generator(a.generator)
+    known_package_manager(a.package_manager)
     if a.show:
         print(json.dumps({"oss_level": a.oss, "target": a.target, "profile": a.profile,
                           "ports": ports, "caveat": caveat,

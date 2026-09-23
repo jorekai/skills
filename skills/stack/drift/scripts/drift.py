@@ -362,14 +362,46 @@ def rel(path, root):
         return Path(path).as_posix()
 
 
+def contained(path, root):
+    """Whether the real target of `path` stands inside the real root.
+
+    A symlink that resolves outside the tree fails this, so a walk never reads a file outside the
+    repository as though it stood inside it.
+    """
+    try:
+        Path(path).resolve().relative_to(Path(root).resolve())
+        return True
+    except ValueError:
+        return False
+
+
+def walked_rel(path, root):
+    """The path exactly where the walk found it, relative to the root.
+
+    A symlink is named at the place it stands, never at the place it points to: a waiver in
+    stack.yaml names that place, and workspace matching reads it too, so reporting the resolved
+    target instead would make both miss.
+    """
+    try:
+        return Path(path).relative_to(Path(root)).as_posix()
+    except ValueError:
+        return Path(path).as_posix()
+
+
 def source_files(root):
-    """Every source file in the tree, relative to the root, forward slashes."""
+    """Every source file in the tree, relative to the root, forward slashes.
+
+    A walked entry whose real target lies outside the root is skipped: a symlink there would
+    otherwise be read and reported as if it stood inside the tree.
+    """
     out = []
     for base, dirs, names in os.walk(root):
         dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS)
         for n in sorted(names):
             if Path(n).suffix in SOURCE_EXT:
-                out.append(rel(Path(base) / n, root))
+                p = Path(base) / n
+                if contained(p, root):
+                    out.append(walked_rel(p, root))
     return out
 
 

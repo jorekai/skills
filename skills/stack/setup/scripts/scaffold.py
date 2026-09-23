@@ -198,6 +198,15 @@ def snapshot_path(root, slug):
     return root / "repos" / slug / DECLARATION
 
 
+def protection_path(root, slug):
+    """Where the workspace keeps a captured branch protection, the input `--protection-file` reads.
+
+    Nothing here fetches it: this script is stdlib and offline. The forge client that captures it
+    is named in references/tools.md of jorekai-stack:stack, never here.
+    """
+    return root / "repos" / slug / "audits" / "protection.json"
+
+
 def flags(root, slug, today):
     """The arguments each measuring script takes, built from the workspace.
 
@@ -223,10 +232,17 @@ def flags(root, slug, today):
     if path and snap.exists():
         common.append(f"--snapshot {quote(str(snap))}")
     measure = " ".join(common) or "(no repository path is recorded)"
-    print(f"guards: {measure}")
+    prot = protection_path(root, slug)
+    guards_args = list(common)
+    if path and prot.exists():
+        guards_args.append(f"--protection-file {quote(str(prot))}")
+    print(f"guards: {' '.join(guards_args) or measure}")
     print(f"drift: {measure}")
     print("new: " + (f"--root {quote(path)}" if path else "(no repository path is recorded)"))
     print("snapshot: " + (str(snap) if snap.exists() else "(none yet, run --snapshot)"))
+    print("protection: " + (str(prot) if prot.exists() else
+          "(not captured yet: fetch it with the forge client named in references/tools.md of "
+          "jorekai-stack:stack, before running guards, or escape.unenforced stays unknown)"))
     verify = value(std, "verify_window_days")
     print(f"verify after: {verify} days" if verify else
           "verify after: (verify_window_days is blank, so no row can be graded)")
@@ -370,8 +386,11 @@ def append_row(root, slug, today, a):
         print(f"verify after: {verify}")
 
 
-def table_rows(text, heading):
-    """Rows of the first markdown table after `heading`, as dicts keyed by header."""
+def table_rows(text, heading, bad=None):
+    """Rows of the first markdown table after `heading`, as dicts keyed by header.
+
+    A row whose cell count differs from the header is appended to `bad` when a list is given,
+    so a caller can name it instead of losing it (decisions/0030)."""
     if heading not in text:
         return []
     lines = [l for l in text.split(heading, 1)[1].splitlines() if l.strip().startswith("|")]
@@ -383,13 +402,17 @@ def table_rows(text, heading):
         cells = split_cells(line)
         if len(cells) == len(head):
             rows.append(dict(zip(head, cells)))
+        elif bad is not None:
+            bad.append(line.strip())
     return rows
 
 
 def due(root, slug, today):
     found = 0
+    unreadable = []
     for f in sorted(log_dir(root, slug).glob("*.md")):
-        for r in table_rows(f.read_text(encoding="utf-8"), "## Actions"):
+        bad = []
+        for r in table_rows(f.read_text(encoding="utf-8"), "## Actions", bad):
             after = r.get("verify after", "")
             if r.get("status", "") in ("applied", "verify") and re.fullmatch(r"\d{4}-\d{2}-\d{2}", after) \
                     and dt.date.fromisoformat(after) <= today:
@@ -399,7 +422,13 @@ def due(root, slug, today):
                 print(f"{r.get('id')} | {r.get('check')} | {r.get('target')} | {r.get('action')} | "
                       f"class {r.get('class')} | then {r.get('then')} | applied {r.get('applied')} | "
                       f"verify after {after} | {f.name}")
+            elif r.get("status", "") in ("applied", "verify") and after and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", after):
+                unreadable.append(f"{f.name}: {r.get('id')} verify after {after!r}")
+        unreadable += [f"{f.name}: {line}" for line in bad]
     print("nothing due" if not found else f"{found} due")
+    if unreadable:
+        # A row nobody can read is never due, so it would never be graded: name it instead.
+        print(f"{len(unreadable)} unreadable: " + "; ".join(unreadable[:3]))
 
 
 def main():

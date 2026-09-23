@@ -143,6 +143,26 @@ class FlagsTest(unittest.TestCase):
             self.assertIn("path is blank", out)
             self.assertIn("no repository path is recorded", out)
 
+    def test_without_a_captured_protection_the_guards_line_carries_no_flag_for_it(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = workspace(d)
+            set_path(root, SLUG, d)
+            out = run("--root", str(root), "--flags", SLUG, "--today", TODAY)
+            self.assertIn(f"guards: --root {d} --today {TODAY}\n", out)
+            self.assertIn("not captured yet", out)
+
+    def test_flags_carry_the_protection_file_once_it_is_captured(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = workspace(d)
+            set_path(root, SLUG, d)
+            prot = root / "repos" / SLUG / "audits" / "protection.json"
+            prot.parent.mkdir(parents=True, exist_ok=True)
+            prot.write_text("{}\n", encoding="utf-8")
+            out = run("--root", str(root), "--flags", SLUG, "--today", TODAY)
+            self.assertIn(f"guards: --root {d} --today {TODAY} --protection-file {prot}\n", out)
+            self.assertIn(f"drift: --root {d} --today {TODAY}\n", out)
+            self.assertIn(f"protection: {prot}", out)
+
 
 class SnapshotTest(unittest.TestCase):
     def test_the_snapshot_copies_the_declaration_into_the_repository_folder(self):

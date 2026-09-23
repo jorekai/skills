@@ -10,7 +10,7 @@
     "incremental": true,
     "plugins": [{ "name": "next" }],
     "paths": {
-      "@/*": ["./*"],
+      "@/*": ["./src/*"],
       "@app/config": ["../../packages/config/src/index.ts"],
       "@app/env": ["../../packages/env/src/index.ts"],
       "@app/ui": ["../../packages/ui/src/index.ts"],

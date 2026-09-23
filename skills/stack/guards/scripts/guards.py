@@ -355,14 +355,46 @@ def rel(path, root):
         return Path(path).as_posix()
 
 
+def contained(path, root):
+    """Whether the real target of `path` stands inside the real root.
+
+    A symlink that resolves outside the tree fails this, so a walk never reads a file outside the
+    repository as though it stood inside it.
+    """
+    try:
+        Path(path).resolve().relative_to(Path(root).resolve())
+        return True
+    except ValueError:
+        return False
+
+
+def walked_rel(path, root):
+    """The path exactly where the walk found it, relative to the root.
+
+    A symlink is named at the place it stands, never at the place it points to: a waiver in
+    stack.yaml names that place, and CODEOWNERS matches it, so reporting the resolved target
+    instead would make both miss.
+    """
+    try:
+        return Path(path).relative_to(Path(root)).as_posix()
+    except ValueError:
+        return Path(path).as_posix()
+
+
 def source_files(root):
-    """Every source file of the tree, as a path relative to the root with forward slashes."""
+    """Every source file of the tree, as a path relative to the root with forward slashes.
+
+    A walked entry whose real target lies outside the root is skipped: a symlink there would
+    otherwise be read and reported as if it stood inside the tree.
+    """
     out = []
     for base, dirs, names in os.walk(root):
         dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS)
         for n in sorted(names):
             if Path(n).suffix in SOURCE_EXT:
-                out.append(rel(Path(base) / n, root))
+                p = Path(base) / n
+                if contained(p, root):
+                    out.append(walked_rel(p, root))
     return out
 
 
@@ -427,20 +459,30 @@ def enforcement_entries(decl):
     return out or [("gate", "")]
 
 
-def protection_contexts(path):
-    """The check names a captured branch protection requires, or None without a file."""
+def read_protection(path):
+    """The branch protection a capture proves, or None when no file was captured at all.
+
+    A guard is enforced only when the server itself says so (a source: references/sources.md of
+    jorekai-stack:stack). Without `--protection-file` this reads None, and `escape.unenforced`
+    then reports unknown rather than trusting a date nobody checked against the forge.
+    """
     if not path:
         return None
     try:
         data = json.loads(read(path) or "{}")
     except ValueError:
-        return []
-    checks = data.get("required_status_checks") if isinstance(data, dict) else None
-    if isinstance(checks, dict):
-        contexts = checks.get("contexts") or [c.get("context") for c in checks.get("checks") or []
-                                              if isinstance(c, dict)]
-        return [str(c) for c in contexts or [] if c]
-    return []
+        data = {}
+    if not isinstance(data, dict):
+        data = {}
+    checks = as_map(data.get("required_status_checks"))
+    contexts = checks.get("contexts") or [c.get("context") for c in as_list(checks.get("checks"))
+                                          if isinstance(c, dict)]
+    admins = data.get("enforce_admins")
+    if isinstance(admins, dict):
+        admins = admins.get("enabled")
+    reviews = as_map(data.get("required_pull_request_reviews"))
+    return {"contexts": [str(c) for c in contexts or [] if c], "enforce_admins": bool(admins),
+            "require_code_owner_reviews": bool(reviews.get("require_code_owner_reviews"))}
 
 
 def codeowners(root):
@@ -686,15 +728,24 @@ def collect_escapes(root, decl, files, today, rep, skip, protection):
                     "no waiver is past its date", one="is past its date, so the suppression it covered is red again")
     if decl is None:
         unknown(rep, "escape.unenforced", "the declaration could not be read, so nothing says which guard the server enforces")
+    elif protection is None:
+        unknown(rep, "escape.unenforced", "no branch protection was captured (--protection-file), so a "
+                "date in stack.yaml is not proof the server enforces anything")
     else:
         rows = []
         for name, date in enforcement_entries(decl):
-            enforced = bool(date) and (protection is None or name in protection)
+            enforced = bool(date) and name in protection["contexts"]
             if not enforced and ("escape.unenforced", name) not in skip:
                 rows.append({"target": name, "value": "no confirmed date" if not date else "not a required check"})
+        if not protection["enforce_admins"] and ("escape.unenforced", "enforce_admins") not in skip:
+            rows.append({"target": "enforce_admins", "value": "an administrator can merge past every required check"})
+        if not protection["require_code_owner_reviews"] and \
+                ("escape.unenforced", "require_code_owner_reviews") not in skip:
+            rows.append({"target": "require_code_owner_reviews", "value": "CODEOWNERS is not enforced by the server"})
         report_rows(rep, "escape.unenforced", rows, {r["target"]: 1 for r in rows},
                     "are required by no branch protection, so a local flag walks past them",
-                    "every declared guard is a required check with a confirmed date",
+                    "every declared guard is a required check with a confirmed date, admin bypass is off, "
+                    "and code owner review is required",
                     one="is required by no branch protection, so a local flag walks past it")
     rules = codeowners(root)
     rows = [{"target": c, "value": "no owner line" if rules is None else "no owner"}
@@ -819,7 +870,7 @@ def snapshot_note(root, path, decl, rep):
 
 def collect(root, decl, how, files, today, a, rep):
     skip = owned(pairs(a.accept))
-    collect_escapes(root, decl, files, today, rep, skip, protection_contexts(a.protection_file))
+    collect_escapes(root, decl, files, today, rep, skip, read_protection(a.protection_file))
     collect_guards(root, decl, files, rep, skip)
     collect_bars(root, decl, rep, skip)
     if decl is None:
@@ -1090,7 +1141,7 @@ def main(argv=None):
     ap.add_argument("--snapshot", default="", metavar="FILE",
                     help="the workspace's copy of stack.yaml; a difference is a note")
     ap.add_argument("--protection-file", default="", metavar="FILE",
-                    help="a captured branch protection: an enforced guard must be among its contexts")
+                    help="a captured branch protection; without it escape.unenforced stays unknown")
     ap.add_argument("--explain", default="", metavar="RANK|ID",
                     help="the chain behind one finding: what, weight, means, fix, undo, verify")
     ap.add_argument("--previous", default="", metavar="FILE",

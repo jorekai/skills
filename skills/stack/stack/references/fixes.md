@@ -6,7 +6,7 @@ Every measure counts what the finding costs, so lower is better and zero means t
 
 The namespaces `decl`, `boundary`, `adapter`, `lock`, `escape`, `guard` and `dead` belong to this theme. Where a neighbouring theme measures something that sounds alike, the border runs in the table under `## Borders` below, and the other theme's fixes table says the same.
 
-The pipeline checker, the secret scanner and the advisory lookup are wired into the generated gate and measured by nobody here: `build.*`, `cred.*` and `dep.*` stay with `jorekai-security`. This theme measures whether those guards are wired and cannot be walked around; that theme grades what they find.
+The secret scanner is wired into the generated gate and measured by nobody here: `cred.*` stays with `jorekai-security`. The pipeline checker and the advisory lookup are not wired into this gate; `jorekai-security` runs `build.*` and `dep.*` as skills of its own, over the same repository, and neither is counted here. This theme measures whether a wired guard is wired and cannot be walked around; `jorekai-security` grades what a wired or a separately run guard finds.
 
 ## Declaration
 
@@ -22,7 +22,7 @@ The pipeline checker, the secret scanner and the advisory lookup are wired into 
 
 | Check | What it means | Fix | Class | Rung | Measure |
 |---|---|---|---|---|---|
-| `escape.unenforced` | A guard the declaration names is required by no branch protection, so a local flag walks past it | Make the gate a required check on the default branch and record the date it was confirmed | `ask` | 2 | Guards nothing enforces on the server (`count`) |
+| `escape.unenforced` | A guard the declaration names is required by no branch protection, admin bypass is on, or code owner review is not required, so a local flag or an administrator walks past it | Make the gate a required check on the default branch with admin bypass off and code owner review required, record the date, and capture the protection for `--protection-file` | `ask` | 2 | Guards nothing enforces on the server (`count`) |
 | `escape.unowned` | A contract file has no owner, so a change to the bars is a commit and not a review | Add the path to `CODEOWNERS` with a person who is not the agent | `ask` | 2 | Contract files without an owner (`count`) |
 | `escape.expired` | A waiver is past its date, so the suppression it covered is red again | Fix the code the waiver excused, or set a new date with a reason, through review | `ask` | 2 | Waivers past their date (`count`) |
 | `escape.type` | A type suppression stands in the code and no waiver names its file and line | Fix the type, or add a waiver with reason, date and owner, through review | `ask` | 3 | Type suppressions without a waiver (`count`) |
@@ -86,12 +86,19 @@ The declaration is the bar every other check reads, so nothing below rung 1 is w
 
 ### escape.unenforced
 
-The local hook is fast feedback and a flag walks past it. The lock is the forge: the workflow that runs the gate is a required check on the default branch, and a pull request cannot merge while it is red. Record the date it was confirmed under `enforcement` in `stack.yaml`, one line per guard, `gate@YYYY-MM-DD`. An entry without a date does not count, the same way an undated way in does not count in `jorekai-ops`.
+The local hook is fast feedback and a flag walks past it. The lock is the forge: the workflow that runs the gate is a required check on the default branch, a pull request cannot merge while it is red, and neither an administrator nor a merge without a code owner's review can walk past it either. Record the date it was confirmed under `enforcement` in `stack.yaml`, one line per guard, `gate@YYYY-MM-DD`. An entry without a date does not count, the same way an undated way in does not count in `jorekai-ops`.
 
 ```bash
 gh api -X PUT repos/<owner>/<repo>/branches/<default>/protection \
   -f 'required_status_checks[strict]=true' -f 'required_status_checks[contexts][]=gate' \
-  -F 'enforce_admins=true' -f 'required_pull_request_reviews[required_approving_review_count]=1'
+  -F 'enforce_admins=true' -f 'required_pull_request_reviews[required_approving_review_count]=1' \
+  -f 'required_pull_request_reviews[require_code_owner_reviews]=true'
+```
+
+A date in `stack.yaml` is what a person confirmed; it is not what the pass reads as proof. `jorekai-stack:guards` takes `--protection-file` with a capture of the same branch's protection, and a guard counts as enforced only when its name stands among `required_status_checks.contexts` there, `enforce_admins.enabled` is true, and `required_pull_request_reviews.require_code_owner_reviews` is true. Without that file the check stays unknown, never a pass (`decisions/0030`):
+
+```bash
+gh api repos/<owner>/<repo>/branches/<default>/protection
 ```
 
 ### escape.unowned

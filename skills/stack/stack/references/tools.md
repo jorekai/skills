@@ -19,7 +19,7 @@ Rules for this file, and for whoever adds a row: a tool is interchangeable, so n
 | Dead code | `knip` | `.stack/dead.json` through `scripts/dead.mjs` | the three `dead.*` checks read `null` |
 | Hooks | `lefthook` | nothing | the hook does not run; the workflow is the lock anyway |
 | Secret scan | `gitleaks` | nothing | the secrets step fails and names the install command; a gate that skips a guard in silence is the thing this theme measures |
-| Forge client | `gh` | nothing | the branch protection is set in the forge's web interface; `escape.unenforced` reads the date from `stack.yaml` either way |
+| Forge client | `gh` | a captured branch protection, `gh api repos/<owner>/<repo>/branches/<default>/protection`, for `--protection-file` | the protection can still be set in the forge's web interface, but without a capture `escape.unenforced` cannot prove it and stays unknown, never a pass |
 
 ## On the measuring machine
 

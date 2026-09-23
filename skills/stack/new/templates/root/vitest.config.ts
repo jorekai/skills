@@ -13,7 +13,7 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "json-summary"],
-      include: ["packages/*/src/**", "apps/*/app/**"],
+      include: ["packages/*/src/**", "apps/*/src/app/**"],
       // A wired adapter talks to a vendor and has no offline test; the memory one is covered.
       exclude: ["**/*.test.ts", "**/wired.ts", "packages/ports/src/*/!(memory).adapter.ts"],
       thresholds: {

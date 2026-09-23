@@ -20,8 +20,14 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: The secret scanner the secrets guard runs
         run: |
-          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
-            | tar -xz -C /usr/local/bin gitleaks
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          checksums="gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+          curl -sSL -o "/tmp/$archive" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/$archive"
+          curl -sSL -o "/tmp/$checksums" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/$checksums"
+          (cd /tmp && sha256sum --ignore-missing --check "$checksums")
+          tar -xz -C /usr/local/bin -f "/tmp/$archive" gitleaks
           gitleaks version
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm check

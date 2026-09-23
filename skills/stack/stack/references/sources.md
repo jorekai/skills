@@ -37,6 +37,8 @@ One row per claim this theme makes about a platform, a generator, a lock format,
 | The mail API accepts `POST /emails` with `from`, `to`, `subject` and `text`, authenticated by a bearer token | https://resend.com/docs/api-reference/emails/send-email | 2026-09-14 |
 | The analytics ingest accepts `POST /i/v0/e/` with `api_key`, `event`, `distinct_id` and `properties`, on the cloud host or on a self-hosted one | https://posthog.com/docs/api/capture | 2026-09-14 |
 | The error tracker's client is configured by a DSN, and the host is one component of it | https://docs.sentry.io/concepts/key-terms/dsn-explainer/ | 2026-09-14 |
+| A branch protection's response nests `required_status_checks.contexts` as a list, `enforce_admins` as `{url, enabled}`, and `required_pull_request_reviews.require_code_owner_reviews` as a boolean; the same three names are what the update endpoint takes | https://docs.github.com/en/rest/branches/branch-protection | 2026-09-23 |
+| Each gitleaks release publishes `gitleaks_<version>_checksums.txt` beside the archives, one `sha256sum`-format line per archive | https://github.com/gitleaks/gitleaks/releases | 2026-09-23 |
 
 ## Heuristics
 

@@ -43,6 +43,7 @@ Needs the workspace from `jorekai-stack:setup`, one audit inside the month, and 
 
 - The report states what the files hold. A month with two actions and no movement reads that way; no verdict is upgraded because the month looks thin.
 - A number in the report is a number a script recomputed. Two measures in different families do not compare and are left out rather than converted into a change nobody can check.
+- A log row the script cannot parse, a malformed table row or a `Verify after` cell that is not a `YYYY-MM-DD` date, is counted as `unreadable` in a note naming its file and line, never dropped silently (decisions/0030).
 - If a measurement is incomplete, omit its change and explain why. Name the check id and audit in the notes. A `null` in an audit is a gate that did not run in full, not a zero (`decisions/0030`).
 - No value ever reaches this file. A waiver's reason and the name of an env key are fine; the value of a key never is, because a report is the document most likely to be pasted somewhere else.
 - An action belongs to the month it was applied in. A week that straddles two months belongs to the month holding most of its days, so no action is counted twice across a year.

@@ -245,6 +245,21 @@ class ResolveTest(unittest.TestCase):
         out = run("--root", ".", "--oss", "full", "--target", "moon", "--show", expect=1)
         self.assertIn("vercel, cloudflare, fly, hetzner, railway", out)
 
+    def test_an_unknown_generator_is_refused_with_the_allowed_list(self):
+        out = run("--root", ".", "--oss", "pragmatic", "--target", "vercel", "--generator", "vite",
+                  "--show", expect=1)
+        self.assertIn("create-next-app", out)
+
+    def test_an_unknown_package_manager_is_refused_with_the_allowed_list(self):
+        out = run("--root", ".", "--oss", "pragmatic", "--target", "vercel", "--package-manager",
+                  "npm@10", "--show", expect=1)
+        self.assertIn("pnpm", out)
+
+    def test_a_package_manager_without_a_version_is_refused(self):
+        out = run("--root", ".", "--oss", "pragmatic", "--target", "vercel", "--package-manager",
+                  "pnpm", "--show", expect=1)
+        self.assertIn("pnpm@<version>", out)
+
     def test_the_matrix_prints_fifteen_lines(self):
         lines = [l for l in run("--matrix").splitlines() if l.strip()]
         self.assertEqual(len(lines), 15)

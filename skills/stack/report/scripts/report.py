@@ -93,24 +93,33 @@ def escape(text):
 
 
 def table_rows(text, heading):
-    """Rows of the first markdown table after `heading`, as dicts keyed by header."""
+    """Rows of the first markdown table after `heading`, as dicts keyed by header, each carrying
+    its 1-based source line in `_line`. A row whose cell count differs from the header cannot
+    become one; it is returned separately as `bad`, with its line and cell counts, so
+    decisions/0030 holds: it is reported, never silently dropped."""
     if heading not in text:
-        return []
-    section = []
-    for line in text.split(heading, 1)[1].splitlines():
-        if line.startswith("## "):
-            break              # a later table is another section's, and its rows are not actions
-        section.append(line)
-    lines = [l for l in section if l.strip().startswith("|")]
-    if len(lines) < 2:
-        return []
-    head = [c.strip().lower() for c in split_cells(lines[0])]
-    rows = []
-    for line in lines[2:]:
+        return [], []
+    lines_all = text.splitlines()
+    start = next(i for i, l in enumerate(lines_all) if heading in l)
+    end = len(lines_all)
+    for i in range(start + 1, len(lines_all)):
+        if lines_all[i].startswith("## "):
+            end = i           # a later table is another section's, and its rows are not actions
+            break
+    table = [(i, l) for i, l in enumerate(lines_all) if start < i < end and l.strip().startswith("|")]
+    if len(table) < 2:
+        return [], []
+    head = [c.strip().lower() for c in split_cells(table[0][1])]
+    rows, bad = [], []
+    for i, line in table[2:]:
         cells = split_cells(line)
         if len(cells) == len(head):
-            rows.append(dict(zip(head, cells)))
-    return rows
+            row = dict(zip(head, cells))
+            row["_line"] = i + 1
+            rows.append(row)
+        else:
+            bad.append({"line": i + 1, "cells": len(cells), "head": len(head), "text": line.strip()})
+    return rows, bad
 
 
 def parse_measure(text):
@@ -264,16 +273,26 @@ def in_month(row, week, first, last):
 
 
 def log_rows(base_dir, first, last):
-    """The month's actions, every open action whatever its month, and the verdicts written down."""
-    actions, still_open, verdicts, weeks = [], [], {}, []
+    """The month's actions, every open action whatever its month, the verdicts written down, and
+    every row nothing here could read: a malformed table row, or an open row whose `Verify after`
+    cell is not a YYYY-MM-DD date (decisions/0030 keeps both visible)."""
+    actions, still_open, verdicts, weeks, unreadable = [], [], {}, [], []
     folder = base_dir / "log" / THEME
     for f in sorted(folder.glob("*.md")) if folder.is_dir() else []:
         text = f.read_text(encoding="utf-8")
         week = week_bounds(f.stem)
-        for r in table_rows(text, "## Outcomes of earlier actions"):
+        found, bad = table_rows(text, "## Outcomes of earlier actions")
+        unreadable += [{"file": f.name, "line": b["line"], "id": "?", "check": "?",
+                        "why": f"the row has {b['cells']} cells against a header of {b['head']}, "
+                               "likely an unescaped |"} for b in bad]
+        for r in found:
             if r.get("verdict"):
                 verdicts[r.get("id", "")] = r
-        for r in table_rows(text, "## Actions"):
+        found, bad = table_rows(text, "## Actions")
+        unreadable += [{"file": f.name, "line": b["line"], "id": "?", "check": "?",
+                        "why": f"the row has {b['cells']} cells against a header of {b['head']}, "
+                               "likely an unescaped |"} for b in bad]
+        for r in found:
             r["_week"] = f.name
             if in_month(r, week, first, last):
                 actions.append(r)
@@ -281,11 +300,18 @@ def log_rows(base_dir, first, last):
                     weeks.append(f.name)
             if r.get("status") in OPEN_STATUS:
                 still_open.append(r)
+            if r.get("status") in ("applied", "verify") and not ISO_DATE.match(r.get("verify after", "")):
+                unreadable.append({"file": f.name, "line": r.get("_line", 0),
+                                   "id": r.get("id") or "?", "check": r.get("check") or "?",
+                                   "why": f"verify after "
+                                          f"{(r.get('verify after') or '(empty)')!r} is not a "
+                                          "YYYY-MM-DD date"})
     # A row graded in the outcomes table is settled even when nobody rewrote its status cell.
     # Listing it as open puts a finished action in the next month's three next steps.
     still_open = [r for r in still_open if not verdict_of(r, verdicts)]
     still_open.sort(key=lambda r: (rung(r.get("check", "")), r.get("id", "")))
-    return actions, still_open, verdicts, weeks
+    unreadable.sort(key=lambda u: (u["file"], u["line"]))
+    return actions, still_open, verdicts, weeks, unreadable
 
 
 def verdict_of(row, verdicts):
@@ -397,10 +423,14 @@ def collect(base_dir, first, last):
     missing = [tool for tool in TOOLS if tool not in found]
     if missing:
         notes.append(f"no audits from {', '.join(missing)}. Run those checks to include their findings")
-    actions, still_open, verdicts, weeks = log_rows(base_dir, first, last)
+    actions, still_open, verdicts, weeks, unreadable = log_rows(base_dir, first, last)
+    if unreadable:
+        first_u = unreadable[0]
+        notes.append(f"{plural(len(unreadable), 'log row')} could not be read, starting with "
+                     f"{first_u['file']}:{first_u['line']} ({first_u['why']})")
     counts = counted(actions, verdicts)
     return {"movement": moved, "notes": notes, "actions": actions, "open": still_open,
-            "weeks": weeks, "counts": counts,
+            "weeks": weeks, "counts": counts, "unreadable": unreadable,
             "verdict_of": {r.get("id", ""): state_of(r, verdicts) for r in actions},
             "next": still_open[:3],
             "headline": headline(actions, counts, moved)}
@@ -492,7 +522,8 @@ def main(argv=None):
                                   for r in data["actions"]],
                       "open": [{k: v for k, v in r.items() if not k.startswith("_")}
                                for r in data["open"]],
-                      "weeks": data["weeks"], "notes": data["notes"], "written": written}
+                      "weeks": data["weeks"], "notes": data["notes"],
+                      "unreadable": data["unreadable"], "written": written}
         texts.append(console(m, month, data, written))
         if written:
             texts.append(f"written: {written}")

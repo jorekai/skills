@@ -11,7 +11,9 @@ Three questions, in ladder order. Is there a way past the lock: nothing enforced
 
 ## Steps
 
-1. **Take the arguments from the workspace, then run the pass once.**
+1. **Capture the branch's protection, take the arguments from the workspace, then run the pass once.**
+
+   Fetch the default branch's protection from the forge into the file the workspace names under `protection:` in the flags below; the tool and the call are named in [../stack/references/tools.md](../stack/references/tools.md). Without that capture, `escape.unenforced` cannot prove a guard is a required check, admin bypass is off, and code owner review is required: a date alone in `stack.yaml` is not proof, and the check stays unknown rather than a pass.
 
    ```bash
    python3 ../setup/scripts/scaffold.py --root <workspace> --flags <slug>
@@ -19,7 +21,7 @@ Three questions, in ladder order. Is there a way past the lock: nothing enforced
      > <workspace>/repos/<slug>/audits/YYYY-MM-DD-guards.json
    ```
 
-   The script paths are relative to this skill's directory. Run it without `--json` first when you only need to look. The gate should have run once before, on the full tree, or the three bars it writes stay unknown.
+   The script paths are relative to this skill's directory. `--flags` prints `--protection-file` on the `guards:` line once the capture stands at the path it names. Run it without `--json` first when you only need to look. The gate should have run once before, on the full tree, or the three bars it writes stay unknown.
    Done when the JSON says how the declaration was read, how many source files it saw, and every one of the seventeen ids carries a number or `null`.
 
 2. **Rank the findings, do not list them.** The pass already ranks by the `Rung` column of [../stack/references/fixes.md](../stack/references/fixes.md), and `--explain RANK` prints the chain behind one line: what it means, where it comes from, the fix, the way back, and what closes it. The answer is one table, `check id | cost | where | fix | class`, at most five rows, one row per check id; the rest of the shape is in the router's `## Writing the answer`. A `null` is written as `unknown` with the artefact that is missing.
@@ -46,7 +48,7 @@ Three questions, in ladder order. Is there a way past the lock: nothing enforced
 
 - `null` names the artefact that is missing. `coverage/coverage-summary.json` comes from the unit runner, `.stack/gate-times.log` from a full run of the gate, `.stack/dead.json` from the dead-code step. A gate run with `--staged` writes no timing, because the hook's time is not the number the bar is about. A `null` is never a pass and never settles a log row (`decisions/0030`).
 - Every `escape.*` id fails, and so do a guard with no command, one no workflow runs, and a rule with no test. Those are a lock that is gone. A bar that is not reached warns: the lock stands, and the number under it is what the row then measures.
-- The local hook is not the lock. It is fast feedback, and a flag walks past it by design. The lock is the required check on the server, and `escape.unenforced` counts the gap between the two until a person confirms the check and dates the entry.
+- The local hook is not the lock. It is fast feedback, and a flag walks past it by design. The lock is the required check on the server, and `escape.unenforced` counts the gap between the two until a person confirms the check and dates the entry. That date is what a person confirmed, not what the pass reads as proof: only a captured protection, passed with `--protection-file`, can settle the check, and without one it stays unknown, never a pass.
 - A waiver is named and dated, and whoever enters it is not whoever needs it: the declaration stands under an owner, so the entry is a review (`decisions/0036`). An entry missing its reason, its date or its owner never counted, so it is not expired either.
 - A rule without a test is not run by the gate, and this pass counts the same gap without running anything (`decisions/0037`).
 - The suppression scanner and the assertion check are text rules. They count what the linter and the runner would also refuse, so a skipped run cannot hide it, and a spelling they do not know is not counted.

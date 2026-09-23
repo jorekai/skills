@@ -303,6 +303,38 @@ class AdapterTest(unittest.TestCase):
                 self.assertEqual(sorted(drift.resolve_adapters(level, target)), sorted(drift.PORTS))
 
 
+class SymlinkTest(unittest.TestCase):
+    """A symlink is walked, and its real target decides whether it is read at all."""
+
+    def test_a_symlink_escaping_the_root_is_skipped_not_read(self):
+        with tempfile.TemporaryDirectory() as outside, tempfile.TemporaryDirectory() as d:
+            secret = Path(outside) / "secret.ts"
+            secret.write_text('import pg from "pg";\n', encoding="utf-8")
+            root = tree(d)
+            link = root / "apps" / "web" / "app" / "escaped.ts"
+            try:
+                link.symlink_to(secret)
+            except OSError:
+                self.skipTest("symlinks are not available on this filesystem")
+            out = run(root)
+            self.assertEqual(cost(out, "adapter.bypassed"), 0)
+            self.assertNotIn("escaped.ts", json.dumps(out))
+
+    def test_a_symlink_inside_the_root_is_named_at_the_place_it_stands(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = tree(d)
+            write(root, "apps/web/app/real.ts", 'import pg from "pg";\n')
+            link = root / "apps" / "web" / "app" / "alias.ts"
+            try:
+                link.symlink_to(root / "apps" / "web" / "app" / "real.ts")
+            except OSError:
+                self.skipTest("symlinks are not available on this filesystem")
+            out = run(root)
+            targets = {r["target"] for r in item(out, "adapter.bypassed")["data"]}
+            self.assertIn("apps/web/app/real.ts:1", targets)
+            self.assertIn("apps/web/app/alias.ts:1", targets)
+
+
 class FlagTest(unittest.TestCase):
     def test_accept_removes_a_finding_and_notes_it(self):
         with tempfile.TemporaryDirectory() as d:
