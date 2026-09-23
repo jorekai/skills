@@ -99,6 +99,28 @@ class ReaderTest(unittest.TestCase):
                          [("a/b", "1.2.3")])
         self.assertEqual(deps.gemfile_lock("GEM\n  specs:\n    rails (7.0.1)\n"), [("rails", "7.0.1")])
 
+    def test_a_gradle_lockfile_reads_group_artifact_version_lines(self):
+        text = ("# This is a Gradle generated file for dependency locking.\n"
+                "com.google.guava:guava:31.1-jre=compileClasspath,runtimeClasspath\n"
+                "empty=annotationProcessor\n")
+        self.assertEqual(deps.gradle_lockfile(text), [("com.google.guava:guava", "31.1-jre")])
+
+    def test_a_nuget_lock_reads_every_framework_it_lists(self):
+        text = json.dumps({"version": 1, "dependencies": {"net6.0": {
+            "Newtonsoft.Json": {"type": "Direct", "resolved": "13.0.1"},
+            "System.Text.Json": {"type": "Transitive", "resolved": "6.0.0"}}}})
+        self.assertEqual(sorted(deps.nuget_lock(text)),
+                         [("Newtonsoft.Json", "13.0.1"), ("System.Text.Json", "6.0.0")])
+
+    def test_a_range_a_compatible_release_and_a_bare_name_are_unpinned(self):
+        text = "flask==2.0.1\nrequests>=2\nurllib3~=1.26\nclick\n# a comment\n-r other.txt\n"
+        self.assertEqual(sorted(deps.unpinned_requirements(text)),
+                         ["click", "requests", "urllib3"])
+
+    def test_a_url_requirement_is_not_treated_as_a_name(self):
+        text = "git+https://example.com/a/b.git#egg=thing\n"
+        self.assertEqual(deps.unpinned_requirements(text), [])
+
 
 class ClassTest(unittest.TestCase):
     """One package counts in one check only: exploited, then fixable, then the rest."""
@@ -184,6 +206,62 @@ class ManifestTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             out = with_answer(d, {}, **{"package.json": "{}",
                                         "web__package.json": "{}", "web__package-lock.json": "{}"})
+            self.assertEqual(cost(out, "dep.unresolved"), 1)
+
+
+class MavenNuGetTest(unittest.TestCase):
+    def test_a_pom_without_any_known_lock_is_always_unresolved(self):
+        with tempfile.TemporaryDirectory() as d:
+            out = with_answer(d, {}, **{"pom.xml": "<project></project>"})
+            self.assertEqual(cost(out, "dep.unresolved"), 1)
+            self.assertEqual(item(out, "dep.unresolved")["measure"]["by"], {"pom.xml": 1})
+
+    def test_a_gradle_lockfile_beside_build_gradle_resolves_it(self):
+        with tempfile.TemporaryDirectory() as d:
+            lock = "com.google.guava:guava:31.1-jre=compileClasspath\n"
+            out = with_answer(d, {}, **{"build.gradle": "", "gradle.lockfile": lock})
+            self.assertEqual(cost(out, "dep.unresolved"), 0)
+            self.assertEqual(out["packages"], 1)
+
+    def test_build_gradle_without_a_lockfile_beside_it_is_unresolved(self):
+        with tempfile.TemporaryDirectory() as d:
+            out = with_answer(d, {}, **{"build.gradle": ""})
+            self.assertEqual(cost(out, "dep.unresolved"), 1)
+
+    def test_a_csproj_without_a_packages_lock_is_unresolved(self):
+        with tempfile.TemporaryDirectory() as d:
+            out = with_answer(d, {}, **{"App.csproj": "<Project></Project>"})
+            self.assertEqual(cost(out, "dep.unresolved"), 1)
+            self.assertEqual(item(out, "dep.unresolved")["measure"]["by"], {"App.csproj": 1})
+
+    def test_a_packages_lock_beside_the_csproj_resolves_it(self):
+        with tempfile.TemporaryDirectory() as d:
+            lock = json.dumps({"dependencies": {"net6.0": {
+                "Newtonsoft.Json": {"resolved": "13.0.1"}}}})
+            out = with_answer(d, {}, **{"App.csproj": "<Project></Project>",
+                                        "packages.lock.json": lock})
+            self.assertEqual(cost(out, "dep.unresolved"), 0)
+            self.assertEqual(out["packages"], 1)
+
+
+class UnpinnedRequirementsTest(unittest.TestCase):
+    def test_a_requirements_file_with_only_ranges_resolves_nothing_and_is_unresolved(self):
+        with tempfile.TemporaryDirectory() as d:
+            out = with_answer(d, {}, **{"requirements.txt": "requests>=2\nflask~=2.0\n"})
+            self.assertEqual(out["packages"], 0)
+            self.assertEqual(cost(out, "dep.unresolved"), 1)
+            self.assertEqual(item(out, "dep.unresolved")["measure"]["by"], {"requirements.txt": 1})
+
+    def test_a_fully_pinned_requirements_file_is_resolved(self):
+        with tempfile.TemporaryDirectory() as d:
+            out = with_answer(d, {}, **{"requirements.txt": "flask==2.0.1\n"})
+            self.assertEqual(out["packages"], 1)
+            self.assertEqual(cost(out, "dep.unresolved"), 0)
+
+    def test_a_mixed_requirements_file_still_reports_the_unpinned_part(self):
+        with tempfile.TemporaryDirectory() as d:
+            out = with_answer(d, {}, **{"requirements.txt": "flask==2.0.1\nrequests>=2\n"})
+            self.assertEqual(out["packages"], 1)
             self.assertEqual(cost(out, "dep.unresolved"), 1)
 
 

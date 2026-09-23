@@ -8,8 +8,9 @@ Usage:
   deps.py --measures              the unit every check id is measured in
 
 Four checks: an installed version with an advisory that a catalogue of exploited flaws names, one
-with an advisory and a published fix, one with an advisory and no fix, and a manifest with no lock
-file beside it. Reads the lock files, then asks the advisory database about the versions it found.
+with an advisory and a published fix, one with an advisory and no fix, and a manifest with nothing
+that resolves it to exact versions, whether the lock file beside it is missing or a requirement is
+not pinned. Reads the lock files, then asks the advisory database about the versions it found.
 
 This pass needs the network, and says so in its report. `--offline` reads the cache only, and a
 question the cache cannot answer carries no measure rather than a zero. Every downloaded
@@ -68,16 +69,24 @@ OSV_BATCH = "https://api.osv.dev/v1/querybatch"
 OSV_VULN = "https://api.osv.dev/v1/vulns/"
 KEV_URL = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
 EPSS_URL = "https://api.first.org/data/v1/epss"
-# The lock file of each ecosystem, and the name the advisory database knows that ecosystem by.
+# The lock file of each ecosystem, and the name the advisory database knows that ecosystem by
+# (`Maven` and `NuGet` verified in `references/sources.md`).
 ECOSYSTEM = {"package-lock.json": "npm", "yarn.lock": "npm", "pnpm-lock.yaml": "npm",
              "requirements.txt": "PyPI", "poetry.lock": "PyPI", "uv.lock": "PyPI",
              "Cargo.lock": "crates.io", "go.sum": "Go", "composer.lock": "Packagist",
-             "Gemfile.lock": "RubyGems"}
+             "Gemfile.lock": "RubyGems", "gradle.lockfile": "Maven",
+             "packages.lock.json": "NuGet"}
 # The manifest each lock file answers for. A manifest with none of its locks is `dep.unresolved`.
+# Maven's manifest carries no lock file this pass reads: `pom.xml` is always unresolved today.
 MANIFEST = {"package.json": ("package-lock.json", "yarn.lock", "pnpm-lock.yaml"),
             "pyproject.toml": ("poetry.lock", "uv.lock", "requirements.txt"),
             "Cargo.toml": ("Cargo.lock",), "go.mod": ("go.sum",),
-            "composer.json": ("composer.lock",), "Gemfile": ("Gemfile.lock",)}
+            "composer.json": ("composer.lock",), "Gemfile": ("Gemfile.lock",),
+            "pom.xml": (), "build.gradle": ("gradle.lockfile",),
+            "build.gradle.kts": ("gradle.lockfile",)}
+# A `.csproj` manifest carries no fixed name, so it is matched by its suffix rather than by a key
+# in MANIFEST; NuGet's lock file answers for whichever one sits beside it.
+CSPROJ_LOCKS = ("packages.lock.json",)
 SKIP_DIRS = {".git", "node_modules", "vendor", "dist", "build", "target", ".venv", "venv",
              "__pycache__", ".mypy_cache", ".pytest_cache", ".next", ".tox"}
 CVE = re.compile(r"CVE-\d{4}-\d{4,}")
@@ -166,10 +175,29 @@ def pnpm_lock(text):
 
 
 REQ = re.compile(r"^\s*([A-Za-z0-9._-]+)\s*==\s*([^\s;#]+)")
+REQ_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*")
 
 
 def requirements(text):
     return [(m.group(1), m.group(2)) for m in (REQ.match(l) for l in text.splitlines()) if m]
+
+
+def unpinned_requirements(text):
+    """Names this file lists without pinning them to exactly one version with `==`.
+
+    A range, a compatible-release pin, or a bare name all leave the version to whatever the
+    environment resolves at install time, which this pass cannot read from the file alone. A `-r`,
+    a `-e`, an option line, and a URL requirement are left out: none of them names a version here.
+    """
+    out = []
+    for raw in text.splitlines():
+        line = raw.split("#", 1)[0].strip()
+        if not line or line.startswith("-") or "://" in line or REQ.match(raw):
+            continue
+        m = REQ_NAME.match(line)
+        if m:
+            out.append(m.group(0))
+    return out
 
 
 TOML_NAME = re.compile(r'^\s*name\s*=\s*"([^"]+)"')
@@ -236,21 +264,64 @@ def gemfile_lock(text):
     return [(m.group(1), m.group(2)) for m in (GEM.match(l) for l in text.splitlines()) if m]
 
 
+GRADLE_LOCK = re.compile(r"^([^:#\s]+:[^:#\s]+):([^=\s]+)=")
+
+
+def gradle_lockfile(text):
+    """`group:artifact:version=configurations` lines; a comment and an empty configuration are not
+    a package (the ecosystem this maps to, `Maven`, is verified in `references/sources.md`)."""
+    out = []
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or line.startswith("empty="):
+            continue
+        m = GRADLE_LOCK.match(line)
+        if m:
+            out.append((m.group(1), m.group(2)))
+    return out
+
+
+def nuget_lock(text):
+    """Every resolved package of a `packages.lock.json`, across every target framework it lists."""
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return []
+    out = []
+    for deps in (data.get("dependencies") or {}).values():
+        if not isinstance(deps, dict):
+            continue
+        for name, entry in deps.items():
+            if isinstance(entry, dict) and entry.get("resolved"):
+                out.append((name, str(entry["resolved"])))
+    return sorted(set(out))
+
+
 READERS = {"package-lock.json": npm_lock, "yarn.lock": yarn_lock, "pnpm-lock.yaml": pnpm_lock,
            "requirements.txt": requirements, "poetry.lock": toml_packages,
            "uv.lock": toml_packages, "Cargo.lock": toml_packages, "go.sum": go_sum,
-           "composer.lock": composer_lock, "Gemfile.lock": gemfile_lock}
+           "composer.lock": composer_lock, "Gemfile.lock": gemfile_lock,
+           "gradle.lockfile": gradle_lockfile, "packages.lock.json": nuget_lock}
+
+
+def required_locks(name):
+    """The lock file names that answer for this manifest, by its exact name or by its suffix."""
+    if name in MANIFEST:
+        return MANIFEST[name]
+    if name.endswith(".csproj"):
+        return CSPROJ_LOCKS
+    return ()
 
 
 def find_files(root):
-    """Every lock file and every manifest in the repository, by name."""
+    """Every lock file and every manifest in the repository, by name or, for NuGet, by suffix."""
     locks, manifests = [], []
     for base, dirs, names in os.walk(root):
         dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
         for n in names:
             if n in ECOSYSTEM:
                 locks.append(Path(base) / n)
-            if n in MANIFEST:
+            if n in MANIFEST or n.endswith(".csproj"):
                 manifests.append(Path(base) / n)
     return sorted(locks), sorted(manifests)
 
@@ -443,15 +514,15 @@ def collect(found, manifests_open, rep, a, reached, catalogues, unasked=""):
                     "probability floor")
 
     rows, by = [], {}
-    for path in manifests_open:
+    for path, reason in manifests_open:
         if ("dep.unresolved", path) in skip:
             continue
-        rows.append({"target": path, "value": "no lock file beside it"})
+        rows.append({"target": path, "value": reason})
         by[path] = 1
     report_rows(rep, "WARN", "dep.unresolved", rows, by,
-                "have no lock file beside them, so nothing says which versions are installed",
-                "every manifest has a lock file beside it",
-                one="has no lock file beside it, so nothing says which versions are installed")
+                "have no lock file beside them, or a requirement not pinned to one version",
+                "every manifest has a lock file, and every requirement is pinned to one version",
+                one="has no lock file beside it, or a requirement not pinned to one version")
     if skip:
         rep.add("INFO", "dep.unresolved",
                 f"{plural(len(skip), 'finding')} {verb(len(skip), 'are', 'is')} recorded as accepted "
@@ -784,8 +855,14 @@ def main(argv=None):
     beside = {}
     for p in locks:
         beside.setdefault(p.parent, set()).add(p.name)
-    open_manifests = sorted(rel(m, root) for m in manifests
-                            if not set(MANIFEST[m.name]) & beside.get(m.parent, set()))
+    open_manifests = [(rel(m, root), "no lock file beside it") for m in manifests
+                      if not set(required_locks(m.name)) & beside.get(m.parent, set())]
+    # A requirements file can sit beside its manifest and still resolve nothing: `>=`, `~=`, and a
+    # bare name all leave the version to install time, which this pass cannot read from the file.
+    open_manifests += [(rel(p, root), "lists a requirement not pinned to one version")
+                       for p in locks if p.name == "requirements.txt"
+                       and unpinned_requirements(read(p))]
+    open_manifests.sort()
 
     reached, found, note = False, {}, ""
     if a.osv_file:

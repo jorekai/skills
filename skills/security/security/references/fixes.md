@@ -6,7 +6,7 @@ The gates in [risk-classes.md](risk-classes.md) stand above every class here. Ga
 
 The namespaces `dep`, `cred`, `build` and `vuln` belong to this theme. `secret` belongs to `jorekai-ops` and describes a credential on a host; `repo` and `alert` belong to `jorekai-dx`. A log row carrying one of those is another theme's business, and `jorekai-security:grade` says so rather than guessing.
 
-Two borders run against `jorekai-stack`, which wires the pipeline checker, the secret scanner and the advisory lookup into a generated gate and measures whether they run and cannot be walked around, while this theme grades what they find. `dep.unresolved` asks whether a lock file exists; `lock.incomplete` there asks whether it is complete. `dep.*` asks whether a dependency is vulnerable; `dead.dep` there asks whether it is used at all.
+Two borders run against `jorekai-stack`, which wires the secret scanner into a generated gate and measures whether it runs and cannot be walked around, while this theme grades what the scanner finds and runs the pipeline checker and the advisory lookup over the same repository itself. `dep.unresolved` asks whether a lock file exists; `lock.incomplete` there asks whether it is complete. `dep.*` asks whether a dependency is vulnerable; `dead.dep` there asks whether it is used at all.
 
 ## Secrets
 
@@ -22,8 +22,9 @@ Two borders run against `jorekai-stack`, which wires the pipeline checker, the s
 |---|---|---|---|---|
 | `build.untrusted-checkout` | A workflow that runs with the repository's own rights checks out code from a fork | `ask` | 2 | Privileged workflows that check out fork code (`count`) |
 | `build.script-injection` | A shell step puts a context value straight into the command line it runs | `ask` | 2 | Shell steps that interpolate a context value (`count`) |
-| `build.token-broad` | A workflow carries no explicit rights, so its token gets whatever the default is | `confirm` | 2 | Workflows without a `permissions` block (`count`) |
+| `build.token-broad` | A workflow carries no explicit rights, or grants a broad one such as `write-all`, so its token can write more than it needs | `confirm` | 2 | Workflows without narrow rights for their token (`count`) |
 | `build.action-unpinned` | A third-party action is bound to a tag, and a tag moves | `confirm` | 2 | Third-party actions without a commit sha (`count`) |
+| `build.runner-exposed` | A workflow reachable by a trigger from outside runs on a self-hosted runner, which a compromised job can persist in | `ask` | 2 | Workflows reachable from outside that run on a self-hosted runner (`count`) |
 
 ## Deps
 
@@ -32,7 +33,7 @@ Two borders run against `jorekai-stack`, which wires the pipeline checker, the s
 | `dep.known-exploited` | An installed version carries an advisory whose identifier stands in the catalogue of exploited flaws | `ask` | 3 | Dependencies with an exploited advisory (`count`) |
 | `dep.fix-available` | An installed version carries an advisory, and a version that closes it is published | `confirm` | 3 | Dependencies with a published fix (`count`) |
 | `dep.vulnerable` | An installed version carries an advisory and no published fix | `ask` | 5 | Dependencies with no published fix (`count`) |
-| `dep.unresolved` | A manifest has no lock file beside it, so nothing says which versions are installed | `confirm` | 6 | Manifests without a lock file (`count`) |
+| `dep.unresolved` | A manifest has no lock file beside it, or a requirement is not pinned to one version, so nothing says which versions are installed | `confirm` | 6 | Manifests with nothing that resolves them (`count`) |
 
 ## Review
 
@@ -95,7 +96,7 @@ run: echo "$TITLE"
 
 ### build.token-broad
 
-Every workflow carries a `permissions` block, read-only at the top, widened per job where a job needs it. A repository default that is already read-only is worth setting as well, and it does not replace the block: the block is what a reader of the file can see.
+Every workflow carries a `permissions` block, read-only at the top, widened per job where a job needs it. A repository default that is already read-only is worth setting as well, and it does not replace the block: the block is what a reader of the file can see. `write-all`, and a bare `write`, name every scope at once. Replace either with the one or two scopes the job actually writes.
 
 ```yaml
 permissions:
@@ -116,6 +117,15 @@ uses: owner/action@<40 character sha>  # v4.2.1
 
 An action from the same owner as the repository is a different case: it is as trusted as the repository itself, and pinning it costs an update step for no gain. Record that once under `accepted`.
 
+### build.runner-exposed
+
+A self-hosted runner should almost never serve a workflow a trigger from outside can start. Any user who can open a pull request or a comment can then run code on that runner. A compromised job can leave code behind for the run after it (`references/sources.md`). Two ways close this, in order of preference.
+
+1. Move the job back to a runner GitHub hosts. That is the fix when the job needs nothing the self-hosted machine alone provides.
+2. Where the job needs the self-hosted machine, split it the way `build.untrusted-checkout` splits a privileged checkout. An unprivileged job reads the event first and writes nothing. The self-hosted job runs only after a maintainer approves it, and nothing from outside reaches it directly.
+
+A workflow that must keep running on request from outside is a design decision, and it belongs in `config.md` under `accepted` with the reason and the date.
+
 ### dep.known-exploited, dep.fix-available
 
 Raise the version to the one the advisory names as fixed, in the manifest and in the lock file, then run the test suite. A direct dependency is one edit. A transitive one is an override or a resolution in the manifest, and the override is removed again when the parent catches up.
@@ -133,7 +143,7 @@ No published fix means the decision is about the call site, not the version: rem
 
 ### dep.unresolved
 
-Generate the lock file and commit it. Until it exists, nothing can say which versions are installed, so every other dependency check on that manifest measures nothing.
+Generate the lock file and commit it. Until it exists, nothing can say which versions are installed, so every other dependency check on that manifest measures nothing. Where the requirement is the gap, pin it to one version with `==` instead of a range or a bare name. A `pom.xml` closes no row here today. This pass reads no Maven lock format, so the manifest stays open until one is added.
 
 ### vuln.injection, vuln.authz, vuln.deserialize, vuln.ssrf, vuln.crypto, vuln.exposure
 

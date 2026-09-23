@@ -238,6 +238,36 @@ class EndToEndTest(unittest.TestCase):
             self.assertIn("jorekai-security:setup", r.stdout)
 
 
+class UnreadableRowTest(unittest.TestCase):
+    """A row nobody can parse is graded as ungradable, never silently dropped (decisions/0030)."""
+
+    def test_a_malformed_row_is_listed_as_ungradable_with_its_file_and_line(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = workspace(d, [row("2026-W36-01", "cred.tracked", "", "3 count")],
+                             {"2026-09-15-secrets.json": audit("secrets", item("cred.tracked", 0, "count"))})
+            p = base / "log" / "security" / "2026-W36.md"
+            p.write_text(p.read_text(encoding="utf-8") + "| broken row too few cells |\n",
+                        encoding="utf-8")
+            got = run(d)
+            self.assertIn("ungradable", got.stdout)
+            self.assertIn("cells against a header of", got.stdout)
+
+    def test_a_row_with_an_invalid_verify_after_is_listed_as_ungradable(self):
+        with tempfile.TemporaryDirectory() as d:
+            workspace(d, [row("2026-W36-01", "cred.tracked", "", "3 count", after="not-a-date")], {})
+            got = run(d)
+            self.assertIn("ungradable", got.stdout)
+            self.assertIn("not-a-date", got.stdout)
+
+    def test_the_json_output_carries_the_ungradable_rows(self):
+        with tempfile.TemporaryDirectory() as d:
+            workspace(d, [row("2026-W36-01", "cred.tracked", "", "3 count", after="not-a-date")], {})
+            out = json.loads(run(d, "--json").stdout)
+            graded = out["repos"][SLUG]["graded"]
+            self.assertTrue(any(g["note"].startswith("ungradable") for g in graded), graded)
+            self.assertTrue(any("line" in g for g in graded), graded)
+
+
 class ReportShapeTest(unittest.TestCase):
     """The console report says what can be settled and what still needs a person."""
 

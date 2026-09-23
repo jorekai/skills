@@ -94,6 +94,66 @@ class ValueTest(unittest.TestCase):
         self.assertIsNone(scan.named_value(f"{NAME} = {TOKEN}", 9.0))
 
 
+class UrlPlaceholderTest(unittest.TestCase):
+    def test_a_bare_host_url_is_still_a_placeholder(self):
+        self.assertIsNone(scan.named_value(f"{NAME} = https://api.example-host.test", 3.5))
+
+    def test_a_bare_host_url_with_a_trailing_slash_is_still_a_placeholder(self):
+        self.assertIsNone(scan.named_value(f"{NAME} = https://api.my-service.internal/", 3.5))
+
+    def test_a_webhook_url_with_a_token_shaped_path_is_a_candidate(self):
+        webhook = "https://hooks.slack.com/services/T00000000/B00000000/" + TOKEN
+        self.assertIsNotNone(scan.named_value(f"SLACK_WEBHOOK_TOKEN = {webhook}", 3.5))
+
+
+class ConnectionStringTest(unittest.TestCase):
+    def test_a_connection_string_with_a_real_password_is_a_candidate(self):
+        line = f"DATABASE_URL=postgres://svc_user:{TOKEN}@db.internal:5432/app"
+        found = scan.candidates(line, 3.5)
+        self.assertTrue(found)
+        self.assertIn("connection string", found[0][0])
+
+    def test_a_mongodb_srv_string_is_recognised(self):
+        line = f"mongodb+srv://svc:{TOKEN}@cluster0.example.mongodb.net/app"
+        found = scan.candidates(line, 3.5)
+        self.assertTrue(found)
+        self.assertEqual(found[0][0], "mongodb+srv connection string")
+
+    def test_a_redis_and_an_amqp_string_are_recognised_too(self):
+        self.assertTrue(scan.candidates(f"redis://:{TOKEN}@cache.internal:6379/0", 3.5))
+        self.assertTrue(scan.candidates(f"amqp://svc:{TOKEN}@broker.internal:5672/", 3.5))
+
+    def test_a_placeholder_password_is_not_a_candidate(self):
+        for pwd in ("password", "changeme", "****", "%DB_PASSWORD%"):
+            line = f"DATABASE_URL=postgres://user:{pwd}@host/app"
+            self.assertEqual(scan.candidates(line, 3.5), [], line)
+
+    def test_an_interpolated_password_is_not_a_candidate(self):
+        line = "DATABASE_URL=postgres://user:${DB_PASSWORD}@host/app"
+        self.assertEqual(scan.candidates(line, 3.5), [])
+
+    def test_end_to_end_a_connection_string_in_a_tracked_file_is_a_finding(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = repository(d, **{"settings.py": f"DATABASE_URL = 'postgres://svc:{TOKEN}"
+                                                    "@db.internal:5432/app'\n"})
+            out = run(root, "--no-history")
+            self.assertEqual(cost(out, "cred.tracked"), 1)
+            self.assertNotIn(TOKEN, json.dumps(out))
+
+
+class BareKeyTest(unittest.TestCase):
+    def test_a_bare_key_suffix_is_a_candidate(self):
+        for name in ("SENDGRID_KEY", "AZURE_STORAGE_KEY", "ENCRYPTION_KEY", "STRIPE_KEY"):
+            self.assertIsNotNone(scan.named_value(f"{name} = {TOKEN}", 3.5), name)
+
+    def test_a_word_that_only_contains_key_is_not_a_candidate(self):
+        for name in ("KEYBOARD_LAYOUT", "MONKEY_PATCH", "PRIMARY_KEYSTROKE"):
+            self.assertIsNone(scan.named_value(f"{name} = {TOKEN}", 3.5), name)
+
+    def test_a_database_primary_key_column_with_a_short_value_stays_out(self):
+        self.assertIsNone(scan.named_value("primary_key = 42", 3.5))
+
+
 class TreeTest(unittest.TestCase):
     def test_a_credential_in_a_tracked_file_is_a_finding_and_names_no_value(self):
         with tempfile.TemporaryDirectory() as d:
@@ -122,6 +182,29 @@ class TreeTest(unittest.TestCase):
             git(root, "add", "-A")
             git(root, "commit", "-qm", "blob")
             self.assertEqual(cost(run(root, "--no-history"), "cred.tracked"), 0)
+
+
+class SymlinkTest(unittest.TestCase):
+    def test_a_symlink_and_its_target_are_reported_at_their_own_paths(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = repository(d, **{"real.py": f"{NAME} = '{TOKEN}'\n"})
+            (root / "link.py").symlink_to(root / "real.py")
+            git(root, "add", "-A")
+            git(root, "commit", "-qm", "link")
+            out = run(root, "--no-history")
+            paths = {row["target"].split(":")[0] for row in item(out, "cred.tracked")["data"]}
+            self.assertEqual(paths, {"real.py", "link.py"})
+
+    def test_a_symlink_pointing_outside_the_root_is_not_read(self):
+        with tempfile.TemporaryDirectory() as d:
+            outside = Path(d) / "outside.py"
+            outside.write_text(f"{NAME} = '{TOKEN}'\n", encoding="utf-8")
+            root = repository(d, **{"a.py": "x = 1\n"})
+            (root / "link.py").symlink_to(outside)
+            git(root, "add", "-A")
+            git(root, "commit", "-qm", "link")
+            out = run(root, "--no-history")
+            self.assertEqual(cost(out, "cred.tracked"), 0)
 
 
 class HistoryTest(unittest.TestCase):

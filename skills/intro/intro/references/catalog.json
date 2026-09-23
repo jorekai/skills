@@ -248,7 +248,7 @@
     {
       "theme": "security",
       "plugin": "jorekai-security",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "covers": "Security loop for a code repository: setup, deps, secrets, pipeline, review, grade, report, and-now.",
       "install": "claude plugin install jorekai-security@jorekai",
       "listed": true,
@@ -297,7 +297,7 @@
         {
           "skill": "jorekai-security:pipeline",
           "invoked_by": "agent or you",
-          "description": "What the forge runs with this repository's own rights, in one pass via scripts/pipeline.py: a privileged trigger that checks out code from a fork, a shell step that puts a value from outside straight into the command line, a workflow that names no rights for its token, and a third-party action bound to a tag rather than to a commit. Use when asked whether the build can be taken over, before adding a workflow that touches a pull request from a fork, after a dependency of the build changed, or as the pipeline half of a security sweep.",
+          "description": "What the forge runs with this repository's own rights, in one pass via scripts/pipeline.py: a privileged trigger that checks out code from a fork, a shell step that puts a value from outside straight into the command line, a workflow that names no rights for its token or grants a broad one, a third-party action bound to a tag rather than to a commit, and a self-hosted runner a trigger from outside can reach. Use when asked whether the build can be taken over, before adding a workflow that touches a pull request from a fork, after a dependency of the build changed, or as the pipeline half of a security sweep.",
           "reach_for_it_when": "What can take over the build, and what does the build token allow?",
           "hands_back": "`check id | cost | targets | fix | class`",
           "scripts": [
@@ -307,7 +307,7 @@
         {
           "skill": "jorekai-security:deps",
           "invoked_by": "agent or you",
-          "description": "Which installed dependency carries a published advisory and which one is already being exploited, in one pass via scripts/deps.py: the lock files resolved to versions, then the advisory database, the catalogue of exploited flaws, and the exploitation probability. Also names a manifest with no lock file beside it. Use when asked whether a dependency is vulnerable, after a lock file changed, when an advisory is announced, or as the dependency half of a security sweep.",
+          "description": "Which installed dependency carries a published advisory and which one is already being exploited, in one pass via scripts/deps.py: the lock files resolved to versions, then the advisory database, the catalogue of exploited flaws, and the exploitation probability. Also names a manifest with nothing that resolves it to exact versions, whether a lock file is missing or a requirement is not pinned. Use when asked whether a dependency is vulnerable, after a lock file changed, when an advisory is announced, or as the dependency half of a security sweep.",
           "reach_for_it_when": "Which installed dependency is known-bad, and which one is known to be exploited?",
           "hands_back": "`check id | cost | targets | fix | class`",
           "scripts": [

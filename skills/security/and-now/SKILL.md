@@ -32,6 +32,7 @@ Answers "we just did that, and now?" from the workspace, without reading a repos
 - **Stage `measure`** means the newest audit still holds a `FAIL`, or there is no audit at all. The first thing to run is `jorekai-security:secrets`, because a credential that is out is the one finding an edit cannot undo.
 - **Stage `loop`** means the open items are rows, not findings.
 - A row naming an id **this theme does not own** is the one to correct rather than to work on: nothing here will ever recompute its measure. `secret.*` belongs to the ops theme and describes a credential on a host; `repo.*` and `alert.*` belong to dx.
+- An **unreadable** row is one the script cannot parse at all: a malformed table row, or an applied row whose `Verify after` cell is not a `YYYY-MM-DD` date. Neither vanishes silently (decisions/0030); the first one names its file and line so it can be repaired by hand.
 - A **review audit with no rule beside it** means a pass found things and left nothing a script can count. Either the findings became rules, or they belong in `proposals/` with their evidence.
 - The `then` line names the first verify date that has not arrived. It is the only dated event this skill produces, and it is what makes the loop weekly rather than occasional.
 - The report says how old each audit is. An audit older than the window in `standards.md` describes a repository that has moved on, and acting on it means acting on last month's code.

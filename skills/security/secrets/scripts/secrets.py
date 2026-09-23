@@ -79,6 +79,14 @@ PROVIDERS = (
     ("json web token", r"eyJ[0-9A-Za-z_-]{10,}\.eyJ[0-9A-Za-z_-]{10,}\.[0-9A-Za-z_-]{10,}"),
 )
 PROVIDER_RE = [(name, re.compile(pattern)) for name, pattern in PROVIDERS]
+# A connection string with the credential inside the URL itself, matched on the shape and not on
+# any name beside it. Only the host and the scheme are fixed; the value still needs the same
+# password check every other candidate needs, because the shape alone is not proof.
+CONN_STRING = re.compile(
+    r"(?i)\b(postgres(?:ql)?|mysql|mongodb(?:\+srv)?|rediss?|amqps?)://"
+    r"([^:/@\s\"']*):([^@/\s\"']+)@[^\s\"'`]+")
+WEAK_PASSWORD = {"password", "pass", "pwd", "changeme", "change_me", "secret", "test",
+                 "admin", "root", "user", "guest", "default", "example"}
 # A name that says credential, then a value long enough to be one. The value decides, not the
 # name: a short one and a placeholder are dropped below.
 # The name is matched but not captured: only the credential word inside it is. A name is
@@ -86,7 +94,8 @@ PROVIDER_RE = [(name, re.compile(pattern)) for name, pattern in PROVIDERS]
 # what the file wrote (decisions/0026).
 ASSIGNMENT = re.compile(
     r"(?i)\b[a-z0-9_.-]*(?P<word>secret|token|password|passwd|pwd|api[_-]?key|access[_-]?key"
-    r"|private[_-]?key|credential|auth)[a-z0-9_.-]*\s*[:=]\s*[\"']?(?P<value>[^\s\"'`,;)]{8,})")
+    r"|private[_-]?key|credential|auth|(?<![a-z])key(?![a-z]))[a-z0-9_.-]*\s*[:=]\s*[\"']?"
+    r"(?P<value>[^\s\"'`,;)]{8,})")
 # The shortest value the named rule accepts. A real credential is longer than a word, and the
 # named rule has to carry the whole burden of being right, because a name proves nothing.
 MIN_LENGTH = 16
@@ -95,7 +104,8 @@ ESCAPE = re.compile(r"\\[nrt]")
 PLACEHOLDER = re.compile(
     r"(?i)(^[$%<{]|^\.\.\.|xxx|yyy|placeholder|changeme|change_me|example|sample|dummy"
     r"|redacted|removed|your[_-]|my[_-]|test[_-]value|todo|fixme|none|null|true|false"
-    r"|process\.env|os\.environ|getenv|secrets\.|vault:|env\.|\*{4,}|^/|^\./|^~|^https?:)")
+    r"|process\.env|os\.environ|getenv|secrets\.|vault:|env\.|\*{4,}|^/|^\./|^~"
+    r"|^https?://[^/\s]+/?$)")
 # Directories nothing in a repository is authored in, so reading them costs time and finds copies.
 SKIP_DIRS = {".git", "node_modules", "vendor", "dist", "build", "target", ".venv", "venv",
              "__pycache__", ".mypy_cache", ".pytest_cache", ".next", ".tox", "coverage"}
@@ -166,12 +176,29 @@ def named_value(line, bits):
     return f"value named by {m.group('word').lower()}", value
 
 
+def placeholder_password(value):
+    """Whether this password reads like a stand-in rather than a value somebody chose."""
+    return value.lower() in WEAK_PASSWORD or bool(PLACEHOLDER.search(value))
+
+
+def connection_strings(line):
+    """Every connection string in the line whose embedded password is not a stand-in."""
+    out = []
+    for m in CONN_STRING.finditer(line):
+        scheme, password = m.group(1), m.group(3)
+        if placeholder_password(password):
+            continue
+        out.append((f"{scheme.lower()} connection string", m.group(0)))
+    return out
+
+
 def candidates(line, bits):
     """Every credential-shaped value in one line, as (kind, value). The value never leaves here."""
     out = []
     for name, rx in PROVIDER_RE:
         for m in rx.finditer(line):
             out.append((name, m.group(0)))
+    out += connection_strings(line)
     if not out:
         named = named_value(line, bits)
         if named:
@@ -200,12 +227,28 @@ def tracked_files(root):
     return sorted(found), False
 
 
+def inside(path, root):
+    """Whether this resolved path sits under the resolved root, not merely under its own name."""
+    try:
+        path.relative_to(root)
+        return True
+    except ValueError:
+        return False
+
+
 def scan_tree(root, files, bits):
-    """Every candidate in the working tree. A file that is binary or large is skipped, not read."""
+    """Every candidate in the working tree. A file that is binary or large is skipped, not read.
+
+    A path whose real target sits outside the root is skipped too: a symlink the repository
+    tracks must not make this pass read a file nobody put under the root.
+    """
     out = []
+    root_real = Path(root).resolve()
     for p in files:
         try:
             if not p.is_file() or p.stat().st_size > MAX_BYTES:
+                continue
+            if not inside(p.resolve(), root_real):
                 continue
             raw = p.read_bytes()
         except OSError:
@@ -399,8 +442,19 @@ def report_rows(rep, level, cid, rows, by, bad, good, one=None):
 
 
 def rel(path, root):
+    """The path as the walk named it, relative to the root.
+
+    Resolving first would follow a symlink to its target and report the wrong place for what this
+    pass actually read, so the literal path is tried first; only a shape mismatch (an absolute
+    real path from an external scanner, say) falls back to resolving both sides.
+    """
+    path, root = Path(path), Path(root)
     try:
-        return str(Path(path).resolve().relative_to(Path(root).resolve()))
+        return str(path.relative_to(root))
+    except ValueError:
+        pass
+    try:
+        return str(path.resolve().relative_to(root.resolve()))
     except ValueError:
         return str(path)
 

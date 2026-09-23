@@ -161,6 +161,36 @@ class OrderTest(unittest.TestCase):
             self.assertFalse(any("earns no log row" in n for n in now))
 
 
+class UnreadableRowTest(unittest.TestCase):
+    """A row nobody can parse is reported by file and line, never silently dropped (decisions/0030)."""
+
+    def test_a_malformed_row_is_named_by_file_and_line(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            rows(base, row("2026-W36-01", "cred.tracked"), "| broken row too few cells |\n")
+            s = state(root)
+            self.assertEqual(len(s["unreadable"]), 1)
+            self.assertEqual(s["unreadable"][0]["file"], "2026-W36.md")
+            _, now, _ = status.decide(s, TODAY)
+            self.assertTrue(any("unreadable" in i and "2026-W36.md" in i for i in now), now)
+            self.assertIn("1 unreadable", status.report(s, TODAY))
+
+    def test_a_verify_after_that_is_not_a_date_is_reported(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            rows(base, row("2026-W36-01", "cred.tracked", "applied", "not-a-date", "2026-08-25"))
+            s = state(root)
+            self.assertEqual(s["due"], [])
+            self.assertEqual(len(s["unreadable"]), 1)
+            self.assertIn("not-a-date", s["unreadable"][0]["why"])
+
+    def test_a_valid_future_verify_after_is_not_reported_as_unreadable(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            rows(base, row("2026-W36-01", "cred.tracked", "applied", "2026-12-01", "2026-08-25"))
+            self.assertEqual(state(root)["unreadable"], [])
+
+
 class ReportTest(unittest.TestCase):
     def test_the_report_names_the_stage_the_items_and_the_counts(self):
         with tempfile.TemporaryDirectory() as d:

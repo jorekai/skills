@@ -169,6 +169,63 @@ class TokenTest(unittest.TestCase):
             self.assertEqual(cost(run(d), "build.token-broad"), 1)
 
 
+class BroadPermissionsTest(unittest.TestCase):
+    def test_write_all_at_the_top_is_a_finding_and_not_a_pass(self):
+        with tempfile.TemporaryDirectory() as d:
+            workflows(d, a="on: [push]\npermissions: write-all\njobs:\n  b:\n"
+                           "    steps:\n      - run: echo hi\n")
+            out = run(d)
+            self.assertEqual(cost(out, "build.token-broad"), 1)
+            self.assertEqual(item(out, "build.token-broad")["level"], "FAIL")
+
+    def test_bare_write_is_flagged_the_same_way(self):
+        with tempfile.TemporaryDirectory() as d:
+            workflows(d, a="on: [push]\npermissions: write\njobs:\n  b:\n"
+                           "    steps:\n      - run: echo hi\n")
+            self.assertEqual(item(run(d), "build.token-broad")["level"], "FAIL")
+
+    def test_a_job_that_overrides_a_narrow_top_with_write_all_is_still_a_finding(self):
+        with tempfile.TemporaryDirectory() as d:
+            workflows(d, a="on: [push]\npermissions:\n  contents: read\njobs:\n  b:\n"
+                           "    permissions: write-all\n    steps:\n      - run: echo hi\n")
+            out = run(d)
+            self.assertEqual(cost(out, "build.token-broad"), 1)
+            self.assertEqual(item(out, "build.token-broad")["level"], "FAIL")
+
+    def test_a_missing_block_alone_stays_a_warning(self):
+        with tempfile.TemporaryDirectory() as d:
+            workflows(d, a="on: [push]\njobs:\n  b:\n    steps:\n      - run: echo hi\n")
+            self.assertEqual(item(run(d), "build.token-broad")["level"], "WARN")
+
+
+class RunnerTest(unittest.TestCase):
+    def test_a_self_hosted_runner_reachable_from_a_fork_is_a_finding(self):
+        with tempfile.TemporaryDirectory() as d:
+            workflows(d, a="on: [pull_request]\njobs:\n  b:\n    runs-on: self-hosted\n"
+                           "    steps:\n      - run: echo hi\n")
+            self.assertEqual(cost(run(d), "build.runner-exposed"), 1)
+
+    def test_a_github_hosted_runner_is_no_finding(self):
+        with tempfile.TemporaryDirectory() as d:
+            workflows(d, a="on: [pull_request]\njobs:\n  b:\n    runs-on: ubuntu-latest\n"
+                           "    steps:\n      - run: echo hi\n")
+            self.assertEqual(cost(run(d), "build.runner-exposed"), 0)
+
+    def test_a_self_hosted_runner_on_a_push_only_workflow_is_no_finding(self):
+        """A push already needs write access, the same bar a self-hosted runner needs cleared."""
+        with tempfile.TemporaryDirectory() as d:
+            workflows(d, a="on: [push]\njobs:\n  b:\n    runs-on: self-hosted\n"
+                           "    steps:\n      - run: echo hi\n")
+            self.assertEqual(cost(run(d), "build.runner-exposed"), 0)
+
+    def test_a_labelled_self_hosted_runner_in_a_list_is_still_caught(self):
+        with tempfile.TemporaryDirectory() as d:
+            workflows(d, a="on: [pull_request_target]\njobs:\n  b:\n"
+                           "    runs-on: [self-hosted, linux, x64]\n    steps:\n"
+                           "      - run: echo hi\n")
+            self.assertEqual(cost(run(d), "build.runner-exposed"), 1)
+
+
 class PinTest(unittest.TestCase):
     def test_a_tag_counts_and_a_commit_does_not(self):
         with tempfile.TemporaryDirectory() as d:

@@ -20,7 +20,7 @@ This skill reads the workspace only. It never reads a repository, so a row whose
    The script path is relative to this skill's directory. Exit code 2 means there is no workspace or no such repository folder: the answer is `jorekai-security:setup`, stop here.
    Done when every row past its verify date carries either a verdict or one sentence saying what is missing.
 
-2. **Resolve missing evidence, then measure again.** Check the reason given: a missing audit, an audit from before the change, an unchecked rule, or incompatible units. Rerun the measuring skill with the original arguments, then grade again.
+2. **Resolve missing evidence, then measure again.** Check the reason given: a missing audit, an audit from before the change, an unchecked rule, incompatible units, a table row malformed enough to not parse, or a `Verify after` cell that is not a `YYYY-MM-DD` date. Rerun the measuring skill with the original arguments, then grade again; a malformed row or a bad date needs a hand edit to the log file itself.
    Done when every gradable row has a fresh audit behind it, and every remaining gap is one a person has to answer.
 
 3. **Write the verdicts.**

@@ -2,6 +2,14 @@
 
 One entry per `jorekai-security` version. The version at the top equals `version` in `skills/security/.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 0.4.0 (2026-09-23)
+
+- Added: `build.runner-exposed`, a self-hosted runner that a trigger from outside the repository can reach.
+- Changed: `build.token-broad` fails on `permissions: write-all` and on a bare `write`, not only on a missing block.
+- Added: `jorekai-security:secrets` finds a connection string with an embedded password under any variable name, a URL with a token in its path, and a name ending in `_KEY`. A symlink is reported at its own path, and one that points outside the repository is not read.
+- Added: `jorekai-security:deps` reads `gradle.lockfile` and `packages.lock.json`. A `pom.xml`, a Gradle or .NET project without a lock file, and an entry of `requirements.txt` not pinned to one version report `dep.unresolved` instead of passing in silence.
+- Fixed: `and-now`, `grade`, `report` and `setup --due` name a log row they cannot read instead of dropping it.
+
 ## 0.3.0 (2026-09-13)
 
 - Changed: Every measuring pass prints one line per finding: rank, level, check id, cost, the place it names, and the risk class. `--explain RANK` prints the chain behind one line, with the gate the id stands under, and `--previous FILE` adds a `change` column read from an earlier findings JSON. A note carries its sentence under its row.

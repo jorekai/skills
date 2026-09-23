@@ -6,10 +6,11 @@ Usage:
               [--now YYYY-MM-DDTHH:MM:SS] [--json]
   pipeline.py --measures              the unit every check id is measured in
 
-Four checks over the workflow files a repository commits: a privileged trigger that checks out
+Five checks over the workflow files a repository commits: a privileged trigger that checks out
 code from a fork, a shell step that puts a context value straight into the command line, a
-workflow that names no rights for its token, and a third-party action bound to a tag rather than
-to a commit. Reads files only: nothing is run, nothing is fetched, no workflow is triggered.
+workflow that names no rights for its token or grants a broad one, a third-party action bound to
+a tag rather than to a commit, and a self-hosted runner a trigger from outside can reach. Reads
+files only: nothing is run, nothing is fetched, no workflow is triggered.
 
 SPEC for --accept is `<check id> <target> <reason> <date>`; only the first two fields are read.
 The reader parses the subset of the format these checks need. A file it cannot read is reported
@@ -54,12 +55,14 @@ LEVEL_ORDER = {"FAIL": 0, "WARN": 1, "INFO": 2, "PASS": 3}
 # lower is better and zero means the check no longer fires (decisions/0014). `--measures` prints
 # this table and scripts/check.sh compares it to the unit named in the theme's fixes.md.
 MEASURES = {"build.untrusted-checkout": "count", "build.script-injection": "count",
-            "build.token-broad": "count", "build.action-unpinned": "count"}
+            "build.token-broad": "count", "build.action-unpinned": "count",
+            "build.runner-exposed": "count"}
 # What the number in a row counts, per check id.
 ROW_WORD = {"build.untrusted-checkout": ("workflow", "workflows"),
             "build.script-injection": ("step", "steps"),
             "build.token-broad": ("workflow", "workflows"),
-            "build.action-unpinned": ("action reference", "action references")}
+            "build.action-unpinned": ("action reference", "action references"),
+            "build.runner-exposed": ("workflow", "workflows")}
 # A trigger that runs in the repository's own context, with its secrets and its token, while the
 # event that started it was raised by somebody who needs no write access.
 PRIVILEGED = ("pull_request_target", "workflow_run")
@@ -88,6 +91,15 @@ FORK_REF = re.compile(
     r"|github\.event\.pull_request\.merge_commit_sha"
     r"|github\.event\.workflow_run\.head_(sha|branch)|refs/pull/")
 CHECKOUT = re.compile(r"^actions/checkout@")
+# A trigger somebody outside this repository can raise: opening or updating a pull request, a
+# comment, a review, a discussion, or a run this one watches. `push` and a manual run are not
+# here, because both already need write access, the same bar a self-hosted runner needs cleared
+# (GitHub docs, security-hardening-for-github-actions, `references/sources.md`).
+EXTERNAL = ("pull_request", "pull_request_target", "pull_request_review",
+            "pull_request_review_comment", "issue_comment", "issues", "discussion",
+            "discussion_comment", "workflow_run")
+# A permissions value that grants every scope at once rather than naming the ones a job needs.
+BROAD_PERMISSIONS = ("write-all", "write")
 
 
 class Unsupported(Exception):
@@ -381,6 +393,48 @@ def unpinned(ref, trusted):
     return not SHA.fullmatch(version.strip())
 
 
+def broad_permissions(value):
+    """Whether this `permissions` value grants every scope rather than naming them."""
+    return isinstance(value, str) and value.strip().lower() in BROAD_PERMISSIONS
+
+
+def settled_permissions(data):
+    """Whether this workflow names narrow rights for its token everywhere it names any.
+
+    A job's `permissions` overrides the top-level block for that job, so a narrow top level with
+    one broad job is not settled, and a missing top level needs every job to carry a narrow one.
+    """
+    jobs = data.get("jobs") if isinstance(data.get("jobs"), dict) else {}
+    top = data.get("permissions")
+    if top is not None:
+        return not broad_permissions(top) and not any(
+            isinstance(j, dict) and broad_permissions(j.get("permissions")) for j in jobs.values())
+    if not jobs:
+        return False
+    return all(isinstance(j, dict) and j.get("permissions") is not None
+              and not broad_permissions(j.get("permissions")) for j in jobs.values())
+
+
+def broad_grant(data):
+    """Whether this workflow's token gets a broad grant somewhere, top level or in a job."""
+    jobs = data.get("jobs") if isinstance(data.get("jobs"), dict) else {}
+    return broad_permissions(data.get("permissions")) or any(
+        isinstance(j, dict) and broad_permissions(j.get("permissions")) for j in jobs.values())
+
+
+def self_hosted(runs_on):
+    """Whether this `runs-on` value names a self-hosted runner rather than one GitHub hosts."""
+    if isinstance(runs_on, str):
+        values = [runs_on]
+    elif isinstance(runs_on, list):
+        values = [str(v) for v in runs_on]
+    elif isinstance(runs_on, dict):
+        values = [str(v) for v in (runs_on.get("labels") or [])]
+    else:
+        return False
+    return any(v.strip().lower() == "self-hosted" for v in values)
+
+
 def collect(files, rep, a):
     """Every check, in ladder order. A finding is a fact; the fixes table decides what happens."""
     skip = owned(accepted_pairs(a.accept))
@@ -437,24 +491,42 @@ def collect(files, rep, a):
                 "no shell step interpolates a value from outside",
                 one="puts a value somebody outside writes straight into the command line")
 
-    rows, by = [], {}
+    rows, by, broad_seen = [], {}, False
     for f in read:
         name = rel(f["path"], a.root)
         if ("build.token-broad", name) in skip:
             continue
-        data = f["data"]
-        jobs = data.get("jobs") if isinstance(data.get("jobs"), dict) else {}
-        if data.get("permissions") is not None:
+        if settled_permissions(f["data"]):
             continue
-        if jobs and all(isinstance(j, dict) and j.get("permissions") is not None
-                        for j in jobs.values()):
-            continue
-        rows.append({"target": name, "value": "no permissions block"})
+        broad = broad_grant(f["data"])
+        rows.append({"target": name,
+                    "value": "grants a broad permission" if broad else "no permissions block"})
         by[name] = 1
-    report_rows(rep, "WARN", "build.token-broad", rows, by,
-                "name no rights, so their token gets whatever the default is",
-                "every workflow names the rights its token gets",
-                one="names no rights, so its token gets whatever the default is")
+        broad_seen = broad_seen or broad
+    report_rows(rep, "FAIL" if broad_seen else "WARN", "build.token-broad", rows, by,
+                "carry no explicit rights or grant a broad one, so their token can write more than it needs",
+                "every workflow names narrow rights for its token",
+                one="carries no explicit rights or grants a broad one, so its token can write more than it needs")
+
+    rows, by = [], {}
+    for f in read:
+        name = rel(f["path"], a.root)
+        if ("build.runner-exposed", name) in skip:
+            continue
+        events = [t for t in triggers(f["data"]) if t in EXTERNAL]
+        if not events:
+            continue
+        jobs = f["data"].get("jobs") if isinstance(f["data"].get("jobs"), dict) else {}
+        hit = next((job_id for job_id, job in jobs.items()
+                   if isinstance(job, dict) and self_hosted(job.get("runs-on"))), "")
+        if hit:
+            rows.append({"target": name,
+                        "value": f"{events[0]} then {hit} runs on a self-hosted runner"})
+            by[name] = by.get(name, 0) + 1
+    report_rows(rep, "FAIL", "build.runner-exposed", rows, by,
+                "run on a self-hosted runner although a trigger reachable from outside can start them",
+                "no workflow reachable from outside runs on a self-hosted runner",
+                one="runs on a self-hosted runner although a trigger reachable from outside can start it")
 
     rows, by = [], {}
     for f in read:

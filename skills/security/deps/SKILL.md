@@ -1,6 +1,6 @@
 ---
 name: deps
-description: "Which installed dependency carries a published advisory and which one is already being exploited, in one pass via scripts/deps.py: the lock files resolved to versions, then the advisory database, the catalogue of exploited flaws, and the exploitation probability. Also names a manifest with no lock file beside it. Use when asked whether a dependency is vulnerable, after a lock file changed, when an advisory is announced, or as the dependency half of a security sweep."
+description: "Which installed dependency carries a published advisory and which one is already being exploited, in one pass via scripts/deps.py: the lock files resolved to versions, then the advisory database, the catalogue of exploited flaws, and the exploitation probability. Also names a manifest with nothing that resolves it to exact versions, whether a lock file is missing or a requirement is not pinned. Use when asked whether a dependency is vulnerable, after a lock file changed, when an advisory is announced, or as the dependency half of a security sweep."
 ---
 
 # Security deps
@@ -52,5 +52,6 @@ A package counts in one check only: exploited, then fixable, then the rest. That
 - The lock file is what gets installed, so it is what is read. A range in a manifest describes what could be installed, which is a question about the future and not about this repository today.
 - A development dependency is installed on the machine that builds, and that machine holds the token that publishes. It is counted like every other package, and a repository that disagrees writes that down under `accepted` with its reason.
 - The target of a row is the package without its version. The version is what a fix changes, and a row that names it can never read zero.
-- The readers cover the common shape of each lock format. A format none of them reads produces no packages from that file, and the manifest beside it is reported as unresolved, so an unread file counts as a gap and not as a pass.
+- The readers cover the common shape of each lock format. A format none of them reads produces no packages from that file, and the manifest beside it is reported as unresolved, so an unread file counts as a gap and not as a pass. `pom.xml` is the sharpest case: Maven names no lock file this pass reads. Every repository with one is unresolved until it gains a Gradle lock or a different manifest.
+- A requirement without `==` is the same gap as a missing lock file. Nothing says which version installs, so it is unresolved rather than silently absent from the count.
 - A first pass on an old repository reports a lot. That is the baseline. What matters at the second pass is which of the three numbers moved.

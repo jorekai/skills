@@ -15,6 +15,8 @@ One row per claim this theme makes about a platform, a catalogue, or a tool. Eve
 | A pattern-based analyser scans with `semgrep scan --config`, writes `--json` or `--sarif`, exits 1 on findings with `--error`, and needs no account for open rule sets | https://docs.semgrep.dev/cli-reference | 2026-09-09 |
 | The 2025 edition of the ten most reported application risks has ten categories over 248 weaknesses, and supply chain failures are one category of its own | https://owasp.org/Top10/2025/ | 2026-09-09 |
 | A repository scoring project measures the same pipeline properties this theme's `build.*` checks measure, under the names `Dangerous-Workflow`, `Token-Permissions` and `Pinned-Dependencies` | https://github.com/ossf/scorecard/blob/main/docs/checks.md | 2026-09-09 |
+| A self-hosted runner should almost never serve a public repository, because any user can open a pull request against it and compromise the runner environment | https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions | 2026-09-23 |
+| The advisory database's ecosystem identifiers include `Maven`, whose package name is `groupId:artifactId`, and `NuGet` | https://ossf.github.io/osv-schema/#affectedpackage-field | 2026-09-23 |
 
 ## Heuristics
 
