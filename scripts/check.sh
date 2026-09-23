@@ -22,7 +22,7 @@ if [[ -f .check_public.local ]]; then
 fi
 (( patterns )) || echo "warning: no customer patterns (.check_public.local is missing or empty), only generic private-data checks run" >&2
 while IFS= read -r line; do hit "private: $line"; done < <(echo "$files" | xargs grep -nE "$private" 2>/dev/null)
-while IFS= read -r line; do hit "home path: $line"; done < <(echo "$files" | xargs grep -nE "/(Users|home)/[a-z][a-z0-9_-]+/" 2>/dev/null)
+while IFS= read -r line; do hit "home path: $line"; done < <(echo "$files" | xargs grep -inE "/(Users|home)/[a-z][a-z0-9_-]+/" 2>/dev/null)
 while IFS= read -r f; do hit "workspace tracked: $f"; done < <(echo "$files" | grep -E '^docs/')
 while IFS= read -r f; do hit "link tracked: $f"; done < <(echo "$files" | grep -E '^\.(agents|claude)/skills/')
 
@@ -42,6 +42,10 @@ while IFS= read -r line; do hit "emoji: $line"; done < <(echo "$style" | xargs p
 # Check skill headers before reading their fields.
 python3 scripts/check_frontmatter.py || hit "frontmatter: fix the fields named above"
 
+# Scripts stay Python stdlib or bash (AGENTS.md, CONTRIBUTING.md): every import under skills/ and
+# scripts/ is either the standard library or a sibling module in the same directory.
+python3 scripts/check_imports.py || hit "imports: fix the lines named above"
+
 # Every plugin's version equals the top entry of the changelog beside its manifest; a version
 # bump without a changelog line is a hit. One version and one changelog per plugin (decisions/0013).
 while IFS= read -r manifest; do
@@ -51,6 +55,13 @@ while IFS= read -r manifest; do
   cv=$(grep -m1 -oE '^## [0-9]+\.[0-9]+\.[0-9]+' "$log" | cut -c4-)
   [[ "$pv" == "$cv" ]] || hit "version: $manifest says $pv, $log top entry says $cv"
 done < <(git ls-files '*.claude-plugin/plugin.json')
+
+# The marketplace only lists what each plugin already owns (decisions/0013): its source resolves
+# to a directory with that manifest, the names agree, and the descriptions are identical.
+while IFS= read -r line; do hit "$line"; done < <(python3 scripts/check_marketplace.py)
+
+# A step carries no year (STYLE.md, "Structure"): a sourced fact stands outside ## Steps.
+while IFS= read -r line; do hit "$line"; done < <(python3 scripts/check_steps_years.py)
 
 # The router must not lie: every skill directory is named in its theme's router and in the theme's
 # README.md, and the root README.md links every theme page (decisions/0038).
@@ -120,6 +131,9 @@ for fixes in $(git ls-files 'skills/*/*/references/fixes.md'); do
   [[ -n "$ns" ]] || { hit "fixes: $fixes names no check id, so nothing can be checked against it"; continue; }
   while IFS= read -r id; do
     [[ -n "$id" ]] || continue
+    # A file name can take the shape of a check id when a namespace is also a word: the Gradle
+    # manifest `build.gradle` sits in the same script as the `build.*` ids. Name each one here.
+    [[ "$id" == "build.gradle" ]] && continue
     grep -q "| \`$id\`" "$fixes" || hit "fixes: check id $id has no row in $fixes"
   done < <(git ls-files "skills/$theme/*/scripts/*.py" | grep -v '/test_' \
              | xargs grep -ohE "\"($ns)\.[a-z][a-z-]*\"" 2>/dev/null | tr -d '"' | sort -u)
@@ -141,12 +155,16 @@ done < <(cut -d' ' -f1 <<<"$owners" | sort | uniq -d)
 
 # Every unit a script measures in is the unit its fixes row names, written as (`unit`) at the end
 # of the measure column. A row graded against a number in another unit is graded against nothing.
+# The unit itself is one of the closed set decisions/0014 names; one outside it is rejected here,
+# not discovered when a log row tries to grade against it.
+units='bytes|count|percent|seconds'
 for fixes in $(git ls-files 'skills/*/*/references/fixes.md'); do
   theme=$(echo "$fixes" | cut -d/ -f2)
   [[ "$fixes" == "skills/$theme/$theme/references/fixes.md" ]] || continue
   while IFS= read -r script; do
     while read -r id unit; do
       [[ -n "$id" && -n "$unit" ]] || continue
+      [[ "$unit" =~ ^($units)$ ]] || hit "unit: $script measures $id in '$unit', not one of decisions/0014 ($units)"
       row=$(grep -m1 "| \`$id\`" "$fixes")
       [[ "$row" == *"(\`$unit\`)"* ]] || hit "unit: $script measures $id in $unit, $fixes does not say so"
     done < <(python3 "$script" --measures 2>/dev/null)
@@ -317,9 +335,16 @@ t bash -n skills/seo/connect/scripts/indexnow.sh
 t bash -n scripts/link.sh
 # A filter that matches nothing must reach the message, not die on an empty array under `set -u`.
 t bash -c 'bash scripts/link.sh "$(mktemp -d)" nosuchskill 2>&1 | grep -qx "nothing matched"'
+t bash scripts/test_link.sh
 t python3 scripts/sources_age.py --help
 t python3 scripts/test_frontmatter.py
 t python3 scripts/check_rungs.py --help
+t python3 scripts/test_imports.py
+t python3 scripts/check_imports.py --help
+t python3 scripts/test_marketplace.py
+t python3 scripts/check_marketplace.py --help
+t python3 scripts/test_steps_years.py
+t python3 scripts/check_steps_years.py --help
 for f in $(git ls-files 'skills/*/*/agents/openai.yaml'); do t test -s "$f"; done
 for d in $(git ls-files 'skills/*/*/SKILL.md' | xargs -n1 dirname); do t test -f "$d/agents/openai.yaml"; done
 

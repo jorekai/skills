@@ -11,35 +11,35 @@
   "plugins": [
     {
       "name": "jorekai-intro",
-      "description": "The map of this collection: the themes, their loops, every skill, and which one you need.",
+      "description": "The map of this collection: the themes, their loops, and which one you need.",
       "source": "./skills/intro",
       "category": "productivity",
       "license": "MIT"
     },
     {
       "name": "jorekai-seo",
-      "description": "SEO loop: setup, connect, grill, tech-audit, gsc-review, content, review, links, distribution, diagnose, migrate, report, and-now.",
+      "description": "SEO loop for one or more domains: setup, connect, grill, tech-audit, gsc-review, content, review, links, distribution, diagnose, migrate, report, and-now.",
       "source": "./",
       "category": "productivity",
       "license": "MIT"
     },
     {
       "name": "jorekai-dx",
-      "description": "Developer experience loop for one machine: setup, repos, machine, github, agent-config, friction, grade, and-now.",
+      "description": "Developer experience loop for one machine: setup, repos, machine, github, agent-config, friction, grade, report, and-now.",
       "source": "./skills/dx",
       "category": "productivity",
       "license": "MIT"
     },
     {
       "name": "jorekai-ops",
-      "description": "Ops loop for a host that serves: setup, access, availability, grade, and-now.",
+      "description": "Ops loop for a host that serves: setup, access, availability, exposure, recovery, grade, report, and-now.",
       "source": "./skills/ops",
       "category": "productivity",
       "license": "MIT"
     },
     {
       "name": "jorekai-security",
-      "description": "Security loop for a code repository: setup, secrets, pipeline, deps, review, grade, report, and-now.",
+      "description": "Security loop for a code repository: setup, deps, secrets, pipeline, review, grade, report, and-now.",
       "source": "./skills/security",
       "category": "productivity",
       "license": "MIT"

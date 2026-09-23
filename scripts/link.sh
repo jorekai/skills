@@ -17,6 +17,7 @@ shift || true
 
 srcs=()
 while IFS= read -r -d '' f; do srcs+=("$(dirname "$f")"); done < <(find "$here/skills" -name SKILL.md -print0 | sort -z)
+all_srcs=("${srcs[@]}")   # the full current set, kept for pruning even when this run is scoped
 if (( $# )); then
   sel=()
   for want in "$@"; do
@@ -41,4 +42,32 @@ for s in "${srcs[@]}"; do
   rel="$(python3 -c 'import os,sys; print(os.path.relpath(sys.argv[1], sys.argv[2]))' "$s" "$dest")"
   ln -sfn "$rel" "$dest/$link"
   echo "linked $link -> $dest/$link ($rel)"
+done
+
+# Prune what a rename or a removal left behind. A link a skill's own directory no longer earns
+# stays in $dest forever otherwise, since nothing else ever revisits it. The set below is the
+# full current collection, not just this run's selection, so a scoped run (one bucket, one
+# skill) still cleans up a stale link from a different theme without touching a live one it
+# was not asked to relink. Two things keep this from ever touching what is not ours: a plain
+# file or directory is never a symlink, and a symlink whose resolved target falls outside $here
+# is left alone no matter what its name is.
+expected=$(for s in "${all_srcs[@]}"; do
+  bucket="$(basename "$(dirname "$s")")"; name="$(basename "$s")"
+  if [[ "$bucket" == "$name" ]]; then echo "$bucket"; else echo "$bucket-$name"; fi
+done)
+# A symlink's target comes back from realpath fully resolved (no /var-vs-/private/var
+# ambiguity on macOS), so $here is resolved the same way before the two are compared.
+here_real="$(python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$here")"
+for path in "$dest"/*; do
+  [[ -e "$path" || -L "$path" ]] || continue   # an unmatched glob with nullglob off: nothing here
+  [[ -L "$path" ]] || continue                 # never a plain file or directory
+  target="$(python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$path")"
+  case "$target" in
+    "$here_real"/*) ;;
+    *) continue ;;                             # points outside this collection: never ours to touch
+  esac
+  entry="$(basename "$path")"
+  grep -qxF "$entry" <<<"$expected" && continue  # still names a skill that exists
+  rm -f "$path"
+  echo "pruned $entry (stale link into $target)"
 done

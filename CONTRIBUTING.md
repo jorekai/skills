@@ -17,3 +17,9 @@ The template asks for the skill, the behaviour that changes, and the run that sh
 ## What is not accepted
 
 Customer data of any kind, tool marketing in steps, unsourced platform claims, prose that breaks `STYLE.md`, and scripts outside Python stdlib or bash.
+
+## CI
+
+`.github/workflows/check.yml` runs `scripts/check.sh` on every push and pull request. The customer-name patterns come from `.check_public.local`, which is gitignored and never leaves a contributor's machine, so CI reads the same patterns from a repository secret instead: `CHECK_PUBLIC_LOCAL`, one regex per line, written to `.check_public.local` before the check runs. A maintainer sets it once, under the repository's Settings > Secrets and variables > Actions, with the same content as the local file.
+
+A pull request from a fork receives no repository secret, so that job's customer-name check has nothing to run on and is skipped there by design; every other push and pull request fails if the secret is empty, the same way `scripts/check.sh` warns locally when `.check_public.local` is missing.

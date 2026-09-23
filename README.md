@@ -42,6 +42,35 @@ claude plugin install jorekai-stack@jorekai    # a monorepo an agent cannot reac
 
 Install one, two, or all six; they share nothing at run time. Not sure which one you need: `/jorekai-intro:intro` draws the collection and names the one command to run next. Codex users link the same folders, see [Use in a project](#use-in-a-project).
 
+## Update
+
+```bash
+claude plugin marketplace update jorekai   # pull the latest commit
+claude plugin update jorekai-seo@jorekai   # refresh one theme's cached copy
+```
+
+Update every installed theme the same way, then start a new session. The install is a copy under `~/.claude/plugins/cache/jorekai/`, not a link, so a session already running keeps the old copy. Editing a theme in this repository yourself follows the same two commands after a version bump; see [Use in a project](#use-in-a-project).
+
+Codex users rerun `scripts/link.sh` after a pull. It relinks what exists now and prunes a link whose skill was renamed or removed since the last run.
+
+## Uninstall
+
+Plugin route, one theme at a time:
+
+```bash
+claude plugin uninstall jorekai-seo@jorekai
+```
+
+Drop the marketplace itself once nothing installed points at it:
+
+```bash
+claude plugin marketplace remove jorekai
+```
+
+Command names and flags belong to Claude Code, not to this collection; check them locally before relying on them: `claude plugin --help`, `claude plugin uninstall --help`.
+
+Codex link route: delete the one link a project no longer needs. `rm .agents/skills/<theme>-<skill>` removes it. Removing the whole folder also removes anything else placed there, so look inside it first.
+
 ## How every theme works
 
 The five measuring themes run the same loop. Only the subject changes: a site, a machine, a host, a repository, or a monorepo.
@@ -67,6 +96,8 @@ flowchart LR
 7. **grade** recomputes the measure on the verify date and writes the verdict. In SEO, `jorekai-seo:gsc-review` grades due actions from the next export. The loop learns from the log, not from memory.
 
 The intro theme is the exception. It measures nothing and keeps no log, it only draws the map (`decisions/0024`).
+
+`jorekai-seo:tech-audit` is the other exception. Its findings carry no measure, no risk class, and no rung, so its report stays prose per id in `references/fixes.md` instead of the one-line-per-finding shape the other reports use (`decisions/0031`).
 
 ## Where state lives
 
