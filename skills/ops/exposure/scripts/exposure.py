@@ -18,8 +18,9 @@ makes the whole pass testable without a network stack. Certificate dates come fr
 `openssl x509 -noout -enddate -dateopt iso_8601`, or from `--enddate-dir` holding one
 `<name>.enddate` file per certificate. Reads only: no port is closed, no rule is written.
 
-A change under `fw.*` passes gate 2 first, because the rule that closes a port can close the
-connection reading this report. See references/risk-classes.md beside the router.
+A change under `fw.*`, `port.*` or `panel.*` passes gate 2 first, because closing a port or
+restricting a panel by hand can close the connection reading this report, exactly as a firewall
+rule can. See references/risk-classes.md beside the router.
 
 Stdlib only. Exit code 0 always; findings are in the report, not the exit status.
 """
@@ -131,12 +132,35 @@ def wanted(port, proto, specs):
 
 
 def run_command(argv, timeout=10):
-    """One command, its stdout, or None when it is missing, fails, or takes too long."""
+    """One command's completed process, or `None` when its binary is not installed or the call
+    times out. The caller reads `.returncode` and `.stdout` itself, because a status query can
+    answer accurately through a non-zero exit (`firewall-cmd --state` says `not running` that
+    way), and that answer is not the same as the binary being absent."""
     try:
-        r = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
+        return subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
     except (OSError, subprocess.TimeoutExpired):
         return None
-    return r.stdout if r.returncode == 0 else None
+
+
+def output_of(argv, timeout=10):
+    """The stdout of a command that only means something on a clean exit, or `None` otherwise."""
+    r = run_command(argv, timeout=timeout)
+    return r.stdout if r and r.returncode == 0 else None
+
+
+REFUSED_WORDS = ("permission denied", "operation not permitted", "not authorized",
+                  "access denied", "authentication required", "need to be root",
+                  "must be root", "run as root")
+
+
+def refused(text):
+    """Whether a failed command's own wording says privilege was the reason, not absence.
+
+    A judgement, not a documented interface (references/sources.md): the wording a refused
+    firewall command prints is not standardised across `nft`, `ufw`, and `firewall-cmd`.
+    """
+    low = text.lower()
+    return any(w in low for w in REFUSED_WORDS)
 
 
 def read(path):
@@ -148,7 +172,7 @@ def read(path):
 
 def sockets(a):
     """Every listening socket as {proto, address, port}, from the host or from a captured file."""
-    text = read(a.ss_file) if a.ss_file else run_command(["ss", "-H", "-ltunp"])
+    text = read(a.ss_file) if a.ss_file else output_of(["ss", "-H", "-ltunp"])
     if text is None:
         return None
     out = []
@@ -179,23 +203,36 @@ def reach(address):
 
 
 def status_text(kind):
-    """What a firewall says about itself, as one text.
+    """What a firewall says about itself: the text, `None` when its binary is not installed, or
+    `"refused"` when it ran and its own wording says privilege was the reason.
 
     A firewalld host answers in two halves: `--state` says whether the daemon is doing anything
     at all, `--list-all` says what it lets in. Reading only the second one would call a stopped
-    daemon a firewall, because a zone still prints its rules when nothing enforces them.
+    daemon a firewall, because a zone still prints its rules when nothing enforces them. `--state`
+    also answers `not running` through a non-zero exit, so a missing binary and a real "not
+    running" answer are told apart by whether the command ran at all, never by its exit code alone.
     """
     if kind == "nft":
-        return run_command(["nft", "list", "ruleset"])
-    if kind == "ufw":
-        return run_command(["ufw", "status", "verbose"])
-    if kind == "firewalld":
-        state = run_command(["firewall-cmd", "--state"])
-        if state is None:
-            state = "not running"
-        rules = run_command(["firewall-cmd", "--list-all"]) or ""
+        r = run_command(["nft", "list", "ruleset"])
+    elif kind == "ufw":
+        r = run_command(["ufw", "status", "verbose"])
+    elif kind == "firewalld":
+        r = run_command(["firewall-cmd", "--state"])
+        if r is None:
+            return None
+        if r.returncode != 0 and refused(r.stdout + r.stderr):
+            return "refused"
+        state = r.stdout.strip() or "not running"
+        rules_r = run_command(["firewall-cmd", "--list-all"])
+        rules = rules_r.stdout if rules_r and rules_r.returncode == 0 else ""
         return state + "\n" + rules
-    return None
+    else:
+        return None
+    if r is None:
+        return None
+    if r.returncode != 0 and refused(r.stdout + r.stderr):
+        return "refused"
+    return r.stdout if r.returncode == 0 else None
 
 
 def firewall(a):
@@ -219,9 +256,12 @@ def firewall(a):
             kind = "none"
     elif kind != "none":
         text = status_text(kind)
-    if kind == "none" or text is None:
-        return {"kind": kind, "filtering": False, "ports": [], "read": text is not None,
-                "ranges": [], "services": [], "default_open": ""}
+    if kind == "none" or text is None or text == "refused":
+        # A refusal is not an absence: the tool answered, and its wording said privilege was the
+        # reason. Reading it as "none" would report a firewall gone that may still be standing
+        # (decisions/0030): the row stays unread, with a note that says why.
+        return {"kind": kind, "filtering": False, "ports": [], "read": False,
+                "refused": text == "refused", "ranges": [], "services": [], "default_open": ""}
     ports, ranges, services, filtering, default_open = [], [], [], False, ""
 
     if kind == "ufw":
@@ -267,7 +307,8 @@ def firewall(a):
                 elif token.isdigit():
                     ports.append((int(token), proto))
     return {"kind": kind, "filtering": filtering, "ports": sorted(set(ports)), "read": True,
-            "ranges": sorted(set(ranges)), "services": services, "default_open": default_open}
+            "refused": False, "ranges": sorted(set(ranges)), "services": services,
+            "default_open": default_open}
 
 
 def enddate(path, a):
@@ -275,8 +316,8 @@ def enddate(path, a):
     if a.enddate_dir:
         text = read(Path(a.enddate_dir) / (Path(path).stem + ".enddate"))
     else:
-        text = run_command(["openssl", "x509", "-noout", "-enddate", "-dateopt", "iso_8601",
-                            "-in", str(path)])
+        text = output_of(["openssl", "x509", "-noout", "-enddate", "-dateopt", "iso_8601",
+                         "-in", str(path)])
     m = ISO_DATE.search(text or "")
     if not m:
         return None
@@ -310,7 +351,7 @@ def show(unit, show_dir, timeout=10):
     if show_dir:
         text = read(Path(show_dir) / f"{unit}.show")
     else:
-        text = run_command(["systemctl", "show", unit], timeout=timeout)
+        text = output_of(["systemctl", "show", unit], timeout=timeout)
     if text is None:
         return None
     out = {}
@@ -393,10 +434,17 @@ def collect(open_ports, fw, certs, watchers, rep, a, now):
                 data=[{"target": "firewall", "value": "none"}], measure=1, by={"firewall": 1})
     elif not fw["read"]:
         # Not reading a firewall is not the same as reading one that filters nothing. A measure
-        # here would settle a row with a number nobody took.
-        rep.add("INFO", "fw.disabled",
-                f"the {fw['kind']} firewall did not answer, so this pass cannot say whether it filters",
-                data=[{"target": fw["kind"], "value": "no answer"}])
+        # here would settle a row with a number nobody took. A refusal is a stronger, honester
+        # answer than a silent one: the tool exists and said privilege was the reason (decisions/0030).
+        if fw.get("refused"):
+            rep.add("INFO", "fw.disabled",
+                    f"the {fw['kind']} firewall refused to answer without more privilege, so this "
+                    "pass cannot say whether it filters",
+                    data=[{"target": fw["kind"], "value": "refused"}])
+        else:
+            rep.add("INFO", "fw.disabled",
+                    f"the {fw['kind']} firewall did not answer, so this pass cannot say whether it filters",
+                    data=[{"target": fw["kind"], "value": "no answer"}])
     elif not fw["filtering"]:
         rep.add("FAIL", "fw.disabled",
                 f"the {fw['kind']} firewall on this host is not filtering, so the rules it holds "
@@ -717,9 +765,11 @@ def explain_report(rep, target, fixes, which, previous):
     return "\n".join(out)
 
 
-# The namespaces gate 2 covers (decisions/0016): a change under one of these needs two proved
-# ways in, a backup copy, and a rollback timer before it runs. references/risk-classes.md.
-GATE_PREFIXES = ("ssh.", "key.", "fw.", "sudo.", "user.")
+# The namespaces gate 2 covers (decisions/0016, decisions/0039): a change under one of these
+# needs two proved ways in, a backup copy, and a rollback timer before it runs. A port closed or a
+# panel restricted by hand can take away the way in exactly as a firewall rule can, which is why
+# port.* and panel.* are here too. references/risk-classes.md.
+GATE_PREFIXES = ("ssh.", "key.", "fw.", "sudo.", "user.", "port.", "panel.")
 
 
 def bar(fails, warns, notes, passed):

@@ -137,6 +137,38 @@ class RowTest(unittest.TestCase):
             self.assertEqual(s["unknown"], [])
 
 
+class UnreadableRowTest(unittest.TestCase):
+    """A row nobody can parse is reported by file and line, never silently dropped (decisions/0030)."""
+
+    def test_a_malformed_row_is_named_by_file_and_line(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            rows(base, row("2026-W36-01", "ssh.root-login"), "| broken row too few cells |\n")
+            s = status.read_host(root, "example-host", TODAY)
+            self.assertEqual(len(s["unreadable"]), 1)
+            self.assertEqual(s["unreadable"][0]["file"], "2026-W36.md")
+            _, now, _ = status.decide(s, TODAY)
+            self.assertTrue(any("unreadable" in t and "2026-W36.md" in t for _, t in now), now)
+            self.assertIn("1 unreadable", status.report(s, TODAY))
+
+    def test_a_verify_after_that_is_not_a_date_is_reported(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            rows(base, row("2026-W36-01", "ssh.root-login", "applied", "not-a-date", "2026-08-25"))
+            s = status.read_host(root, "example-host", TODAY)
+            self.assertEqual(s["due"], [])
+            self.assertEqual(len(s["unreadable"]), 1)
+            self.assertIn("not-a-date", s["unreadable"][0]["why"])
+
+    def test_a_parked_row_with_an_empty_verify_after_is_not_reported_as_unreadable(self):
+        """A parked row's empty date is expected: the `parked` line already covers it."""
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            rows(base, row("2026-W36-01", "pkg.security", "applied", "", "2026-08-25"))
+            s = status.read_host(root, "example-host", TODAY)
+            self.assertEqual(s["unreadable"], [])
+
+
 class AuditTest(unittest.TestCase):
     def test_failing_ids_come_in_ladder_order_not_in_audit_order(self):
         with tempfile.TemporaryDirectory() as d:

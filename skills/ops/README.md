@@ -63,7 +63,7 @@ The workspace is the one the dx theme keeps: one folder per host under `machines
 The log is `machines/<hostname>/log/ops/2026-W36.md`; the trailer is `Ops-Log: <row id>`. Above the three risk classes sit two gates:
 
 1. Nothing destructive runs against a repository holding uncommitted or unpushed work.
-2. Every change under `ssh.*`, `key.*`, `fw.*`, `sudo.*`, or `user.*` first proves two independent ways in from fresh connections, writes a backup copy, and arms a rollback timer that is cancelled only after a new connection succeeds (`decisions/0016`).
+2. Every change under `ssh.*`, `key.*`, `fw.*`, `sudo.*`, `user.*`, `port.*`, or `panel.*` first proves two independent ways in from fresh connections, writes a backup copy, and arms a rollback timer that is cancelled only after a new connection succeeds (`decisions/0016`, `decisions/0039`).
 
 ## Read next
 

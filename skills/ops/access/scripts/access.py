@@ -528,9 +528,11 @@ def detail(item):
 
 
 ID_WIDTH = 28
-# The namespaces gate 2 covers (decisions/0016): a change under one of these needs two proved
-# ways in, a backup copy, and a rollback timer before it runs. references/risk-classes.md.
-GATE_PREFIXES = ("ssh.", "key.", "fw.", "sudo.", "user.")
+# The namespaces gate 2 covers (decisions/0016, decisions/0039): a change under one of these
+# needs two proved ways in, a backup copy, and a rollback timer before it runs. A port closed or a
+# panel restricted by hand can take away the way in exactly as a firewall rule can, which is why
+# port.* and panel.* are here too. references/risk-classes.md.
+GATE_PREFIXES = ("ssh.", "key.", "fw.", "sudo.", "user.", "port.", "panel.")
 
 
 def bar(fails, warns, notes, passed):
@@ -741,7 +743,8 @@ def explain_report(rep, target, fixes, which, previous):
         weight.append("gate 2 namespace")
     out += field("weight", [" · ".join(weight)])
     if item["id"] == "access.single-path":
-        out += field("", ["every change under ssh.*, key.*, fw.*, sudo.*, user.* waits on this one"])
+        out += field("", ["every change under " + ", ".join(p + "*" for p in GATE_PREFIXES)
+                          + " waits on this one"])
     out += field("means", [row.get("means") or
                            "no row in the fixes table of jorekai-ops:ops, so nothing explains this id yet"])
     # A cause is printed only where the pass proved one. A finding that carries no signal carries

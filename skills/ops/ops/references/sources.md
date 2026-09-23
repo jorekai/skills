@@ -13,8 +13,10 @@ Every claim about how a platform, a product, or a tool behaves has a row here wi
 | Only files ending in `.journal` or `.journal~` count towards the journal's disk usage, because that is what the service and its reader add up | `recovery.py`, `journal_usage` | `man 5 journald.conf` (systemd 262~rc1), `SystemMaxUse=` | 2026-09-08 |
 | `ss -l` shows listening sockets only, `-n` prints numeric addresses instead of service names, and `-H` drops the header line | `exposure.py`, `sockets` reads `ss -H -ltunp` | `man 8 ss` (iproute2, main), OPTIONS | 2026-09-08 |
 | `openssl x509 -enddate` prints the notAfter date, and `-dateopt iso_8601` prints dates in ISO form instead of the default | `exposure.py`, `enddate` | `openssl-x509` manual (OpenSSL, master), `-enddate`, `-dateopt` | 2026-09-08 |
-| `firewall-cmd --state` reports whether the daemon is running and prints that state | `exposure.py`, `fw.disabled` on a firewalld host | `firewall-cmd` manual (firewalld, main), Status Options | 2026-09-08 |
+| `firewall-cmd --state` prints the daemon's state to `STDOUT` either way, but exits 0 only while it is active; a stopped daemon answers `NOT_RUNNING` (252) with the state still on `STDOUT`, so the exit code alone cannot tell a stopped daemon from a missing binary | `exposure.py`, `status_text` on a firewalld host | `firewall-cmd` manual (firewalld, main), `--state` | 2026-09-23 |
 | In ufw's status output, `Anywhere` means any address, that is `0.0.0.0/0` and `::/0` | `exposure.py`, the rules read out of a ufw status | `man 8 ufw` (ufw, master), `status` | 2026-09-08 |
+| Access from userland to the kernel through the nftables API needs root privilege; a command run without it fails with "Operation not permitted" | `references/tools.md`, the firewall listing gap the reading account cannot cross | nftables project wiki, Troubleshooting, Q5 | 2026-09-23 |
+| Every documented `ufw` command, including a status check, is shown run with `sudo` | `references/tools.md`, the firewall listing gap the reading account cannot cross | Ubuntu Community Help Wiki, UFW | 2026-09-23 |
 
 ## Heuristics, deliberately unsourced
 
@@ -31,3 +33,4 @@ These are judgements this collection makes, not documented behaviour. They are n
 - The `Status: active` line of a ufw status and the shape of an nftables ruleset dump are output this collection reads by pattern. Neither is documented as an interface.
 - An nftables input chain whose policy is accept and which drops nothing counts as not filtering; one that accepts by default and drops named traffic counts as filtering, with a note saying so. Both are judgements about what a firewall is for, not documented states.
 - Twenty-one days before a certificate's date is the window this collection chose. `standards.md` sets it, and a host with a shorter renewal cycle writes another number.
+- The wording `exposure.py` reads as a firewall command refusing for lack of privilege ("permission denied", "operation not permitted", "must be root", and their relatives) is a judgement, not a standard: `nft`, `ufw`, and `firewall-cmd` phrase that refusal differently across versions and distributions, and none of the three documents one fixed string for it.

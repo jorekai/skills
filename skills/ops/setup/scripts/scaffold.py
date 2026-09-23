@@ -405,8 +405,11 @@ def append_row(root, host, today, a):
         print(f"verify after: {verify}")
 
 
-def table_rows(text, heading):
-    """Rows of the first markdown table after `heading`, as dicts keyed by header."""
+def table_rows(text, heading, bad=None):
+    """Rows of the first markdown table after `heading`, as dicts keyed by header.
+
+    A row whose cell count differs from the header is appended to `bad` when a list is given,
+    so a caller can name it instead of losing it (decisions/0030)."""
     if heading not in text:
         return []
     lines = [l for l in text.split(heading, 1)[1].splitlines() if l.strip().startswith("|")]
@@ -418,13 +421,17 @@ def table_rows(text, heading):
         cells = split_cells(line)
         if len(cells) == len(head):
             rows.append(dict(zip(head, cells)))
+        elif bad is not None:
+            bad.append(line.strip())
     return rows
 
 
 def due(root, host, today):
     found = 0
+    unreadable = []
     for f in sorted(log_dir(root, host).glob("*.md")):
-        for r in table_rows(f.read_text(encoding="utf-8"), "## Actions"):
+        bad = []
+        for r in table_rows(f.read_text(encoding="utf-8"), "## Actions", bad):
             after = r.get("verify after", "")
             if r.get("status", "") in ("applied", "verify") and re.fullmatch(r"\d{4}-\d{2}-\d{2}", after) \
                     and dt.date.fromisoformat(after) <= today:
@@ -434,7 +441,13 @@ def due(root, host, today):
                 print(f"{r.get('id')} | {r.get('check')} | {r.get('target')} | {r.get('action')} | "
                       f"class {r.get('class')} | then {r.get('then')} | applied {r.get('applied')} | "
                       f"verify after {after} | {f.name}")
+            elif r.get("status", "") in ("applied", "verify") and after and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", after):
+                unreadable.append(f"{f.name}: {r.get('id')} verify after {after!r}")
+        unreadable += [f"{f.name}: {line}" for line in bad]
     print("nothing due" if not found else f"{found} due")
+    if unreadable:
+        # A row nobody can read is never due, so it would never be graded: name it instead.
+        print(f"{len(unreadable)} unreadable: " + "; ".join(unreadable[:3]))
 
 
 def main():

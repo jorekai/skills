@@ -576,9 +576,11 @@ def detail(item):
     return [(str(d.get("target", "")), str(d.get("value", "")) or "yes") for d in item["data"][:5]]
 
 
-# The namespaces gate 2 covers (decisions/0016): a change under one of these needs two proved
-# ways in, a backup copy, and a rollback timer before it runs. references/risk-classes.md.
-GATE_PREFIXES = ("ssh.", "key.", "fw.", "sudo.", "user.")
+# The namespaces gate 2 covers (decisions/0016, decisions/0039): a change under one of these
+# needs two proved ways in, a backup copy, and a rollback timer before it runs. A port closed or a
+# panel restricted by hand can take away the way in exactly as a firewall rule can, which is why
+# port.* and panel.* are here too. references/risk-classes.md.
+GATE_PREFIXES = ("ssh.", "key.", "fw.", "sudo.", "user.", "port.", "panel.")
 
 
 # The report answers the questions a person asks, in the order they ask them (decisions/0031):

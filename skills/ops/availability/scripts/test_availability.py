@@ -263,6 +263,12 @@ class ChainTest(unittest.TestCase):
         self.assertRegex(lines[1], r"\+1")
         self.assertRegex(availability.listing(rep.items, [], {}, {})[1], r" new ")
 
+    def test_gate_2_covers_a_port_and_a_panel_too(self):
+        """decisions/0039 widened gate 2 beyond decisions/0016's five namespaces."""
+        self.assertTrue("port.world-open".startswith(availability.GATE_PREFIXES))
+        self.assertTrue("panel.exposed".startswith(availability.GATE_PREFIXES))
+        self.assertTrue("ssh.root-login".startswith(availability.GATE_PREFIXES))
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)

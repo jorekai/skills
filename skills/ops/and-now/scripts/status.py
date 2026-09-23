@@ -116,18 +116,28 @@ def split_cells(line):
 
 
 def table_rows(text, heading):
+    """Rows of the first markdown table after `heading`, as dicts keyed by header, each carrying
+    its 1-based source line in `_line`. A row whose cell count differs from the header cannot
+    become one; it is returned separately as `bad`, with its line and cell counts, so
+    decisions/0030 holds: it is reported, never silently dropped."""
     if heading not in text:
-        return []
-    lines = [l for l in text.split(heading, 1)[1].splitlines() if l.strip().startswith("|")]
-    if len(lines) < 2:
-        return []
-    head = [c.strip().lower() for c in split_cells(lines[0])]
-    rows = []
-    for line in lines[2:]:
+        return [], []
+    lines_all = text.splitlines()
+    start = next(i for i, l in enumerate(lines_all) if heading in l)
+    table = [(i, l) for i, l in enumerate(lines_all) if i > start and l.strip().startswith("|")]
+    if len(table) < 2:
+        return [], []
+    head = [c.strip().lower() for c in split_cells(table[0][1])]
+    rows, bad = [], []
+    for i, line in table[2:]:
         cells = split_cells(line)
         if len(cells) == len(head):
-            rows.append(dict(zip(head, cells)))
-    return rows
+            row = dict(zip(head, cells))
+            row["_line"] = i + 1
+            rows.append(row)
+        else:
+            bad.append({"line": i + 1, "cells": len(cells), "head": len(head), "text": line.strip()})
+    return rows, bad
 
 
 def read_json_counts(path):
@@ -173,12 +183,16 @@ def read_host(root, host, today):
             by_kind[m.group(1)] = entry
     s["audits"] = dict(sorted(by_kind.items()))
 
-    rows = []
+    rows, unreadable = [], []
     logdir = base / "log" / THEME
     for f in sorted(logdir.glob("*.md")) if logdir.is_dir() else []:
-        for r in table_rows(f.read_text(encoding="utf-8"), "## Actions"):
+        found, bad = table_rows(f.read_text(encoding="utf-8"), "## Actions")
+        for r in found:
             r["_file"] = f.name
             rows.append(r)
+        unreadable += [{"file": f.name, "line": b["line"], "id": "?", "check": "?",
+                        "why": f"the row has {b['cells']} cells against a header of {b['head']}, "
+                               "likely an unescaped |"} for b in bad]
     s["rows"] = rows
     s["todo"] = [r for r in rows if r.get("status") == "todo"]
     s["parked"] = [r for r in rows if r.get("check") in LADDER and r["check"] not in MEASURED]
@@ -194,6 +208,15 @@ def read_host(root, host, today):
               if dt.date.fromisoformat(r["verify after"]) > today]
     s["next_verify"] = min(future) if future else None
     s["unknown"] = [r for r in rows if r.get("check") and r["check"] not in LADDER]
+    # A parked row's empty verify date is expected, not broken; the `parked` line already covers it.
+    unreadable += [{"file": r["_file"], "line": r.get("_line", 0), "id": r.get("id") or "?",
+                    "check": r.get("check") or "?",
+                    "why": f"verify after {(r.get('verify after') or '(empty)')!r} is not a "
+                           "YYYY-MM-DD date"}
+                   for r in rows if r.get("status") in ("applied", "verify")
+                   and r.get("check") not in parked
+                   and not ISO_DATE.match(r.get("verify after", ""))]
+    s["unreadable"] = sorted(unreadable, key=lambda u: (u["file"], u["line"]))
     s["proposals"] = sorted(p.stem for p in (base / "proposals").glob("*.md")) \
         if (base / "proposals").is_dir() else []
     return s
@@ -253,6 +276,12 @@ def decide(s, today):
         ids = ", ".join(r.get("id", "?") for r in s["due"][:3])
         now.append(now_item(f"grade {plural(len(s['due']), 'row')} past the verify date ({ids}): "
                             "recomputes each measure and writes the verdict", skill="jorekai-ops:grade"))
+    if s["unreadable"]:
+        first = s["unreadable"][0]
+        now.append(now_item(f"{plural(len(s['unreadable']), 'log row')} "
+                            f"{verb(len(s['unreadable']), 'are', one='is')} unreadable, starting "
+                            f"with {first['file']}:{first['line']} ({first['why']}): repair it, "
+                            "because nothing here can grade or count a row it cannot parse"))
     if s["unknown"]:
         ids = sorted({r["check"] for r in s["unknown"]})
         where = ", ".join(sorted({r["_file"] for r in s["unknown"]})[:2])
@@ -324,6 +353,7 @@ def report(s, today):
     out.append(f"log        {plural(len(s['rows']), 'row')}: "
                + (", ".join(f"{v} {k}" for k, v in sorted(by.items())) or "empty")
                + f" · {len(s['due'])} due for a verdict"
+               + (f" · {len(s['unreadable'])} unreadable" if s["unreadable"] else "")
                + (f" · {len(s['parked'])} waiting for a tool" if s["parked"] else "")
                + (f" · {len(s['unknown'])} with an id this theme does not own" if s["unknown"] else "")
                + (f" · next verify {s['next_verify'].isoformat()}" if s["next_verify"] else ""))

@@ -2,6 +2,13 @@
 
 One entry per `jorekai-ops` version. The version at the top equals `version` in `skills/ops/.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 0.9.0 (2026-09-23)
+
+- Changed: gate 2 covers `port.*` and `panel.*` as well, because a port or a panel closed by hand can close the connection that makes the change. The fixes table already said so; the scripts, the steps and the router now agree (`decisions/0039`).
+- Fixed: `exposure.py --fw-kind auto` reported a stopped firewalld on a host with no firewall tool at all. A missing tool now falls through to `none`, and a listing refused for lack of privilege stays unknown instead of reading as a firewall that filters nothing (`decisions/0030`).
+- Added: `references/tools.md` names the firewall listing the reading account cannot run, and the way around it: the changing account captures one listing that `--fw-file` reads.
+- Fixed: `and-now`, `grade`, `report` and `setup --due` name a log row they cannot read instead of dropping it.
+
 ## 0.8.0 (2026-09-13)
 
 - Changed: Every measuring pass prints one line per finding: rank, level, check id, cost, the place it names, and the risk class. `--explain RANK` prints the chain behind one line, including the control planes the fixes table holds a block for, and `--previous FILE` adds a `change` column read from an earlier findings JSON.

@@ -7,7 +7,7 @@ description: "Who can reach a host and how, in one pass via scripts/access.py: r
 
 One pass over everything that decides who reaches this host. Reads only: nothing is written, nothing is removed, and the pass runs as the reading account, which has no privilege.
 
-Nothing under `ssh.*`, `key.*`, `fw.*`, `sudo.*` or `user.*` may change until this pass has run and `access.single-path` reads zero. The reason is in [../ops/references/risk-classes.md](../ops/references/risk-classes.md).
+Nothing under `ssh.*`, `key.*`, `fw.*`, `sudo.*`, `user.*`, `port.*` or `panel.*` may change until this pass has run and `access.single-path` reads zero. The reason is in [../ops/references/risk-classes.md](../ops/references/risk-classes.md).
 
 ## Steps
 

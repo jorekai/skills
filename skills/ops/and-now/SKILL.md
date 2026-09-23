@@ -33,4 +33,5 @@ Answers "we just did that, and now?" from the workspace, without touching a host
 - **Stage `loop`** means the open items are rows, not findings.
 - A row **waiting for a tool** carries an id this theme owns whose script has not shipped. It is not broken. Leave its status at `todo` and its verify date empty until the release named in the report, because a date nobody can measure at is a verdict nobody can give.
 - A row naming an id **this theme does not own** is different: nothing will ever recompute its measure. Correct the id or drop the row.
+- An **unreadable** row is one the script cannot parse at all: a malformed table row, or an applied row whose `Verify after` cell is not a `YYYY-MM-DD` date, and whose namespace is not waiting for a tool. Neither vanishes silently (decisions/0030); the first one names its file and line so it can be repaired by hand.
 - The `then` line names the first verify date that has not arrived. It is the only dated event this skill produces, and it is what makes the loop weekly rather than occasional.

@@ -140,7 +140,7 @@
     {
       "theme": "ops",
       "plugin": "jorekai-ops",
-      "version": "0.8.0",
+      "version": "0.9.0",
       "covers": "Ops loop for a host that serves: setup, access, availability, exposure, recovery, grade, report, and-now.",
       "install": "claude plugin install jorekai-ops@jorekai",
       "listed": true,

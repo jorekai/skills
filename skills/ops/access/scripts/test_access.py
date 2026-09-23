@@ -303,6 +303,17 @@ class ExplainTest(unittest.TestCase):
             out = self.report(root, "--explain", "ssh.nonsense")
             self.assertIn("no finding called ssh.nonsense", out)
 
+    def test_the_single_path_note_names_every_gate_2_namespace(self):
+        """decisions/0039 widened gate 2 to port.* and panel.*; the note reads GATE_PREFIXES
+        itself, so it cannot drift from the tuple the check runs on. The line wraps at seven
+        namespaces, so whitespace is folded before the match."""
+        with tempfile.TemporaryDirectory() as d:
+            root = build(d)
+            out = self.report(root, "--path", "ops-admin", "--explain", "access.single-path")
+            folded = " ".join(out.split())
+            self.assertIn("every change under " + ", ".join(p + "*" for p in access.GATE_PREFIXES)
+                         + " waits on this one", folded)
+
     def test_a_cause_is_printed_only_when_the_pass_proved_one(self):
         """A guessed cause costs more trust than it saves time, so no signal means no line."""
         rep = access.Report()

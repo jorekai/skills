@@ -16,7 +16,7 @@ Nothing destructive runs against a repository holding uncommitted or unpushed wo
 
 ## Gate 2: the way in
 
-No change under `ssh.*`, `key.*`, `fw.*`, `sudo.*` or `user.*` runs unless all four hold:
+No change under `ssh.*`, `key.*`, `fw.*`, `sudo.*`, `user.*`, `port.*` or `panel.*` runs unless all four hold. A port closed by hand and a panel restricted by hand can close the connection doing it, exactly as a firewall rule can, which is why the fixes table already asked for the gate on both before the namespace list here caught up (`decisions/0039`):
 
 1. Two independent ways in answer, each from a connection opened after the check began.
 2. The change first writes a backup copy of every file it touches.
@@ -27,4 +27,4 @@ A change that cannot arm the timer does not run.
 
 Two ways in are independent when they share no account and no key. The reading account with its own key and the changing account with its own key are two. The same account reached over two addresses is one. A console at the hosting provider counts only when `config.md` records it with the date someone opened it, because an untested console is a belief and not a path. `access_paths` carries that date per entry, and `scaffold.py --flags` passes only the dated ones to the check, so the rule is enforced and not only stated.
 
-A host that fails this gate has one finding worth acting on, `access.single-path`, and it is on the first rung of the ladder for that reason. Reasons: `decisions/0016` and `decisions/0019`.
+A host that fails this gate has one finding worth acting on, `access.single-path`, and it is on the first rung of the ladder for that reason. Reasons: `decisions/0016`, `decisions/0019` and `decisions/0039`.

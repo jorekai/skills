@@ -7,7 +7,7 @@ description: "What a host offers the network and what stands in front of it, in 
 
 One pass over what this host answers on and what filters it. Reads only: no port is closed, no rule is written, and the pass runs as the reading account.
 
-A change to a rule or a port is a change to a way in, so gate 2 runs first: two independent ways in that answered from fresh connections, a backup copy, and a rollback timer cancelled only after a new connection succeeds. The gate stands in [../ops/references/risk-classes.md](../ops/references/risk-classes.md).
+A change to a rule, a port, or a panel address is a change to a way in, so gate 2 runs first: two independent ways in that answered from fresh connections, a backup copy, and a rollback timer cancelled only after a new connection succeeds. The gate stands in [../ops/references/risk-classes.md](../ops/references/risk-classes.md).
 
 A port the workspace does not name is a finding, not an exception. The expected list in `config.md` is the question this pass answers, so a host with no list produces one finding per socket, which is the honest answer for a host nobody has described. A socket list that was read and holds nothing is an answer too: it writes the zero that settles a row about a port somebody closed.
 
@@ -28,7 +28,7 @@ A port the workspace does not name is a finding, not an exception. The expected 
 2. **Rank the findings, do not list them.** Order by the ladder in the router, not by how many rules a check touched. Look each id up in [../ops/references/fixes.md](../ops/references/fixes.md) for the fix on this host's control plane, the class, and the measure. The pass already ranks by that ladder, because the `Rung` column of that file is the same table, and `--explain RANK` prints the chain behind one line: what it means, where it comes from, the fix, the way back, and what closes it. The answer is one table, `check id | cost | targets | fix | class`, at most five rows, one row per check id; the rest of the shape is in the router's `## Writing the answer`.
    Done when every `FAIL` id has a named fix and an owner, and the rest is one sentence.
 
-3. **Pass the gate before a rule changes, then act by class.** Everything under `fw.*` waits for gate 2, and so does the first rule on a host that had none. A port is closed by stopping what listens on it or by binding it to one address, never by a rule that leaves the service answering behind a filter nobody rereads.
+3. **Pass the gate before a rule, a port, or a panel changes, then act by class.** Everything under `fw.*`, `port.*` or `panel.*` waits for gate 2, and so does the first rule on a host that had none. A port is closed by stopping what listens on it or by binding it to one address, never by a rule that leaves the service answering behind a filter nobody rereads.
    Done when every action taken has a class recorded, an armed timer that was later cancelled, and every refused one has a reason.
 
 4. **A port that stays open gets a name, not an exception.** What the standards should have listed goes into the expected list with the service behind it, so the next pass measures against the host as it is meant to be.

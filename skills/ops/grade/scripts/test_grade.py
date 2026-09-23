@@ -223,6 +223,43 @@ class EndToEndTest(unittest.TestCase):
             self.assertIn("jorekai-ops:setup", r.stdout)
 
 
+class UnreadableRowTest(unittest.TestCase):
+    """A row nobody can parse is graded as ungradable, never silently dropped (decisions/0030)."""
+
+    def test_a_malformed_row_is_listed_as_ungradable_with_its_file_and_line(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = workspace(d, [row("2026-W36-01", "key.orphan", "", "3 count")],
+                             {"2026-09-15-access.json": audit("access", item("key.orphan", 0, "count"))})
+            p = base / "log" / "ops" / "2026-W36.md"
+            p.write_text(p.read_text(encoding="utf-8") + "| broken row too few cells |\n",
+                        encoding="utf-8")
+            got = run(d)
+            self.assertIn("ungradable", got.stdout)
+            self.assertIn("cells against a header of", got.stdout)
+
+    def test_a_row_with_an_invalid_verify_after_is_listed_as_ungradable(self):
+        with tempfile.TemporaryDirectory() as d:
+            workspace(d, [row("2026-W36-01", "key.orphan", "", "3 count", after="not-a-date")], {})
+            got = run(d)
+            self.assertIn("ungradable", got.stdout)
+            self.assertIn("not-a-date", got.stdout)
+
+    def test_a_planned_namespaces_empty_date_is_not_reported_as_ungradable(self):
+        """`pkg.security` waits for its tool; grade_row() already names that under `--only`."""
+        with tempfile.TemporaryDirectory() as d:
+            workspace(d, [row("2026-W36-01", "pkg.security", "", "1 count", after="")], {})
+            self.assertIn("nothing due", run(d).stdout)
+            self.assertNotIn("ungradable", run(d).stdout)
+
+    def test_the_json_output_carries_the_ungradable_rows(self):
+        with tempfile.TemporaryDirectory() as d:
+            workspace(d, [row("2026-W36-01", "key.orphan", "", "3 count", after="not-a-date")], {})
+            out = json.loads(run(d, "--json").stdout)
+            graded = out["hosts"][HOST]["graded"]
+            self.assertTrue(any(g["note"].startswith("ungradable") for g in graded), graded)
+            self.assertTrue(any("line" in g for g in graded), graded)
+
+
 class ReportShapeTest(unittest.TestCase):
     """The console report says what can be settled and what still needs a person."""
 

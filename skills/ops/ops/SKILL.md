@@ -19,7 +19,7 @@ A host is this theme's business when its `config.md` says `role: server`. No wor
 **New host**, in this order. The order is the point, not a preference:
 
 1. `jorekai-ops:setup`: detect the control plane, create the reading account and the changing account, prove both from a fresh connection, choose the profile, list the services.
-2. `jorekai-ops:access`: who can reach the host today. Nothing under `ssh.*`, `key.*`, `fw.*`, `sudo.*` or `user.*` may change before this has run and `access.single-path` reads zero.
+2. `jorekai-ops:access`: who can reach the host today. Nothing under `ssh.*`, `key.*`, `fw.*`, `sudo.*`, `user.*`, `port.*` or `panel.*` may change before this has run and `access.single-path` reads zero.
 3. `jorekai-ops:availability`: whether what should run is running, current, and hardened.
 4. `jorekai-ops:recovery`: what is left when the host is gone, and what on it is readable by more than its owner.
 5. `jorekai-ops:exposure`: what the host answers on, and what filters it.
@@ -74,7 +74,7 @@ Every measuring script prints the same shape without `--json`, so one reading or
 2. The counting line is a bar of four counts, `FAIL`, `WARN`, notes, passed, in that order. A zero is dimmed.
 3. Each finding is one line of a table: rank, level, check id, cost, the place it names, and the risk class. Findings come in level order, and inside a level in the order of the `Rung` column of [references/fixes.md](references/fixes.md), which is the ladder above.
 4. `--explain RANK` prints the chain behind one line: `what`, `weight`, `means`, `cause` when the pass proved one, `fix` with the control planes the table holds a block for, `undo`, `verify`. `--previous FILE` takes an earlier findings JSON and adds a `change` column of `=`, a signed number, or `new`. A finding with no cost carries its sentence dimmed under its row.
-5. The last zone is `next`: one line that starts with a verb, and under it, dimmed, the gate it waits on when the finding touches a way in (`ssh.*`, `key.*`, `fw.*`, `sudo.*`, `user.*`). Every id is looked up in [references/fixes.md](references/fixes.md) for the fix per control plane and the risk class.
+5. The last zone is `next`: one line that starts with a verb, and under it, dimmed, the gate it waits on when the finding touches a way in (`ssh.*`, `key.*`, `fw.*`, `sudo.*`, `user.*`, `port.*`, `panel.*`). Every id is looked up in [references/fixes.md](references/fixes.md) for the fix per control plane and the risk class.
 
 The console report is for the decision, the JSON is for the record. Only the JSON is written to `audits/`.
 

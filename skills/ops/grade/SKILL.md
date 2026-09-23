@@ -17,7 +17,7 @@ This skill reads the workspace only. It never touches a host, so a row whose new
    python3 scripts/grade.py --root <workspace> [host]
    ```
 
-   A row with no verdict prints why: no audit of that tool, an audit older than the action, a check id the pass did not produce, a measure the row never carried, or a check whose tool has not shipped.
+   A row with no verdict prints why: no audit of that tool, an audit older than the action, a check id the pass did not produce, a measure the row never carried, a check whose tool has not shipped, a table row malformed enough to not parse, or a `Verify after` cell that is not a `YYYY-MM-DD` date.
    Done when every due row has either a proposed verdict or a stated reason.
 
 2. **Close the gaps the script named, then ask again.** An audit older than the action or a missing check id is answered by measuring the host again with the same arguments the workspace prints, and saving the new audit. A row whose `Then` is not a number and a unit cannot be graded at all: settle it by hand and write the outcome row yourself.

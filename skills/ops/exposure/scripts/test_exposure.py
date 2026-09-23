@@ -5,6 +5,7 @@ Run: python3 skills/ops/exposure/scripts/test_exposure.py
 Uses captured `ss`, firewall status, `systemctl show` and end-date files. No network stack, no
 firewall, no openssl, no systemd.
 """
+import argparse
 import json
 import os
 import subprocess
@@ -12,6 +13,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import exposure  # noqa: E402
@@ -242,6 +244,64 @@ class FirewallTest(unittest.TestCase):
             self.assertEqual(item(out, "fw.disabled", "INFO")["data"][0]["value"], "target ACCEPT")
 
 
+class AutoDetectionTest(unittest.TestCase):
+    """`--fw-kind auto` reads the host itself, so these mock `subprocess.run` instead of using
+    `--fw-file`, which always names a kind and never exercises detection."""
+
+    def args(self):
+        return argparse.Namespace(fw_kind="auto", fw_file="")
+
+    def test_no_binary_installed_ends_at_none(self):
+        """A host with no `nft`, `ufw`, or `firewall-cmd` is a host with no firewall, not one that
+        answers `firewalld`: this reproduces the bug on a machine that has none of the three."""
+        with mock.patch("exposure.subprocess.run", side_effect=FileNotFoundError):
+            fw = exposure.firewall(self.args())
+        self.assertEqual(fw["kind"], "none")
+        self.assertFalse(fw["read"])
+        self.assertFalse(fw.get("refused"))
+
+    def test_a_command_refused_for_privilege_stays_unknown(self):
+        """A refusal is not an absence. Reading it as `none` would call a firewall that may still
+        be standing gone; decisions/0030 keeps the row open with a note instead."""
+        def fake_run(argv, **kw):
+            if argv[:2] == ["firewall-cmd", "--state"]:
+                return subprocess.CompletedProcess(argv, 1, stdout="", stderr="Permission denied\n")
+            raise FileNotFoundError
+
+        with mock.patch("exposure.subprocess.run", side_effect=fake_run):
+            fw = exposure.firewall(self.args())
+        self.assertEqual(fw["kind"], "firewalld")
+        self.assertFalse(fw["read"])
+        self.assertTrue(fw["refused"])
+        self.assertFalse(fw["filtering"])
+
+    def test_a_stopped_firewalld_still_answers_not_running(self):
+        """The daemon exists and answered: a real `not running` is a fact, not an unknown."""
+        def fake_run(argv, **kw):
+            if argv[:2] == ["firewall-cmd", "--state"]:
+                return subprocess.CompletedProcess(argv, 252, stdout="not running\n", stderr="")
+            if argv[:2] == ["firewall-cmd", "--list-all"]:
+                return subprocess.CompletedProcess(argv, 1, stdout="", stderr="")
+            raise FileNotFoundError
+
+        with mock.patch("exposure.subprocess.run", side_effect=fake_run):
+            fw = exposure.firewall(self.args())
+        self.assertEqual(fw["kind"], "firewalld")
+        self.assertTrue(fw["read"])
+        self.assertFalse(fw["filtering"])
+
+    def test_the_refused_note_names_privilege_and_not_a_silent_no_answer(self):
+        rep = exposure.Report()
+        exposure.collect([], {"kind": "firewalld", "filtering": False, "read": False,
+                              "refused": True, "ports": [], "ranges": [], "services": [],
+                              "default_open": ""}, [], [], rep, argparse.Namespace(
+                                  expected_port=[], panel_port=[], tls_expiring_days=21),
+                          exposure.dt.datetime.now(exposure.dt.timezone.utc))
+        got = item({"items": rep.items}, "fw.disabled", "INFO")
+        self.assertEqual(got["data"][0]["value"], "refused")
+        self.assertIn("refused to answer without more privilege", got["message"])
+
+
 class CertificateTest(unittest.TestCase):
     def prepare(self, d, until):
         write(Path(d) / "etc/ssl/site.pem", "certificate\n")
@@ -357,7 +417,9 @@ class ReportTest(unittest.TestCase):
             self.assertRegex(r.stdout, r"\n\d+ FAIL · \d+ WARN · \d+ notes? · \d+ passed\n")
             self.assertRegex(r.stdout, r"\n +\d+  FAIL   fw\.disabled +1 host with nothing filtering +firewall +confirm\n")
             self.assertNotIn("(costs", r.stdout)
-            self.assertIn("\n      gate: fw.* in the fixes table of jorekai-ops:ops\n", r.stdout)
+            # port.world-open and port.unexpected are also findings here (111/udp, 5432/tcp), and
+            # both sit under gate 2 too (decisions/0039), beside fw.disabled.
+            self.assertIn("\n      gate: fw.*, port.* in the fixes table of jorekai-ops:ops\n", r.stdout)
 
     def test_the_console_report_carries_no_escape_when_nothing_is_a_terminal(self):
         with tempfile.TemporaryDirectory() as d:
@@ -399,6 +461,18 @@ class ChainTest(unittest.TestCase):
         self.assertIn("change", lines[0])
         self.assertRegex(lines[1], r"\+1")
         self.assertRegex(exposure.listing(rep.items, [], {}, {})[1], r" new ")
+
+    def test_a_port_and_a_panel_finding_are_gate_2_namespaces_too(self):
+        """decisions/0039: closing a port or restricting a panel by hand can close the connection
+        doing it, exactly as a firewall rule can, so both wait on gate 2 like fw.* already does."""
+        self.assertTrue("port.world-open".startswith(exposure.GATE_PREFIXES))
+        self.assertTrue("port.unexpected".startswith(exposure.GATE_PREFIXES))
+        self.assertTrue("panel.exposed".startswith(exposure.GATE_PREFIXES))
+        rep = exposure.Report()
+        rep.add("FAIL", "panel.exposed", "one line about it", [], measure=1)
+        out = exposure.explain_report(rep, "this host", exposure.load_fixes(), "1", None)
+        self.assertIn("gate 2 namespace", out)
+        self.assertIn("restore the backup copy gate 2 wrote", out)
 
 
 if __name__ == "__main__":

@@ -26,10 +26,10 @@ One host, once. The order below is the point: the second way in exists before an
    The detected value decides which block of a fixes row applies later. A host where this is blank gets guessed fixes, so this is not optional.
    Done when `control_plane` names a product and a version, or `none`.
 
-3. **Create the reading account.** A login shell, no sudo, its own key pair generated on the workstation. Install the public half, then open a **new** connection as that account and read one file. A pass that measures must carry no privilege.
+3. **Create the reading account.** A login shell, no sudo, its own key pair generated on the workstation. Install the public half, then open a **new** connection as that account and read one file. A pass that measures must carry no privilege, even where a control plane leaves no unprivileged way to read one of its own answers: [../ops/references/tools.md](../ops/references/tools.md) names the gap and the path around it.
    Done when a connection opened after the account existed answers, and nothing about it appears in any sudoers file.
 
-4. **Create the changing account.** Its own key pair, and one sudoers file holding only the commands the fixes table names. Validate that file before it counts, because a sudoers file that does not parse takes sudo from everyone. Then open a new connection as that account and run one permitted command.
+4. **Create the changing account.** Its own key pair, and one sudoers file holding only the commands the fixes table names, plus the one this host's control plane needs for the gap step 3 named, if it applies. Validate that file before it counts, because a sudoers file that does not parse takes sudo from everyone. Then open a new connection as that account and run one permitted command.
    Done when the sudoers file validates, the account runs one permitted command, and a command outside the file is refused.
 
 5. **Record the ways in, and the console.** Write both accounts into `access` (reading account first, it is the one the measuring pass uses) and every independent way in into `access_paths`, each as `name@YYYY-MM-DD` with the day a fresh connection answered on it. A way in with no date is not counted, because the count is what decides whether anything may touch access at all. A console at the hosting provider gets a date only after someone has opened it.
@@ -60,3 +60,4 @@ One host, once. The order below is the point: the second way in exists before an
 - Two accounts, not one (`decisions/0019`). A measuring pass that can also change the host makes measuring often a habit of exposing a powerful credential often.
 - Nothing in step 3 to 7 changes ssh, the firewall, or sudo in a way that removes an existing path. Removing the old way in is the first action of the loop, under gate 2, not part of setup.
 - `scaffold.py --flags` prints the arguments the measuring scripts take, built from these files. A step that retypes those numbers gets them wrong.
+- A command entered into the changing account's sudoers file to cross the gap in [../ops/references/tools.md](../ops/references/tools.md) goes into `sudo_allowed_commands` in `standards.md` too, the same list the fixes table's own commands sit in. Without that, `jorekai-ops:access` reads the new rule as a finding, not as the accepted reason it exists.

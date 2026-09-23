@@ -93,20 +93,28 @@ def escape(text):
 
 
 def table_rows(text, heading):
-    """Rows of the first markdown table after `heading`, as dicts keyed by header."""
+    """Rows of the first markdown table after `heading`, as dicts keyed by header, each carrying
+    its 1-based source line in `_line`. A row whose cell count differs from the header cannot
+    become one; it is returned separately as `bad`, with its line and cell counts, so
+    decisions/0030 holds: it is reported, never silently dropped."""
     if heading not in text:
-        return []
-    section = text.split(heading, 1)[1]
-    lines = [l for l in section.splitlines() if l.strip().startswith("|")]
-    if len(lines) < 2:
-        return []
-    head = [c.strip().lower() for c in split_cells(lines[0])]
-    rows = []
-    for line in lines[2:]:
+        return [], []
+    lines_all = text.splitlines()
+    start = next(i for i, l in enumerate(lines_all) if heading in l)
+    table = [(i, l) for i, l in enumerate(lines_all) if i > start and l.strip().startswith("|")]
+    if len(table) < 2:
+        return [], []
+    head = [c.strip().lower() for c in split_cells(table[0][1])]
+    rows, bad = [], []
+    for i, line in table[2:]:
         cells = split_cells(line)
         if len(cells) == len(head):
-            rows.append(dict(zip(head, cells)))
-    return rows
+            row = dict(zip(head, cells))
+            row["_line"] = i + 1
+            rows.append(row)
+        else:
+            bad.append({"line": i + 1, "cells": len(cells), "head": len(head), "text": line.strip()})
+    return rows, bad
 
 
 def parse_measure(text):
@@ -231,19 +239,35 @@ def grade_row(row, found):
 
 
 def due_rows(base_dir, today, only):
-    rows = []
+    """Rows past their verify date, and every row nothing here can grade: a malformed table row,
+    or a `Verify after` cell that is not a YYYY-MM-DD date (decisions/0030 keeps both visible)."""
+    rows, unreadable = [], []
     folder = base_dir / "log" / THEME
     for f in sorted(folder.glob("*.md")) if folder.is_dir() else []:
-        for r in table_rows(f.read_text(encoding="utf-8"), "## Actions"):
+        found, bad = table_rows(f.read_text(encoding="utf-8"), "## Actions")
+        unreadable += [{"file": f.name, "line": b["line"], "id": "?", "check": "?",
+                        "why": f"the row has {b['cells']} cells against a header of {b['head']}, "
+                               "likely an unescaped |"} for b in bad]
+        for r in found:
             if only and r.get("id") not in only:
                 continue
             if r.get("status") not in ("applied", "verify"):
                 continue
             after = r.get("verify after", "")
-            if only or (ISO_DATE.match(after) and dt.date.fromisoformat(after) <= today):
+            if only:
                 r["_file"] = f
                 rows.append(r)
-    return rows
+            elif ISO_DATE.match(after) and dt.date.fromisoformat(after) <= today:
+                r["_file"] = f
+                rows.append(r)
+            # A row whose namespace waits for a tool has an expected empty date; grade_row()
+            # already names that when the row is graded through `--only`, so it is not unreadable.
+            elif not ISO_DATE.match(after) and r.get("check", "").split(".", 1)[0] not in PLANNED:
+                unreadable.append({"file": f.name, "line": r.get("_line", 0),
+                                   "id": r.get("id") or "?", "check": r.get("check") or "?",
+                                   "why": f"verify after {(after or '(empty)')!r} is not a "
+                                          "YYYY-MM-DD date"})
+    return rows, sorted(unreadable, key=lambda u: (u["file"], u["line"]))
 
 
 def insert_row(text, heading, cells):
@@ -416,8 +440,11 @@ def main(argv=None):
             print(f"no folder {folder / m}: run `jorekai-ops:setup {m}` first")
             return 2
         found = audits(folder / m)
-        graded = []
-        for row in due_rows(folder / m, today, a.only):
+        due, unreadable = due_rows(folder / m, today, a.only)
+        graded = [{"id": u["id"], "check": u["check"], "target": "", "applied": "", "then": "",
+                  "now": "", "verdict": "", "note": f"ungradable: {u['why']}", "audit": "",
+                  "file": u["file"], "line": u["line"]} for u in unreadable]
+        for row in due:
             g = grade_row(row, found)
             g["_file"] = row["_file"]
             graded.append(g)
