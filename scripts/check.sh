@@ -52,8 +52,9 @@ while IFS= read -r manifest; do
   [[ "$pv" == "$cv" ]] || hit "version: $manifest says $pv, $log top entry says $cv"
 done < <(git ls-files '*.claude-plugin/plugin.json')
 
-# The router must not lie: every skill directory is named in its theme's router and in README.md,
-# and every jorekai-<theme>:<name> written in any tracked file resolves to a directory or to a
+# The router must not lie: every skill directory is named in its theme's router and in the theme's
+# README.md, and the root README.md links every theme page (decisions/0038).
+# Every jorekai-<theme>:<name> written in any tracked file resolves to a directory or to a
 # row under `## Planned` in that router (decisions/0021). CHANGELOG.md and decisions/ are history
 # and may name a skill that is gone; a test names a fixture and not this collection, and its
 # fixtures are proved by the test itself, not by a directory existing.
@@ -61,7 +62,13 @@ for d in $(git ls-files 'skills/*/*/SKILL.md' | xargs -n1 dirname); do
   theme=$(basename "$(dirname "$d")"); name=$(basename "$d")
   [[ "$name" == "$theme" ]] && continue      # the theme's router names the others, not itself
   grep -q "jorekai-$theme:$name\`" "skills/$theme/$theme/SKILL.md" || hit "router: jorekai-$theme:$name missing in skills/$theme/$theme/SKILL.md"
-  grep -q "jorekai-$theme:$name\`" README.md || hit "readme: jorekai-$theme:$name missing in README.md"
+  grep -q "jorekai-$theme:$name\`" "skills/$theme/README.md" 2>/dev/null || hit "readme: jorekai-$theme:$name missing in skills/$theme/README.md"
+done
+for router in $(git ls-files 'skills/*/*/SKILL.md'); do
+  theme=$(echo "$router" | cut -d/ -f2)
+  [[ "$router" == "skills/$theme/$theme/SKILL.md" ]] || continue
+  [[ -f "skills/$theme/README.md" ]] || hit "readme: skills/$theme/README.md missing, every theme has a page"
+  grep -q "(skills/$theme/README.md)" README.md || hit "readme: README.md does not link skills/$theme/README.md"
 done
 planned=$(for router in $(git ls-files 'skills/*/*/SKILL.md'); do
   [[ "$(basename "$(dirname "$router")")" == "$(echo "$router" | cut -d/ -f2)" ]] || continue

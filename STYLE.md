@@ -58,6 +58,6 @@ Set `name` to the folder name. Use one field per line and double quotes around `
 
 - Conventional prefix: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`. Subject under 72 characters, imperative, no period.
 - Body says what changed and why, in the same style as this file.
-- Adding, renaming, or changing a sub-skill updates the theme's router `SKILL.md` and the tables in `README.md` in the same commit.
+- Adding, renaming, or changing a sub-skill updates the theme's router `SKILL.md` and the skill table in `skills/<theme>/README.md` in the same commit.
 - A release bumps `version` in that plugin's manifest and adds the entry at the top of the changelog beside it: Added, Changed, Removed, one line each, no adjectives. One version and one changelog per plugin (`decisions/0013`).
 - A rule change gets a file in `decisions/` that names the context, the decision, and the consequences.
