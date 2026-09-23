@@ -126,6 +126,22 @@ class WorkspaceTest(unittest.TestCase):
             self.assertNotIn("2026-W36-01", out)
             self.assertIn("1 due", out)
 
+    def test_due_names_a_row_it_cannot_read_instead_of_dropping_it(self):
+        """A cell too many or a date nobody can parse would never be due, so never graded."""
+        with tempfile.TemporaryDirectory() as d:
+            root = self.build(d)
+            subprocess.run([sys.executable, SCRIPT, "--root", str(root), "example-machine", "--log",
+                            "--today", "2026-09-05"], capture_output=True, text=True, check=True)
+            week = root / "machines" / "example-machine" / "log" / "dx" / "2026-W36.md"
+            week.write_text(week.read_text()
+                            + "| 2026-W36-01 | disk.cache | ~/x | cleared | safe | 41 | applied | 2026-09-02 | soon | |\n"
+                            + "| 2026-W36-02 | disk.cache | ~/y | a | b | c | 41 | applied | 2026-09-02 | 2026-09-04 | |\n")
+            out = subprocess.run([sys.executable, SCRIPT, "--root", str(root), "example-machine", "--due",
+                                  "--today", "2026-09-05"], capture_output=True, text=True, check=True).stdout
+            self.assertIn("nothing due", out)
+            self.assertIn("2 unreadable", out)
+            self.assertIn("2026-W36-01 verify after 'soon'", out)
+
 
 class FlagsTest(unittest.TestCase):
     """Standards become the arguments the measuring scripts take, so no step has to retype them."""

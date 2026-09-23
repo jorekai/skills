@@ -43,6 +43,7 @@ Needs the workspace from `jorekai-dx:setup`, one audit inside the month, and one
 
 - The report states what the files hold. A month with two actions and no movement reads that way; no verdict is upgraded because the month looks thin.
 - A number in the report is a number a script recomputed. Two measures in different families do not compare and are left out rather than converted into a change nobody can check.
+- A log row the script cannot parse, a malformed table row or a `Verify after` cell that is not a `YYYY-MM-DD` date, is counted as `unreadable` in a note naming its file and line, never dropped silently (decisions/0030).
 - An action belongs to the month it was applied in. A week that straddles two months belongs to the month holding most of its days, so no action is counted twice across a year.
 - The audits folder of a machine holds both themes that measure it, and this report reads only the tools of its own. An audit of the other theme is named under what the report does not cover, never counted into it.
 - A row that carries a verdict is settled, whatever its status cell still says. Listing it as open would put a finished action into the next month's three next steps.

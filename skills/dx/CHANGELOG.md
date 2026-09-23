@@ -2,6 +2,11 @@
 
 One entry per `jorekai-dx` version. The version at the top equals `version` in `skills/dx/.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 2.6.1 (2026-09-23)
+
+- Fixed: `and-now`, `grade`, `report` and `setup --due` dropped a log row with a cell too many or a `Verify after` date nobody can parse, without a word. Each such row is now counted as unreadable and named by file and line; `grade` lists it as ungradable (`decisions/0030`).
+- Changed: the plugin description names `report`.
+
 ## 2.6.0 (2026-09-13)
 
 - Changed: Every measuring pass prints one line per finding: rank, level, check id, cost, the place it names, and the risk class. `--explain RANK` prints the chain behind one line, and `--previous FILE` adds a `change` column read from an earlier findings JSON. A finding with no cost carries its sentence under its row.

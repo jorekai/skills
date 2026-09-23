@@ -118,19 +118,28 @@ def split_cells(line):
 
 
 def table_rows(text, heading):
+    """Rows of the first markdown table after `heading`, as dicts keyed by header, each carrying
+    its 1-based source line in `_line`. A row whose cell count differs from the header cannot
+    become one; it is returned separately as `bad`, with its line and cell counts, so
+    decisions/0030 holds: it is reported, never silently dropped."""
     if heading not in text:
-        return []
-    section = text.split(heading, 1)[1]
-    lines = [l for l in section.splitlines() if l.strip().startswith("|")]
-    if len(lines) < 2:
-        return []
-    head = [c.strip().lower() for c in split_cells(lines[0])]
-    rows = []
-    for line in lines[2:]:
+        return [], []
+    lines_all = text.splitlines()
+    start = next(i for i, l in enumerate(lines_all) if heading in l)
+    table = [(i, l) for i, l in enumerate(lines_all) if i > start and l.strip().startswith("|")]
+    if len(table) < 2:
+        return [], []
+    head = [c.strip().lower() for c in split_cells(table[0][1])]
+    rows, bad = [], []
+    for i, line in table[2:]:
         cells = split_cells(line)
         if len(cells) == len(head):
-            rows.append(dict(zip(head, cells)))
-    return rows
+            row = dict(zip(head, cells))
+            row["_line"] = i + 1
+            rows.append(row)
+        else:
+            bad.append({"line": i + 1, "cells": len(cells), "head": len(head), "text": line.strip()})
+    return rows, bad
 
 
 def verb(n, form, one=None):
@@ -185,12 +194,16 @@ def read_machine(root, machine, today):
         if (root / "standards.md").exists() else ""
     s["max_age"] = int(max_age) if max_age.isdigit() else AUDIT_MAX_AGE
 
-    rows = []
+    rows, unreadable = [], []
     logdir = base / "log" / THEME
     for f in sorted(logdir.glob("*.md")) if logdir.is_dir() else []:
-        for r in table_rows(f.read_text(encoding="utf-8"), "## Actions"):
+        found, bad = table_rows(f.read_text(encoding="utf-8"), "## Actions")
+        for r in found:
             r["_file"] = f.name
             rows.append(r)
+        unreadable += [{"file": f.name, "line": b["line"], "id": "?", "check": "?",
+                        "why": f"the row has {b['cells']} cells against a header of {b['head']}, "
+                               "likely an unescaped |"} for b in bad]
     s["rows"] = rows
     s["todo"] = [r for r in rows if r.get("status") == "todo"]
     s["due"] = [r for r in rows if r.get("status") in ("applied", "verify")
@@ -200,6 +213,13 @@ def read_machine(root, machine, today):
               if r.get("status") in ("applied", "verify") and ISO_DATE.match(r.get("verify after", ""))
               and dt.date.fromisoformat(r["verify after"]) > today]
     s["next_verify"] = min(future) if future else None
+    unreadable += [{"file": r["_file"], "line": r.get("_line", 0), "id": r.get("id") or "?",
+                    "check": r.get("check") or "?",
+                    "why": f"verify after {(r.get('verify after') or '(empty)')!r} is not a "
+                           "YYYY-MM-DD date"}
+                   for r in rows if r.get("status") in ("applied", "verify")
+                   and not ISO_DATE.match(r.get("verify after", ""))]
+    s["unreadable"] = sorted(unreadable, key=lambda u: (u["file"], u["line"]))
     # A week file left at the old flat path is read by nobody, so it is reported, not merged.
     s["stray_logs"] = sorted(p.name for p in (base / "log").glob("*.md")) \
         if (base / "log").is_dir() else []
@@ -233,6 +253,12 @@ def decide(s, today):
         ids = ", ".join(r.get("id", "?") for r in s["due"][:3])
         now.append(f"grade {plural(len(s['due']), 'row')} past the verify date ({ids}): "
                    "`jorekai-dx:grade` recomputes each measure and writes the verdict")
+    if s["unreadable"]:
+        first = s["unreadable"][0]
+        now.append(f"{plural(len(s['unreadable']), 'log row')} "
+                   f"{verb(len(s['unreadable']), 'are', one='is')} unreadable, starting with "
+                   f"{first['file']}:{first['line']} ({first['why']}): repair it, because "
+                   "nothing here can grade or count a row it cannot parse")
     if s["stray_logs"]:
         names = ", ".join(s["stray_logs"][:3])
         now.append(f"{plural(len(s['stray_logs']), 'week file')} "
@@ -302,6 +328,7 @@ def report(s, today):
     out.append(f"log        {plural(len(s['rows']), 'row')}: "
                + (", ".join(f"{v} {k}" for k, v in sorted(by.items())) or "empty")
                + f" \u00b7 {len(s['due'])} due for a verdict"
+               + (f" \u00b7 {len(s['unreadable'])} unreadable" if s["unreadable"] else "")
                + (f" \u00b7 {len(orphan)} with an unknown check id" if orphan else "")
                + (f" \u00b7 next verify {s['next_verify'].isoformat()}" if s["next_verify"] else ""))
     out.append(f"proposals  {', '.join(s['proposals']) or 'none'}")

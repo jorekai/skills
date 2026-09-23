@@ -326,6 +326,52 @@ class CliTest(unittest.TestCase):
             self.assertNotIn("\nthen\n  - ", r.stdout)
 
 
+class UnreadableRowTest(unittest.TestCase):
+    """A row nobody can parse is reported by file and line, never silently dropped (decisions/0030)."""
+
+    def test_a_row_with_the_wrong_cell_count_is_named_by_file_and_line(self):
+        with tempfile.TemporaryDirectory() as d:
+            w = Workspace(d)
+            w.machine_filled()
+            w.standards_filled()
+            w.audit()
+            w.rows("| 2026-W36-01 | git.dirty | too few cells |")
+            s = w.read()
+            self.assertEqual(len(s["unreadable"]), 1)
+            self.assertEqual(s["unreadable"][0]["file"], "2026-W36.md")
+            self.assertGreater(s["unreadable"][0]["line"], 0)
+            _, now, _ = status.decide(s, TODAY)
+            self.assertTrue(any("unreadable" in i and "2026-W36.md" in i for i in now), now)
+            self.assertIn("1 unreadable", status.report(s, TODAY))
+
+    def test_a_verify_after_that_is_not_a_date_is_reported_not_silently_dropped(self):
+        with tempfile.TemporaryDirectory() as d:
+            w = Workspace(d)
+            w.machine_filled()
+            w.standards_filled()
+            w.audit()
+            w.rows(ROW.format(id="2026-W36-01", check="disk.cache", target="~/x", action="cleared",
+                              cls="safe", then="41", st="applied", applied="2026-08-20",
+                              after="not-a-date"))
+            s = w.read()
+            self.assertEqual(s["due"], [])
+            self.assertEqual(len(s["unreadable"]), 1)
+            self.assertIn("not-a-date", s["unreadable"][0]["why"])
+            self.assertIn("1 unreadable", status.report(s, TODAY))
+
+    def test_a_valid_future_verify_after_is_not_reported_as_unreadable(self):
+        with tempfile.TemporaryDirectory() as d:
+            w = Workspace(d)
+            w.machine_filled()
+            w.standards_filled()
+            w.audit()
+            w.rows(ROW.format(id="2026-W36-01", check="disk.cache", target="~/x", action="cleared",
+                              cls="safe", then="41", st="applied", applied="2026-08-20",
+                              after="2026-12-01"))
+            s = w.read()
+            self.assertEqual(s["unreadable"], [])
+
+
 class StrayLogTest(unittest.TestCase):
     """A week file at the old flat path is invisible to every reader (decisions/0015)."""
 

@@ -8,7 +8,7 @@
     {
       "theme": "dx",
       "plugin": "jorekai-dx",
-      "version": "2.6.0",
+      "version": "2.6.1",
       "covers": "Developer experience loop for one machine: setup, repos, machine, github, agent-config, friction, grade, report, and-now.",
       "install": "claude plugin install jorekai-dx@jorekai",
       "listed": true,

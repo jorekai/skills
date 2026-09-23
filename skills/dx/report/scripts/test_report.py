@@ -160,6 +160,35 @@ class ActionTest(unittest.TestCase):
             self.assertIn("still measuring", r.stdout)
 
 
+class UnreadableRowTest(unittest.TestCase):
+    """A row nobody can parse is counted and named, never silently dropped (decisions/0030)."""
+
+    def test_a_malformed_row_is_counted_and_named_by_file_and_line(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            log(base, actions=[action("2026-W37-01", "disk.cache"),
+                               "| broken row too few cells |"])
+            out = run(root)
+            self.assertEqual(len(out["unreadable"]), 1)
+            self.assertEqual(out["unreadable"][0]["file"], "2026-W37.md")
+            self.assertTrue(any("log row" in n and "could not be read" in n for n in out["notes"]))
+
+    def test_a_verify_after_that_is_not_a_date_is_counted(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            log(base, actions=[action("2026-W37-01", "disk.cache", verify="not-a-date")])
+            out = run(root)
+            self.assertEqual(len(out["unreadable"]), 1)
+            self.assertIn("not-a-date", out["unreadable"][0]["why"])
+
+    def test_a_valid_verify_after_is_not_reported_as_unreadable(self):
+        with tempfile.TemporaryDirectory() as d:
+            root, base = workspace(d)
+            log(base, actions=[action("2026-W37-01", "disk.cache")])
+            out = run(root)
+            self.assertEqual(out["unreadable"], [])
+
+
 class MovementTest(unittest.TestCase):
     def test_a_cost_that_fell_between_two_audits_is_the_movement(self):
         with tempfile.TemporaryDirectory() as d:
