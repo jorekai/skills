@@ -21,7 +21,7 @@ Scaffold the workspace every other `jorekai-seo:*` skill reads and writes. Promp
    Done when every key in [templates/config.md](templates/config.md) has a value from the repo or is marked unknown.
 
 2. **Present and ask, one section per message**, recommended answer first so the user can accept in a word:
-   - Domains and canonical host (`https://`, `www` or bare). Several domains: one folder and one `config.md` each.
+   - Domains and canonical host (`https://`, `www` or bare). Several domains: one folder and one `config.md` each. An internationalized domain (non-ASCII letters) is folded to its punycode form before it names a folder.
    - The unknown keys from step 1.
    - Search Console calibration: `brand_regex` (brand plus misspellings), `expected_ctr_1` (0.11 until an export says otherwise), `min_impressions`.
    - Crawler policy: recommend allowing every bot on the `ai_search_bots` line of [templates/config.md](templates/config.md); training bots are the owner's call.

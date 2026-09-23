@@ -498,6 +498,27 @@ class RedirectMap(unittest.TestCase):
         self.assertEqual(ids["redirects.map"]["level"], "FAIL")
 
 
+class RenderSections(unittest.TestCase):
+    """render() must print every section a Report can hold, not just Page/Site/Crawl."""
+
+    def test_redirect_map_findings_are_not_dropped_from_the_console_report(self):
+        real = audit.fetch
+        audit.fetch = moved_fetch
+        rep = audit.Report()
+        with tempfile.NamedTemporaryFile("w", suffix=".csv", delete=False, encoding="utf-8") as fh:
+            fh.write(MAP)
+            path = fh.name
+        try:
+            audit.check_redirects(path, rep, 5, 0)
+        finally:
+            audit.fetch = real
+            os.unlink(path)
+        out = audit.render(rep, "https://example.com")
+        self.assertIn("Redirect map", out)
+        self.assertIn("redirects.temporary", out)
+        self.assertIn("redirects.broken", out)
+
+
 class ColourTest(unittest.TestCase):
     """Colour is a hint on a report that reads the same without it (decisions/0022)."""
 

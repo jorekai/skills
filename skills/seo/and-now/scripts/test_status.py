@@ -176,6 +176,36 @@ class Stages(unittest.TestCase):
         _, now, _ = self.stage()
         self.assertIn("nothing open", now[0])
 
+    def test_tech_rows_point_at_tech_audit_not_gsc_review(self):
+        self.fill_setup()
+        self.audit("2026-09-02-tech.json")
+        self.log([row(1, "tech", "/a/", "todo")])
+        _, now, _ = self.stage()
+        step = next(n for n in now if "2026-W36-01" in n)
+        self.assertIn("jorekai-seo:tech-audit", step)
+        self.assertIn("fixes.md", step)
+        self.assertNotIn("gsc-review", step)
+
+    def test_every_workspace_bucket_maps_to_a_real_skill(self):
+        """setup/templates/workspace-README.md names ten buckets; each must resolve to a skill
+        instead of falling through to a fallback string the report's skill-column parser cannot read."""
+        buckets = ("striking", "ctr", "decay", "cannibal", "unindexed", "tech",
+                   "links", "content", "distribution", "diagnose")
+        for b in buckets:
+            self.assertIn(b, status.BUCKET_SKILL, b)
+            self.assertTrue(status.BUCKET_SKILL[b].startswith("jorekai-seo:"), b)
+        self.assertEqual(status.BUCKET_SKILL["tech"], "jorekai-seo:tech-audit")
+        for b in ("striking", "ctr", "decay", "cannibal", "unindexed"):
+            self.assertEqual(status.BUCKET_SKILL[b], "jorekai-seo:gsc-review")
+
+    def test_a_gsc_review_bucket_row_names_the_skill_cleanly(self):
+        self.fill_setup()
+        self.audit("2026-09-02-tech.json")
+        self.log([row(1, "striking", "/p/", "todo")])
+        _, now, _ = self.stage()
+        step = next(n for n in now if "2026-W36-01" in n)
+        self.assertIn("`jorekai-seo:gsc-review`", step)
+
     def test_log_table_without_an_id_column(self):
         """A hand-edited log may drop or rename the id column; the report still has to come out."""
         self.fill_setup()

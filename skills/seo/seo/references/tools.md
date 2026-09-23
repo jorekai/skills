@@ -7,6 +7,10 @@
 - **PageSpeed Insights**: LCP, INP, CLS. Green in GSC's Core Web Vitals report is enough; a 100 score is not a goal.
 - **Google Trends**: trend spotting for `jorekai-seo:distribution`.
 
+## Free and optional
+
+- **`unslop`**: a de-slop rewrite pass over a draft's prose (removes AI writing patterns) after `jorekai-seo:review` ships it and before it moves into `content_dir`. Run it when the skill is available in the environment; the loop does not depend on it.
+
 ## Paid, optional, interchangeable
 
 - **Backlink index** (Ahrefs, Semrush, Moz; smallest plan): competitor links, unlinked mentions, referring domains after outreach.

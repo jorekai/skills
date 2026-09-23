@@ -51,6 +51,13 @@ HOST_RE = re.compile(rf"{LABEL}(?:\.{LABEL})+")
 def host(domain):
     d = domain.strip().lower()
     d = re.sub(r"^https?://", "", d).split("/")[0]
+    if not d.isascii():
+        # An internationalized name (münchen.example): convert to its ASCII (punycode) form first,
+        # the form every DNS resolver and every file system path below actually uses.
+        try:
+            d = d.encode("idna").decode("ascii")
+        except UnicodeError:
+            sys.exit(f"not a host name: {domain!r}")
     # Two labels or more, letters, digits and hyphens only. Every folder below is named after
     # this value, so "..", "." and a name with a separator in it never become a path segment.
     if not HOST_RE.fullmatch(d):
@@ -177,8 +184,11 @@ def split_cells(line):
     return [c.replace("\\|", "|").strip() for c in re.split(r"(?<!\\)\|", line.strip().strip("|"))]
 
 
-def table_rows(text, heading):
-    """Rows of the first markdown table after `heading`, as dicts keyed by header."""
+def table_rows(text, heading, bad=None):
+    """Rows of the first markdown table after `heading`, as dicts keyed by header.
+
+    A row whose cell count differs from the header is appended to `bad` when a list is given,
+    so a caller can name it instead of losing it (decisions/0030)."""
     if heading not in text:
         return []
     section = text.split(heading, 1)[1]
@@ -191,13 +201,17 @@ def table_rows(text, heading):
         cells = split_cells(line)
         if len(cells) == len(head):
             rows.append(dict(zip(head, cells)))
+        elif bad is not None:
+            bad.append(line.strip())
     return rows
 
 
 def due(root, domain, today):
     found = 0
+    unreadable = []
     for f in sorted((root / domain / "log").glob("*.md")):
-        for r in table_rows(f.read_text(encoding="utf-8"), "## Actions"):
+        bad = []
+        for r in table_rows(f.read_text(encoding="utf-8"), "## Actions", bad):
             status = r.get("status", "")
             after = r.get("verify after", "")
             if status in ("applied", "verify") and re.match(r"\d{4}-\d{2}-\d{2}$", after) \
@@ -208,7 +222,13 @@ def due(root, domain, today):
                 print(f"{r.get('id')} | {r.get('bucket')} | {r.get('url')} | {r.get('query')} | "
                       f"{r.get('action')} | then {r.get('then')} | applied {r.get('applied')} | "
                       f"verify after {after} | {f.name}")
+            elif r.get("status", "") in ("applied", "verify") and after and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", after):
+                unreadable.append(f"{f.name}: {r.get('id')} verify after {after!r}")
+        unreadable += [f"{f.name}: {line}" for line in bad]
     print("nothing due" if not found else f"{found} due")
+    if unreadable:
+        # A row nobody can read is never due, so it would never be graded: name it instead.
+        print(f"{len(unreadable)} unreadable: " + "; ".join(unreadable[:3]))
 
 
 def main():
@@ -221,7 +241,13 @@ def main():
     ap.add_argument("--today", default=None, help="YYYY-MM-DD, for tests")
     a = ap.parse_args()
     root = Path(a.root)
-    today = dt.date.fromisoformat(a.today) if a.today else dt.date.today()
+    if a.today:
+        try:
+            today = dt.date.fromisoformat(a.today)
+        except ValueError:
+            sys.exit(f"--today needs YYYY-MM-DD: {a.today!r}")
+    else:
+        today = dt.date.today()
     if a.check:
         sys.exit(check(root))
     if not a.domains:

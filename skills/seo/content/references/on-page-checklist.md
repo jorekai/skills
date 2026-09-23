@@ -26,7 +26,7 @@ Tick every line before publishing.
 ## Who, how, why (Google's helpful-content questions)
 
 - [ ] Who: a byline with a real name that links to an author page with background. On product sites, the company page counts. Bylines are for readers: Google's Sullivan (January 2024) says they "don't help you rank better" and Google does not verify credentials. In `Article` JSON-LD, `author.name` holds the name only, one `author` object per person.
-- [ ] Contact, about, and (for shops and YMYL pages) payment and return policies are reachable: the rater guidelines (September 2025, section 2.5.3) give a Low rating to pages handling money or trust with "an unsatisfying amount of customer service information or contact information". Sites in Germany need an imprint (Impressum) and a privacy policy (Datenschutzerklärung) by law regardless.
+- [ ] Contact, about, and (for shops and YMYL pages) payment and return policies are reachable: the rater guidelines (September 2025, section 2.5.3) give a Low rating to pages handling money or trust with "an unsatisfying amount of customer service information or contact information". A commercially run site in Germany needs an imprint (Impressum) by law regardless (Digitale-Dienste-Gesetz, paragraph 5); any site collecting personal data needs a privacy policy (Datenschutzerklärung) covering GDPR Article 13's disclosures.
 - [ ] How: the page says how the result was produced (tested on what, measured how, when). The evidence slots feed this.
 - [ ] Why: the page exists to answer the query for a reader; a page written to fill a keyword slot fails this test even with the boxes above ticked.
 

@@ -66,8 +66,20 @@ MIN_CALIBRATION_N = 5
 
 # --------------------------------------------------------------------------- parsing
 
+# Cells to_int() could not read as a number (a stray label, a dash for "no data"): counted, not
+# raised, so one bad row does not stop the report. main() resets this before parsing and reads
+# it after, so a --json call and a fresh CLI run each start from zero.
+UNPARSED_CELLS = 0
+
+
 def to_int(s):
-    return int(re.sub(r"[^\d]", "", s or "0") or 0)
+    """Digits only, so "1.234" and "1,234" both read as 1234. A non-empty cell with no digit at
+    all coerces to 0 and is counted in UNPARSED_CELLS instead of failing silently."""
+    global UNPARSED_CELLS
+    digits = re.sub(r"[^\d]", "", s or "")
+    if not digits and (s or "").strip():
+        UNPARSED_CELLS += 1
+    return int(digits or 0)
 
 
 def to_float(s):
@@ -328,7 +340,7 @@ def bucket(out, label, params, headers, aligns, widths, rows, empty):
 
 
 def render(res, a):
-    """The console report: totals and baseline, then the six buckets, `next` last
+    """The console report: totals and baseline, then the seven buckets, `next` last
     (decisions/0028: a bucket head names its parameters, rows are fixed-width columns)."""
     o = [paint(f"gsc-review  {res['n_queries']} queries  {res['n_pages']} pages", "head"),
          f"measured against  impressions >= {a.min_impressions}, striking pos {a.pos_min} to {a.pos_max}", ""]
@@ -337,6 +349,8 @@ def render(res, a):
         share = fmt_pct(b["clicks"] / b["total_clicks"]) if b["total_clicks"] else "0%"
         o.append(f"brand      {b['queries']} queries · {b['clicks']} of {b['total_clicks']} clicks ({share}), "
                  "excluded from buckets 1 and 3")
+    if res.get("unparsed_cells"):
+        o.append(f"note       {res['unparsed_cells']} cell(s) in the export were not a number and were read as 0")
     cal = res["calibration"]
     if cal["ctr_1"] is not None:
         o.append(f"calibration  suggested --expected-ctr-1 {cal['ctr_1']:.2f} "
@@ -447,9 +461,10 @@ def main():
     ap.add_argument("--json", action="store_true")
     a = ap.parse_args()
     a.brand_re = re.compile(a.brand, re.I) if a.brand else None
-    global CTR_SCALE
+    global CTR_SCALE, UNPARSED_CELLS
     if a.expected_ctr_1:
         CTR_SCALE = a.expected_ctr_1 / EXPECTED_CTR[1]
+    UNPARSED_CELLS = 0
 
     queries, pages = split_export(load_export(a.export))
     if not queries and not pages:
@@ -474,6 +489,7 @@ def main():
         res["cannibal"] = cannibal(load_page_queries(a.page_queries), a)
     if a.not_indexed:
         res["not_indexed"] = load_url_list(a.not_indexed)
+    res["unparsed_cells"] = UNPARSED_CELLS
     print(json.dumps(res, indent=2, ensure_ascii=False) if a.json else render(res, a))
 
 

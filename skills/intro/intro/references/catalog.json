@@ -350,7 +350,7 @@
     {
       "theme": "seo",
       "plugin": "jorekai-seo",
-      "version": "1.12.1",
+      "version": "1.12.2",
       "covers": "SEO loop for one or more domains: setup, connect, grill, tech-audit, gsc-review, content, review, links, distribution, diagnose, migrate, report, and-now.",
       "install": "claude plugin install jorekai-seo@jorekai",
       "listed": true,

@@ -77,6 +77,10 @@ def fetch(url, ua=UA_BOT, timeout=15, max_hops=10):
     """Follow redirects manually; return final URL, status, headers, body, chain."""
     chain, current = [], url
     for _ in range(max_hops):
+        if not current.lower().startswith(("http://", "https://")):
+            chain.append((current, "scheme"))
+            return {"url": url, "final_url": current, "status": None, "headers": {}, "body": "", "chain": chain,
+                    "error": f"not an http:// or https:// URL: {current}"}
         req = urllib.request.Request(current, headers={"User-Agent": ua, "Accept": "text/html,*/*;q=0.8",
                                                         "Accept-Language": "de,en;q=0.8"})
         try:

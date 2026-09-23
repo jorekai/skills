@@ -62,7 +62,7 @@ flowchart TD
 | [`jorekai-seo:connect`](connect/SKILL.md) | user | Walks the human through the clicks only a human can do: Search Console, sitemap, Bing, IndexNow |
 | [`jorekai-seo:grill`](grill/SKILL.md) | user | Interviews for `strategy.md` and `glossary.md`: offer, audience, competitors, keyword clusters, evidence |
 | [`jorekai-seo:tech-audit`](tech-audit/SKILL.md) | model | Crawls a URL or a site and prescribes one fix per check id, full JSON in `audits/` |
-| [`jorekai-seo:gsc-review`](gsc-review/SKILL.md) | model | Turns two exports into the site baseline, the verdict on due actions, and six buckets of picks |
+| [`jorekai-seo:gsc-review`](gsc-review/SKILL.md) | model | Turns two exports into the site baseline, the verdict on due actions, and seven buckets of picks |
 | [`jorekai-seo:content`](content/SKILL.md) | model | Writes the brief and a draft with evidence slots, one page for one intent |
 | [`jorekai-seo:review`](review/SKILL.md) | model | Two separate verdicts on a draft, one for intent against the top five, one for the standards |
 | [`jorekai-seo:links`](links/SKILL.md) | model | Internal links from older pages first, then `outreach.csv` with a reason per target |

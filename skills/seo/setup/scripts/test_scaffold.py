@@ -27,6 +27,13 @@ class HostTest(unittest.TestCase):
             with self.subTest(bad=bad), self.assertRaises(SystemExit):
                 scaffold.host(bad)
 
+    def test_an_internationalized_host_converts_to_punycode(self):
+        self.assertEqual(scaffold.host("münchen.example"), "xn--mnchen-3ya.example")
+        self.assertEqual(scaffold.host("HTTPS://MÜNCHEN.example/seite/"), "xn--mnchen-3ya.example")
+
+    def test_a_plain_ascii_host_is_unaffected_by_the_idna_path(self):
+        self.assertEqual(scaffold.host("example.com"), "example.com")
+
     def test_traversal_writes_nothing_outside_the_root(self):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d) / "docs" / "seo"
@@ -36,6 +43,17 @@ class HostTest(unittest.TestCase):
             self.assertNotEqual(r.returncode, 0, r.stdout)
             self.assertEqual(sorted(p.name for p in (Path(d) / "docs").iterdir()), ["seo"])
             self.assertEqual(list(root.iterdir()), [])
+
+
+class TodayFlagTest(unittest.TestCase):
+    def test_a_bad_today_value_is_a_clean_error_not_a_traceback(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d) / "docs" / "seo"
+            r = subprocess.run([sys.executable, os.path.abspath(scaffold.__file__), "--root", str(root),
+                               "--today", "not-a-date", "--check"], capture_output=True, text=True)
+            self.assertNotEqual(r.returncode, 0)
+            self.assertNotIn("Traceback", r.stderr)
+            self.assertIn("--today needs YYYY-MM-DD", r.stderr)
 
 
 class WeekTest(unittest.TestCase):

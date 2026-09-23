@@ -1064,7 +1064,7 @@ def render(rep, url):
     counts = rep.counts()
     out = [paint(f"tech-audit  {url}", "head"), "measured against  references/fixes.md", "",
            bar(counts)]
-    for section in ("Page", "Site", "Crawl"):
+    for section in ("Page", "Site", "Crawl", "Redirect map"):
         items = [i for i in rep.items if i["section"] == section]
         if not items:
             continue

@@ -202,6 +202,15 @@ class SnippetsFetchTest(unittest.TestCase):
         self.assertIsNone(r["status"])
         self.assertIn("http", r["error"])
 
+    def test_a_string_that_is_not_a_url_at_all_is_a_clean_error_not_a_crash(self):
+        """urllib.request.Request() raises ValueError on a string with no recognizable scheme;
+        the scheme check must run before Request() is built, not after."""
+        r = snippets.fetch("not a url")
+        self.assertIsNone(r["status"])
+        self.assertIn("not a url", r["error"])
+        out = snippets.render(snippets.inspect("not a url"))
+        self.assertIn("fetch failed", out)
+
 
 class SnippetsRedirectTest(unittest.TestCase):
     """build_opener installs a FileHandler; a redirect must never reach it."""
@@ -251,6 +260,39 @@ class NumberTest(unittest.TestCase):
         self.assertEqual(g.to_int("1.234"), 1234)
         self.assertEqual(g.to_int("1,234"), 1234)
         self.assertEqual(g.to_int(""), 0)
+
+
+class UnparsedCellsTest(unittest.TestCase):
+    """to_int() keeps going on a cell with no digit at all, and counts it instead of hiding it."""
+
+    def setUp(self):
+        g.UNPARSED_CELLS = 0
+
+    def test_a_number_does_not_count(self):
+        self.assertEqual(g.to_int("1,234"), 1234)
+        self.assertEqual(g.UNPARSED_CELLS, 0)
+
+    def test_a_blank_cell_does_not_count(self):
+        self.assertEqual(g.to_int(""), 0)
+        self.assertEqual(g.UNPARSED_CELLS, 0)
+
+    def test_a_cell_with_no_digit_counts_and_still_reads_as_zero(self):
+        self.assertEqual(g.to_int("N/A"), 0)
+        self.assertEqual(g.UNPARSED_CELLS, 1)
+        self.assertEqual(g.to_int("-"), 0)
+        self.assertEqual(g.UNPARSED_CELLS, 2)
+
+    def test_the_report_names_the_count(self):
+        g.UNPARSED_CELLS = 3
+        a = RenderTest.A()
+        a.brand_re = None
+        res = {"n_queries": 0, "n_pages": 0, "brand": None, "unparsed_cells": 3,
+               "striking_queries": [], "striking_pages": [], "ctr_gap_queries": [], "ctr_gap_pages": [],
+               "decay": None, "cannibal": None, "not_indexed": None, "baseline": None,
+               "calibration": g.ctr_calibration([], a),
+               "totals": {"source": "queries", "previous": None, "now": g.totals([])}}
+        out = g.render(res, a)
+        self.assertIn("3 cell(s) in the export were not a number", out)
 
 
 if __name__ == "__main__":

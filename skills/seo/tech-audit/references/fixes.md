@@ -13,6 +13,8 @@
 
 - `render.bot-html`: Content is client-rendered or the server discriminates by user agent. Server-render (SSR) or pre-render (SSG) every indexable route; remove user-agent-based gating in the CDN or bot-protection layer. Verify with `curl -sA "Mozilla/5.0 (compatible; Googlebot/2.1)" URL`.
 - `render.thin`: Under 300 characters of text. Either the page is genuinely thin (merge it, or add substance) or content sits in an iframe, image, or PDF. Text belongs in the HTML.
+- `render.js-only` (with `--rendered`, comparing the raw fetch against a saved rendered DOM of the same URL): title, H1, canonical, body text, internal links, or structured data exist only after JavaScript runs. Server-render or pre-render the page; Google's second rendering pass can lag the first crawl by days to weeks, and every field named in the finding is invisible until it runs.
+- `render.consent-wall`: a consent-management platform runs on a page the render check already found thin. The banner covering the page for a reader is not the bug; fetch the raw HTML with a Googlebot user agent (`curl -sA Googlebot URL`) and confirm the real content sits in the markup below the banner before treating this as `render.bot-html` or `render.thin`. If the text really is missing from the raw HTML, that other check id names the fix.
 
 ## head.*
 
@@ -50,6 +52,7 @@
 ## redirects.* (only with `--redirects`, one fetch per row of a move's map)
 
 - `redirects.map`: the file holds no URL rows. The first column carries the old URLs; `old,new` or `from,to` headers are read, and a file without a header is read positionally.
+- `redirects.error`: the old URL got no response at all (DNS, TLS, or timeout). Check the URL is typed correctly and that the old host still resolves; a host taken fully offline before its redirects are live loses every signal on that row.
 - `redirects.missing`: the old URL still answers on its own. Nothing was redirected, and both URLs now compete. Add the redirect, then re-run.
 - `redirects.temporary`: the first hop is a 302, 303, or 307. Google keeps the old URL as the canonical, so the signals stay where the content no longer is. Use 301 or 308.
 - `redirects.chain`: more than one hop. Collapse the map so every old URL points straight at its final target; a chain loses time on every crawl and hops are capped at 10.

@@ -12,7 +12,7 @@ The page already ranks; Google wants one more signal.
 
 Skip when the query's intent differs from the page (informational query on a product page). That case wants a new page, via `jorekai-seo:content`.
 
-## 3. CTR gap
+## 3–4. CTR gap
 
 Rankings are fine; the snippet loses the click.
 
@@ -22,7 +22,7 @@ Rankings are fine; the snippet loses the click.
 4. If an AI Overview shows: aim to be cited in it. Seer Interactive (3,119 terms, 42 organisations, September 2025) measured 35 % higher organic CTR for brands cited in the AI Overview than for uncited brands on the same SERP. Eligibility is only "indexed and snippet-eligible"; a direct answer in the first paragraph is the on-page lever.
 5. Re-check CTR after 14 days.
 
-## 4. Decayed pages
+## 5. Decayed pages
 
 Update before writing anything new.
 
@@ -32,7 +32,7 @@ Update before writing anything new.
 4. Re-add internal links if the old page lost them in a redesign.
 5. Request indexing.
 
-## 5. Cannibalization
+## 6. Cannibalization
 
 Two of your URLs show for one query. Google does not penalize this; it consolidates duplicates into one canonical and otherwise shows whichever pages fit. Act only when the pages duplicate each other or the wrong one ranks.
 
@@ -41,7 +41,7 @@ Two of your URLs show for one query. Google does not penalize this; it consolida
 3. 301 the weaker URL to the keeper; update internal links and the sitemap; remove it from the sitemap.
 4. If both pages must exist (different intents), differentiate the titles and H1s so each targets its own query, and cross-link them.
 
-## 6. Not indexed
+## 7. Not indexed
 
 1. Add ≥ 2 internal links from indexed pages.
 2. Make sure the page has substance and a self-referencing canonical (run `jorekai-seo:tech-audit` on it). URL Inspection "URL is unknown to Google" means no link or sitemap has reached it yet.

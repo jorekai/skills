@@ -2,6 +2,13 @@
 
 One entry per plugin version. The version at the top equals `version` in `.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 1.12.2 (2026-09-23)
+
+- Fixed: `tech-audit/scripts/audit.py` printed no `--redirects` finding without `--json`, while the count bar above still counted them. The `Redirect map` section now prints, and `references/fixes.md` gains `render.js-only`, `render.consent-wall` and `redirects.error`.
+- Fixed: `gsc-review/scripts/snippets.py` stopped on a traceback for a target that is not a URL; it now reports a fetch error like any other bad target. `gsc_opportunities.py` counts a cell it cannot read as a number and names the count instead of reading it as 0.
+- Fixed: `and-now` sent an open `tech` row to the actions of `jorekai-seo:gsc-review`; every bucket now names the skill that owns it. `setup --due` names a log row it cannot read instead of dropping it, a bad `--today` exits with a message, and an internationalized domain is converted to punycode instead of being rejected.
+- Changed: `gsc-review` prints seven buckets, and every place that said six now says seven. The imprint and privacy notice claim carries a source, and the optional writing tool moved out of a step into `references/tools.md`.
+
 ## 1.12.1 (2026-09-13)
 
 - Changed: Quote skill descriptions and split long descriptions into shorter sentences. Keep their scope and invocation settings.

@@ -45,6 +45,16 @@ KEY_RE = re.compile(r"^-\s*([A-Za-z_]+):\s*(.*)$")
 EXPORT_MAX_AGE = 7          # days; the loop is weekly
 TECH_VERIFY_DAYS = 14
 
+# Skill that explains how to act on a log row's bucket (full list: setup/templates/workspace-README.md).
+# The five gsc-review picks share one skill and one reference, gsc-review/references/actions.md;
+# a `tech` row is fixed per check id in tech-audit/references/fixes.md, a different skill and file.
+BUCKET_SKILL = {
+    "striking": "jorekai-seo:gsc-review", "ctr": "jorekai-seo:gsc-review", "decay": "jorekai-seo:gsc-review",
+    "cannibal": "jorekai-seo:gsc-review", "unindexed": "jorekai-seo:gsc-review",
+    "tech": "jorekai-seo:tech-audit", "links": "jorekai-seo:links", "content": "jorekai-seo:content",
+    "distribution": "jorekai-seo:distribution", "diagnose": "jorekai-seo:diagnose",
+}
+
 
 def week_of(day):
     y, w, _ = day.isocalendar()
@@ -217,8 +227,9 @@ def decide(s, today):
     tech_todo = [r for r in s["todo"] if r.get("bucket") == "tech"]
     other_todo = [r for r in s["todo"] if r.get("bucket") != "tech"]
     if tech_todo:
-        now.append("apply the open `tech` rows, then set Status `applied`, the date, and `verify after` "
-                   f"(+{TECH_VERIFY_DAYS} days): " + ", ".join(r.get("id", "?") for r in tech_todo))
+        now.append("`jorekai-seo:tech-audit`: apply the open `tech` rows per references/fixes.md, then set Status "
+                   f"`applied`, the date, and `verify after` (+{TECH_VERIFY_DAYS} days): "
+                   + ", ".join(r.get("id", "?") for r in tech_todo))
     last_month = (today.replace(day=1) - dt.timedelta(days=1)).strftime("%Y-%m")
     if s["rows"] and last_month not in s["reports"]:
         now.append(f"`jorekai-seo:report` for {last_month}: reports/{last_month}.md does not exist yet")
@@ -241,9 +252,9 @@ def decide(s, today):
         elif age > EXPORT_MAX_AGE:
             now.append(f"export Search Console again (exports/{exp.name} is {plural(age, 'day')} old), then `jorekai-seo:gsc-review`")
     for r in other_todo:
-        skill = {"content": "jorekai-seo:content", "links": "jorekai-seo:links", "distribution": "jorekai-seo:distribution",
-                 "diagnose": "jorekai-seo:diagnose"}.get(r.get("bucket"), "apply per jorekai-seo:gsc-review actions.md")
-        now.append(f"{skill}: {r.get('id', '?')} ({r.get('bucket')}, {r.get('url')}), then set Status `applied` and `verify after`")
+        bucket = r.get("bucket")
+        skill = BUCKET_SKILL.get(bucket, "jorekai-seo:gsc-review")
+        now.append(f"`{skill}`: {r.get('id', '?')} ({bucket}, {r.get('url')}), then set Status `applied` and `verify after`")
     for slug in s["briefs"]:
         if slug not in s["drafts"]:
             now.append(f"`jorekai-seo:content`: briefs/{slug}.md has no draft yet")
