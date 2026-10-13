@@ -10,7 +10,7 @@ Start with `/jorekai-intro:intro`.
 
 ## What it does
 
-`/jorekai-intro:intro` answers the question that comes before every other one here: what is in front of you, a site, the machine you work on, a host that serves, a repository, or a monorepo to create. It draws the themes and every skill, then hands over one install line and one start command.
+`/jorekai-intro:intro` answers the question that comes before every other one here: what is in front of you, a site, the machine you work on, a host that serves, a repository, a monorepo to create, or a session to steer. It draws the themes and every skill, then hands over one install line and one start command.
 
 It measures nothing, keeps no workspace, and writes no log row (`decisions/0024`).
 

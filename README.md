@@ -16,6 +16,7 @@ flowchart LR
     Q -- "a host that serves" --> OPS["jorekai-ops"]
     Q -- "a code repository" --> SEC["jorekai-security"]
     Q -- "a monorepo to create" --> STACK["jorekai-stack"]
+    Q -- "a session to steer" --> FLOW["jorekai-flow"]
     Q -- "not sure yet" --> INTRO["jorekai-intro"]
 ```
 
@@ -26,6 +27,7 @@ flowchart LR
 | [Ops](skills/ops/README.md) | One host that serves: who can reach it, what runs on it, what may change, and whether the change held | `/jorekai-ops:setup` |
 | [Security](skills/security/README.md) | One code repository and its holes: leaks, a build that can be taken over, known-bad installs, input that reaches a dangerous sink | `/jorekai-security:setup` |
 | [Stack](skills/stack/README.md) | One monorepo an agent cannot reach past: the declaration, the guards, the escapes, and whether the tree still matches | `/jorekai-stack:setup` |
+| [Flow](skills/flow/README.md) | One working session: how far the agent may run, where its context comes from, how work ships, and how you hear back | `/jorekai-flow:flow` |
 | [Intro](skills/intro/README.md) | The collection itself: every theme with its loop, every skill with who starts it and what it hands back | `/jorekai-intro:intro` |
 
 ## Install
@@ -38,9 +40,10 @@ claude plugin install jorekai-dx@jorekai       # the machine you work on
 claude plugin install jorekai-ops@jorekai      # a host that serves
 claude plugin install jorekai-security@jorekai # a code repository and its holes
 claude plugin install jorekai-stack@jorekai    # a monorepo an agent cannot reach past
+claude plugin install jorekai-flow@jorekai     # short commands that steer a session
 ```
 
-Install one, two, or all six; they share nothing at run time. Not sure which one you need: `/jorekai-intro:intro` draws the collection and names the one command to run next. Codex users link the same folders, see [Use in a project](#use-in-a-project).
+Install one, two, or all seven; they share nothing at run time. Not sure which one you need: `/jorekai-intro:intro` draws the collection and names the one command to run next. Codex users link the same folders, see [Use in a project](#use-in-a-project).
 
 ## Update
 
@@ -95,7 +98,7 @@ flowchart LR
 6. **Every change leaves a log row** with a measure and a verify date. The commit that carries it out ends with a trailer naming the row.
 7. **grade** recomputes the measure on the verify date and writes the verdict. In SEO, `jorekai-seo:gsc-review` grades due actions from the next export. The loop learns from the log, not from memory.
 
-The intro theme is the exception. It measures nothing and keeps no log, it only draws the map (`decisions/0024`).
+The intro theme is the exception. It measures nothing and keeps no log, it only draws the map (`decisions/0024`). The flow theme is the same kind of exception: it steers a session and leaves nothing on disk to measure (`decisions/0040`).
 
 `jorekai-seo:tech-audit` is the other exception. Its findings carry no measure, no risk class, and no rung, so its report stays prose per id in `references/fixes.md` instead of the one-line-per-finding shape the other reports use (`decisions/0031`).
 

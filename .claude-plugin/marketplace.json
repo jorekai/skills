@@ -50,6 +50,13 @@
       "source": "./skills/stack",
       "category": "productivity",
       "license": "MIT"
+    },
+    {
+      "name": "jorekai-flow",
+      "description": "Short commands that steer a working session: go, resume, ship, watch, status, handoff.",
+      "source": "./skills/flow",
+      "category": "productivity",
+      "license": "MIT"
     }
   ]
 }

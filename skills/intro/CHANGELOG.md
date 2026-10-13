@@ -2,6 +2,10 @@
 
 One entry per `jorekai-intro` version. The version at the top equals `version` in `skills/intro/.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 0.1.13 (2026-10-13)
+
+- Changed: the snapshot carries the seventh theme, `jorekai-flow` 0.1.0, its seven skills, and the marketplace entry that lists it. The `## Which theme` table names it.
+
 ## 0.1.12 (2026-09-23)
 
 - Changed: the snapshot carries the new versions of every theme and the plugin descriptions as `plugin.json` now writes them: `jorekai-dx` names `report`, and the marketplace mirrors each description word for word.

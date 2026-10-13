@@ -1,0 +1,5 @@
+interface:
+  display_name: "Flow status"
+  short_description: "Where this session stands and what blocks"
+policy:
+  allow_implicit_invocation: false

@@ -1,0 +1,5 @@
+interface:
+  display_name: "Flow"
+  short_description: "Pick the command that steers this session"
+policy:
+  allow_implicit_invocation: false

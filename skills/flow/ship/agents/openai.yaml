@@ -1,0 +1,5 @@
+interface:
+  display_name: "Flow ship"
+  short_description: "Test, push, merge on green, deploy, prove"
+policy:
+  allow_implicit_invocation: false

@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-23",
+  "generated": "2026-10-13",
   "marketplace": {
     "name": "jorekai",
     "add": "claude plugin marketplace add jorekai/skills"
@@ -114,13 +114,83 @@
       "planned": []
     },
     {
+      "theme": "flow",
+      "plugin": "jorekai-flow",
+      "version": "0.1.0",
+      "covers": "Short commands that steer a working session: go, resume, ship, watch, status, handoff.",
+      "install": "claude plugin install jorekai-flow@jorekai",
+      "listed": true,
+      "thesis": "Steering a session takes the same few sentences every day: go on alone, pick up where the last session stopped, ship it when green, tell me when it is done, where do we stand, write me a handoff. Each sentence here is one command, and each command carries the limits a person would otherwise type again.",
+      "router": "jorekai-flow:flow",
+      "entry": "/jorekai-flow:flow",
+      "skills": [
+        {
+          "skill": "jorekai-flow:flow",
+          "invoked_by": "you",
+          "description": "Choose the short command that steers this session: how far the agent may run, where its context comes from, how work ships, and how a person hears back.",
+          "reach_for_it_when": "",
+          "hands_back": "",
+          "scripts": []
+        },
+        {
+          "skill": "jorekai-flow:go",
+          "invoked_by": "you",
+          "description": "Grant the agent to work on alone until the current goal is met and proved, or for exactly one step with 1. Commits on the current branch; stops before push, merge, deploy, and anything outside the work tree.",
+          "reach_for_it_when": "Work on alone until the goal is met, or for one step",
+          "hands_back": "`step | result | proof`",
+          "scripts": []
+        },
+        {
+          "skill": "jorekai-flow:resume",
+          "invoked_by": "you",
+          "description": "Read the previous session of this project and state its goal, where it stopped, and what is open, checked against the repository as it is now. With go, continue under the grant of jorekai-flow:go.",
+          "reach_for_it_when": "Continue from the last session of this project",
+          "hands_back": "`goal | state | open | next`",
+          "scripts": []
+        },
+        {
+          "skill": "jorekai-flow:ship",
+          "invoked_by": "you",
+          "description": "Take finished work out: run the checks, commit, push, open or reuse a pull request, merge once checks are green, deploy the way the project documents, and prove the result is live.",
+          "reach_for_it_when": "Test, commit, push, merge on green, deploy, and prove it",
+          "hands_back": "`stage | result | link`",
+          "scripts": []
+        },
+        {
+          "skill": "jorekai-flow:watch",
+          "invoked_by": "you",
+          "description": "Check a condition in the background and send one notice when it holds or the watch gives up: a pull request merged, a release live, a job finished, a page answering.",
+          "reach_for_it_when": "Tell me when a condition holds, without me asking again",
+          "hands_back": "no table. The condition, how it is checked, how often, and when the watch gives up.",
+          "scripts": []
+        },
+        {
+          "skill": "jorekai-flow:status",
+          "invoked_by": "you",
+          "description": "State where this session stands: the goal, what is done, what runs in the background, the branch and its pull request and checks, and what blocks. Reads only, changes nothing.",
+          "reach_for_it_when": "Where does this session stand, and what is running?",
+          "hands_back": "`item | state | next`",
+          "scripts": []
+        },
+        {
+          "skill": "jorekai-flow:handoff",
+          "invoked_by": "you",
+          "description": "Write a prompt a new session can start from with nothing else: goal, state, decisions with reasons, files, open items, the next step, and the limits. Places it on the clipboard.",
+          "reach_for_it_when": "A prompt a new session can start from, on the clipboard",
+          "hands_back": "no table. The size of the prompt, that it sits on the clipboard, and its first line.",
+          "scripts": []
+        }
+      ],
+      "planned": []
+    },
+    {
       "theme": "intro",
       "plugin": "jorekai-intro",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "covers": "The map of this collection: the themes, their loops, and which one you need.",
       "install": "claude plugin install jorekai-intro@jorekai",
       "listed": true,
-      "thesis": "One question comes before every other one here: what do you have in front of you, a site, the machine you work on, a host that serves, a repository with holes, or a monorepo to create. The answer names one theme, and the theme names the command that starts its loop.",
+      "thesis": "One question comes before every other one here: what do you have in front of you, a site, the machine you work on, a host that serves, a repository with holes, a monorepo to create, or a session to steer. The answer names one theme, and the theme names the command that starts its loop.",
       "router": "jorekai-intro:intro",
       "entry": "/jorekai-intro:intro",
       "skills": [

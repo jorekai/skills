@@ -7,7 +7,7 @@ argument-hint: "[theme]"
 
 # Intro
 
-One question comes before every other one here: **what do you have in front of you, a site, the machine you work on, a host that serves, a repository with holes, or a monorepo to create**. The answer names one theme, and the theme names the command that starts its loop.
+One question comes before every other one here: **what do you have in front of you, a site, the machine you work on, a host that serves, a repository with holes, a monorepo to create, or a session to steer**. The answer names one theme, and the theme names the command that starts its loop.
 
 ## The map
 
@@ -24,6 +24,7 @@ The map says what exists. It cannot say what is installed on this machine, so th
 | A host that serves | `jorekai-ops:ops` |
 | A code repository and its holes | `jorekai-security:security` |
 | A monorepo to create, or one whose guards should hold against an agent | `jorekai-stack:stack` |
+| A working session to steer: run alone, resume, ship, watch, hand off | `jorekai-flow:flow` |
 
 ## Steps
 

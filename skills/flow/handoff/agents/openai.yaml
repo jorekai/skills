@@ -1,0 +1,5 @@
+interface:
+  display_name: "Flow handoff"
+  short_description: "A prompt for a new session, on the clipboard"
+policy:
+  allow_implicit_invocation: false

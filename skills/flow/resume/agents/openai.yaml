@@ -1,0 +1,5 @@
+interface:
+  display_name: "Flow resume"
+  short_description: "Pick up the last session of this project"
+policy:
+  allow_implicit_invocation: false

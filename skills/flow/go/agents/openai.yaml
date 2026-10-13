@@ -1,0 +1,5 @@
+interface:
+  display_name: "Flow go"
+  short_description: "Work on alone until the goal is proved"
+policy:
+  allow_implicit_invocation: false

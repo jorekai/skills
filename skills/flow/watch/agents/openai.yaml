@@ -1,0 +1,5 @@
+interface:
+  display_name: "Flow watch"
+  short_description: "One notice when a condition holds"
+policy:
+  allow_implicit_invocation: false
