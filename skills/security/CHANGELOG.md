@@ -2,6 +2,10 @@
 
 One entry per `jorekai-security` version. The version at the top equals `version` in `skills/security/.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 0.4.1 (2026-10-24)
+
+- Fixed: `jorekai-security:secrets` reads a history that holds bytes which are no UTF-8, such as a Latin-1 file in an old commit, instead of stopping with a decode error before it counts anything.
+
 ## 0.4.0 (2026-09-23)
 
 - Added: `build.runner-exposed`, a self-hosted runner that a trigger from outside the repository can reach.

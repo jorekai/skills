@@ -224,6 +224,18 @@ class HistoryTest(unittest.TestCase):
             self.assertEqual(cost(out, "cred.tracked"), 1)
             self.assertEqual(cost(out, "cred.history"), 0)
 
+    def test_a_history_with_bytes_that_are_no_utf8_is_still_read(self):
+        """A Latin-1 file in an old commit must not stop the pass before it counts anything."""
+        with tempfile.TemporaryDirectory() as d:
+            root = repository(d, **{"a.py": "x = 1\n"})
+            (root / "notes.txt").write_bytes(b"caf\xe9\n" + f"{NAME} = '{TOKEN}'\n".encode())
+            git(root, "add", "-A")
+            git(root, "commit", "-qm", "change")
+            repository(d, **{"notes.txt": "gone\n"})
+            out = run(root)
+            self.assertTrue(out["history_read"])
+            self.assertEqual(cost(out, "cred.history"), 1)
+
     def test_without_the_history_the_check_carries_a_note_and_no_number(self):
         with tempfile.TemporaryDirectory() as d:
             root = repository(d, **{"a.py": "x = 1\n"})
