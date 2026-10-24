@@ -207,9 +207,13 @@ def candidates(line, bits):
 
 
 def run_command(argv, timeout=120):
-    """One command, its stdout, or None when it is missing, fails, or takes too long."""
+    """One command, its stdout, or None when it is missing, fails, or takes too long.
+
+    A history may hold bytes that are no UTF-8, such as a Latin-1 file in an old commit; they
+    are replaced, so one such byte does not end the pass before it counts anything."""
     try:
-        r = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
+        r = subprocess.run(argv, capture_output=True, text=True, encoding="utf-8",
+                           errors="replace", timeout=timeout)
     except (OSError, subprocess.TimeoutExpired):
         return None
     return r.stdout if r.returncode == 0 else None
