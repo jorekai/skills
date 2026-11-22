@@ -2,6 +2,10 @@
 
 One entry per plugin version. The version at the top equals `version` in `.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 1.12.3 (2026-11-22)
+
+- Fixed: `tech-audit/scripts/audit.py` checked the address of a sitemap URL before fetching it, but not the targets of the redirects it then followed. A redirect hop that leaves the start host and resolves into a private, loopback, link-local or reserved range is now refused and named in the chain.
+
 ## 1.12.2 (2026-09-23)
 
 - Fixed: `tech-audit/scripts/audit.py` printed no `--redirects` finding without `--json`, while the count bar above still counted them. The `Redirect map` section now prints, and `references/fixes.md` gains `render.js-only`, `render.consent-wall` and `redirects.error`.

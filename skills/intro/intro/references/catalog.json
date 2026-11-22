@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-24",
+  "generated": "2026-11-22",
   "marketplace": {
     "name": "jorekai",
     "add": "claude plugin marketplace add jorekai/skills"
@@ -420,7 +420,7 @@
     {
       "theme": "seo",
       "plugin": "jorekai-seo",
-      "version": "1.12.2",
+      "version": "1.12.3",
       "covers": "SEO loop for one or more domains: setup, connect, grill, tech-audit, gsc-review, content, review, links, distribution, diagnose, migrate, report, and-now.",
       "install": "claude plugin install jorekai-seo@jorekai",
       "listed": true,
