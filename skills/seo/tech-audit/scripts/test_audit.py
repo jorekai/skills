@@ -236,6 +236,43 @@ class Routable(unittest.TestCase):
         self.assertTrue(audit.routable("http://127.0.0.1:8080/sitemap.xml", "http://127.0.0.1:8080"))
 
 
+class RedirectAddress(unittest.TestCase):
+    """routable() guarded the sitemap URL and not the hops behind it, so a public host could point inward.
+
+    Every address below is a literal, so getaddrinfo answers without asking a resolver.
+    """
+
+    def setUp(self):
+        self.opened = []
+        self._opener = audit._OPENER
+
+    def tearDown(self):
+        audit._OPENER = self._opener
+
+    def _redirect_to(self, location):
+        def open_(req, timeout=None):
+            self.opened.append(req.full_url)
+            if len(self.opened) == 1:
+                return _FakeResponse(302, {"Location": location})
+            return _FakeResponse(200, {})
+        audit._OPENER = type("O", (), {"open": staticmethod(open_)})()
+
+    def test_a_hop_into_a_private_range_is_refused(self):
+        for host in ("127.0.0.1:8080", "10.0.0.5", "169.254.169.254"):
+            self.opened = []
+            self._redirect_to(f"http://{host}/x")
+            r = audit.fetch("http://93.184.216.34/sitemap.xml")
+            self.assertEqual(len(self.opened), 1, host)
+            self.assertIsNone(r["status"])
+            self.assertIn("outside the public internet", r["error"])
+
+    def test_a_hop_on_the_start_host_stays_allowed(self):
+        self._redirect_to("http://127.0.0.1:8080/next")
+        r = audit.fetch("http://127.0.0.1:8080/")
+        self.assertEqual(len(self.opened), 2)
+        self.assertEqual(r["status"], 200)
+
+
 class MetaRefreshTest(unittest.TestCase):
     """A meta refresh must not overwrite the request delay: the browser-UA fetch sleeps on it."""
 

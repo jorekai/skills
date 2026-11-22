@@ -115,6 +115,11 @@ def fetch(url, ua=UA_BOT, timeout=15, max_hops=10, delay=0.0):
                 return {"url": url, "chain": chain, "final_url": current, "status": None,
                         "headers": {}, "body": "", "elapsed": time.time() - t0,
                         "error": f"redirect to a non-HTTP target: {target}"}
+            if not routable(target, url):
+                chain.append((target, "address"))
+                return {"url": url, "chain": chain, "final_url": current, "status": None,
+                        "headers": {}, "body": "", "elapsed": time.time() - t0,
+                        "error": f"redirect to an address outside the public internet: {target}"}
             current = target
             continue
         ctype = headers.get("content-type", "")
