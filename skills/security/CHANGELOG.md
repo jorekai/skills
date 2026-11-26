@@ -2,6 +2,10 @@
 
 One entry per `jorekai-security` version. The version at the top equals `version` in `skills/security/.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 0.4.2 (2026-11-26)
+
+- Fixed: `jorekai-security:pipeline` refuses an anchor, an alias, or a merge key only on a line it reads as structure. A shell `case` pattern such as `*)` inside `run: |`, or an `if: >-` expression continued with `&&`, left the whole workflow unread before (seen on five workflows in three repositories).
+
 ## 0.4.1 (2026-10-24)
 
 - Fixed: `jorekai-security:secrets` reads a history that holds bytes which are no UTF-8, such as a Latin-1 file in an old commit, instead of stopping with a decode error before it counts anything.
