@@ -2,6 +2,10 @@
 
 One entry per `jorekai-ops` version. The version at the top equals `version` in `skills/ops/.claude-plugin/plugin.json`; `scripts/check.sh` checks that. Dates are ISO.
 
+## 0.9.1 (2026-11-26)
+
+- Fixed: `exposure.py` left `fw.disabled` unknown on every ufw host the reading account cannot run `ufw status` on. It now falls back to `ENABLED=` in `/etc/ufw/ufw.conf` and the state of the `ufw` unit: `no` fails, `yes` with the unit active and its last run a success passes and names that basis, anything else stays unknown. The rules stay unread, so `fw.rule-orphan` is a note on that path. A captured `--fw-file` never takes the fallback.
+
 ## 0.9.0 (2026-09-23)
 
 - Changed: gate 2 covers `port.*` and `panel.*` as well, because a port or a panel closed by hand can close the connection that makes the change. The fixes table already said so; the scripts, the steps and the router now agree (`decisions/0039`).

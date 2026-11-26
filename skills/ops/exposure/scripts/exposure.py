@@ -235,6 +235,36 @@ def status_text(kind):
     return r.stdout if r.returncode == 0 else None
 
 
+UFW_ENABLED = re.compile(r"^\s*ENABLED\s*=\s*(yes|no)\s*$", re.I | re.M)
+UFW_CONF = "/etc/ufw/ufw.conf"
+
+
+def ufw_without_privilege():
+    """Whether ufw filters, read where an account without privilege can see it, or `None`.
+
+    `ufw status` needs root, but two answers do not: `ENABLED=` in ufw.conf, which `ufw enable`
+    and `ufw disable` write, and the state of the unit that loads the rules at boot. `no` is a
+    firewall switched off. `yes` with the unit active and its last run a success is a firewall
+    that loaded its rules. Anything else stays unknown. The rules themselves stay unread, so the
+    ports are empty and `basis` says what the answer rests on.
+    """
+    m = UFW_ENABLED.search(read(UFW_CONF) or "")
+    if not m:
+        return None
+    base = {"kind": "ufw", "ports": [], "read": True, "refused": False, "ranges": [],
+            "services": [], "default_open": "", "rules_unread": True}
+    if m.group(1).lower() == "no":
+        return {**base, "filtering": False, "basis": f"ENABLED=no in {UFW_CONF}"}
+    r = run_command(["systemctl", "show", "ufw", "-p", "ActiveState", "-p", "Result"])
+    if r is None or r.returncode != 0:
+        return None
+    state = dict(line.split("=", 1) for line in r.stdout.splitlines() if "=" in line)
+    if state.get("ActiveState") == "active" and state.get("Result") == "success":
+        return {**base, "filtering": True,
+                "basis": f"ENABLED=yes in {UFW_CONF} and the ufw unit active"}
+    return None
+
+
 def firewall(a):
     """What filters this host: the kind, whether it is filtering, and the ports it lets in.
 
@@ -256,6 +286,10 @@ def firewall(a):
             kind = "none"
     elif kind != "none":
         text = status_text(kind)
+    if kind == "ufw" and text == "refused" and not a.fw_file:
+        unprivileged = ufw_without_privilege()
+        if unprivileged is not None:
+            return unprivileged
     if kind == "none" or text is None or text == "refused":
         # A refusal is not an absence: the tool answered, and its wording said privilege was the
         # reason. Reading it as "none" would report a firewall gone that may still be standing
@@ -452,7 +486,13 @@ def collect(open_ports, fw, certs, watchers, rep, a, now):
                 data=[{"target": fw["kind"], "value": "not filtering"}], measure=1,
                 by={fw["kind"]: 1})
     else:
-        rep.add("PASS", "fw.disabled", f"the firewall is filtering ({fw['kind']})", measure=0)
+        basis = f", read from {fw['basis']}" if fw.get("basis") else ""
+        rep.add("PASS", "fw.disabled", f"the firewall is filtering ({fw['kind']}{basis})", measure=0)
+    if fw.get("rules_unread"):
+        rep.add("INFO", "fw.rule-orphan",
+                f"the {fw['kind']} rules need more privilege to read, so this pass cannot say "
+                "whether a rule lets in a port nothing serves",
+                data=[{"target": fw["kind"], "value": "rules unread"}])
     if fw.get("default_open"):
         rep.add("INFO", "fw.disabled",
                 f"the {fw['kind']} firewall takes everything it has no rule for, so what it filters "

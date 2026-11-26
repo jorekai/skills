@@ -302,6 +302,69 @@ class AutoDetectionTest(unittest.TestCase):
         self.assertIn("refused to answer without more privilege", got["message"])
 
 
+class UfwWithoutPrivilegeTest(unittest.TestCase):
+    """`ufw status` needs root. ufw.conf and the unit state do not, and they answer whether
+    ufw filters, though not what it lets in."""
+
+    def answer(self, conf, show="ActiveState=active\nResult=success\n", show_rc=0):
+        def fake_run(argv, **kw):
+            if argv[:2] == ["ufw", "status"]:
+                return subprocess.CompletedProcess(argv, 1, stdout="",
+                                                   stderr="ERROR: You need to be root to run this script\n")
+            if argv[:2] == ["systemctl", "show"]:
+                return subprocess.CompletedProcess(argv, show_rc, stdout=show, stderr="")
+            raise FileNotFoundError
+
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "ufw.conf"
+            if conf is not None:
+                path.write_text(conf)
+            with mock.patch("exposure.subprocess.run", side_effect=fake_run), \
+                    mock.patch("exposure.UFW_CONF", str(path)):
+                return exposure.firewall(argparse.Namespace(fw_kind="ufw", fw_file=""))
+
+    def collect(self, fw):
+        rep = exposure.Report()
+        exposure.collect([], fw, [], [], rep, argparse.Namespace(
+            expected_port=[], panel_port=[], tls_expiring_days=21),
+            exposure.dt.datetime.now(exposure.dt.timezone.utc))
+        return {"items": rep.items}
+
+    def test_enabled_and_a_loaded_unit_is_a_firewall_that_filters(self):
+        fw = self.answer("# comment\nENABLED=yes\nLOGLEVEL=low\n")
+        self.assertTrue(fw["read"] and fw["filtering"])
+        out = self.collect(fw)
+        got = item(out, "fw.disabled", "PASS")
+        self.assertEqual(got["measure"]["value"], 0)
+        self.assertIn("ufw.conf", got["message"])
+        self.assertEqual(item(out, "fw.rule-orphan", "INFO")["data"][0]["value"], "rules unread")
+
+    def test_disabled_in_the_config_fails_without_asking_the_unit(self):
+        fw = self.answer("ENABLED=no\n", show="", show_rc=1)
+        self.assertTrue(fw["read"])
+        self.assertFalse(fw["filtering"])
+        self.assertEqual(item(self.collect(fw), "fw.disabled", "FAIL")["measure"]["value"], 1)
+
+    def test_enabled_but_a_failed_unit_stays_unknown(self):
+        """The rules may not have loaded, and a failed unit is not proof that nothing filters."""
+        fw = self.answer("ENABLED=yes\n", show="ActiveState=failed\nResult=exit-code\n")
+        self.assertFalse(fw["read"])
+        self.assertTrue(fw["refused"])
+
+    def test_an_unreadable_config_stays_refused(self):
+        fw = self.answer(None)
+        self.assertFalse(fw["read"])
+        self.assertTrue(fw["refused"])
+        self.assertIsNone(item(self.collect(fw), "fw.disabled", "INFO")["measure"])
+
+    def test_a_captured_status_file_never_reads_the_host(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = write(Path(d) / "fw.txt", "Status: inactive\n")
+            with mock.patch("exposure.ufw_without_privilege", side_effect=AssertionError):
+                fw = exposure.firewall(argparse.Namespace(fw_kind="ufw", fw_file=str(path)))
+        self.assertFalse(fw["filtering"])
+
+
 class CertificateTest(unittest.TestCase):
     def prepare(self, d, until):
         write(Path(d) / "etc/ssl/site.pem", "certificate\n")

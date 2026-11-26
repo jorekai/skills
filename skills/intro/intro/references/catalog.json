@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-22",
+  "generated": "2026-11-26",
   "marketplace": {
     "name": "jorekai",
     "add": "claude plugin marketplace add jorekai/skills"
@@ -210,7 +210,7 @@
     {
       "theme": "ops",
       "plugin": "jorekai-ops",
-      "version": "0.9.0",
+      "version": "0.9.1",
       "covers": "Ops loop for a host that serves: setup, access, availability, exposure, recovery, grade, report, and-now.",
       "install": "claude plugin install jorekai-ops@jorekai",
       "listed": true,
