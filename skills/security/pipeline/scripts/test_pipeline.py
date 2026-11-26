@@ -88,9 +88,19 @@ class ReaderTest(unittest.TestCase):
         self.assertEqual(got["run"], "echo #1")
 
     def test_an_anchor_and_a_tab_are_refused_rather_than_half_read(self):
-        for text in ("base: &b\n  a: 1\n", "jobs:\n\tbuild: x\n", "a: 1\n---\nb: 2\n"):
+        for text in ("base: &b\n  a: 1\n", "jobs:\n\tbuild: x\n", "a: 1\n---\nb: 2\n",
+                     "a: &b 1\nc: *b\n", "a:\n  <<: *b\n", "a:\n  - *b\n", "a:\n  - &b x\n"):
             with self.assertRaises(pipeline.Unsupported):
                 pipeline.parse_yaml(text)
+
+
+    def test_a_case_pattern_or_a_continued_expression_in_a_block_is_text(self):
+        got = pipeline.parse_yaml(
+            "jobs:\n  b:\n    if: >-\n      (a == 'x'\n       && b == 'y')\n    steps:\n"
+            "      - run: |\n          case \"$x\" in\n            a) echo a ;;\n"
+            "            *) echo other; exit 1 ;;\n          esac\n")
+        self.assertIn("&& b == 'y')", got["jobs"]["b"]["if"])
+        self.assertIn("*) echo other", got["jobs"]["b"]["steps"][0]["run"])
 
 
 class CheckoutTest(unittest.TestCase):

@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-22",
+  "generated": "2026-11-26",
   "marketplace": {
     "name": "jorekai",
     "add": "claude plugin marketplace add jorekai/skills"
@@ -318,7 +318,7 @@
     {
       "theme": "security",
       "plugin": "jorekai-security",
-      "version": "0.4.1",
+      "version": "0.4.2",
       "covers": "Security loop for a code repository: setup, deps, secrets, pipeline, review, grade, report, and-now.",
       "install": "claude plugin install jorekai-security@jorekai",
       "listed": true,

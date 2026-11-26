@@ -179,10 +179,20 @@ def tokenize(text):
             raise Unsupported("more than one document")
         indent = len(stripped) - len(stripped.lstrip())
         body = stripped.strip()
-        if body.startswith(("&", "*")) or re.search(r":\s+[&*]\w", body) or body.startswith("<<:"):
-            raise Unsupported("an anchor, an alias, or a merge key")
         out.append((indent, body, raw.strip()))
     return out
+
+
+def structural(body):
+    """Refuse an anchor, an alias, or a merge key on a line the parser reads as structure.
+
+    Only structure is checked. A line inside a block scalar is text for the runner, where a
+    shell `case` pattern such as `*)` or an expression continued with `&&` means nothing to
+    this format, so refusing it there would leave a readable file unread.
+    """
+    if body.startswith(("&", "*")) or re.search(r":\s+[&*]\w", body) or body.startswith("<<:"):
+        raise Unsupported("an anchor, an alias, or a merge key")
+    return body
 
 
 def flow(text):
@@ -249,6 +259,7 @@ def parse_seq(lines, pos, indent):
     while pos < len(lines) and lines[pos][0] == indent and lines[pos][1].startswith("-"):
         ind, body = lines[pos][0], lines[pos][1]
         m = re.match(r"-(\s*)(.*)$", body)
+        structural(m.group(2))
         rest, inner = m.group(2), ind + 1 + len(m.group(1))
         pos += 1
         if not rest:
@@ -273,7 +284,7 @@ def parse_seq(lines, pos, indent):
 def parse_map(lines, pos, indent):
     out = {}
     while pos < len(lines) and lines[pos][0] == indent:
-        ind, body = lines[pos][0], lines[pos][1]
+        ind, body = lines[pos][0], structural(lines[pos][1])
         m = KEY.match(body)
         if not m:
             raise Unsupported(f"a line that is not a key: {body[:40]!r}")
